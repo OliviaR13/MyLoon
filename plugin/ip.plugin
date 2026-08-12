@@ -2,7 +2,7 @@
 #!desc = 仅将抖音/微博评论、个人主页及发博等涉及 IP 属地的 API 走节点，视频、直播、图片、正文 Feed 流全部走直连。已补全 ChatGPT 图片/CDN 渲染分流。
 #!author = OliviaR13
 #!homepage = https://github.com/OliviaR13
-#!icon = https://raw.githubusercontent.com/kwon/Loon-Plugins/main/Icons/douyin.png
+#!icon = https://raw.githubusercontent.com/OliviaR13/MyLoon/main/icons/ip.png
 #!date = 2026-08-12
 
 [Rule]
