@@ -1,18 +1,12 @@
-#!name = 抖音&微博纯 IP 属地劫持 (全直连优化 & ChatGPT图片修复)
-#!desc = 仅将抖音/微博评论、个人主页及发博等涉及 IP 属地的 API 走节点，视频、直播、图片、正文 Feed 流全部走直连。已补全 ChatGPT 图片/CDN 渲染分流。
-#!author = OliviaR13
-#!homepage = https://github.com/OliviaR13
+#!name = 抖音微博纯 IP 属地分流
+#!desc = 仅将抖音与微博涉及 IP 属地的核心接口送入代理，正文 Feed 流、视频、图片等媒体 CDN 全部直连。不包含任何海外服务规则，绝对不影响其他外网 App。
+#!author = @OliviaR13
+#!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/OliviaR13/MyLoon/main/icons/ip.png
 #!date = 2026-08-12
 
 [Rule]
-# === 1. ChatGPT 及图片 CDN (强制走代理) ===
-DOMAIN-SUFFIX, openai.com, 台湾手动策略
-DOMAIN-SUFFIX, chatgpt.com, 台湾手动策略
-DOMAIN-SUFFIX, oaistatic.com, 台湾手动策略
-DOMAIN-SUFFIX, oaiusercontent.com, 台湾手动策略
-
-# === 2. 抖音/微博 媒体流及 Feed 正文 (强制直连) ===
+# === 1. 抖音/微博 媒体流及 Feed 正文 (强制直连) ===
 # 抖音：视频、图片 CDN 及 Feed 推荐正文流
 DOMAIN-SUFFIX, douyinvod.com, DIRECT
 DOMAIN-SUFFIX, douyinpic.com, DIRECT
@@ -32,7 +26,7 @@ DOMAIN-SUFFIX, video.weibo.com, DIRECT
 DOMAIN, unread.api.weibo.cn, DIRECT
 DOMAIN, status.api.weibo.cn, DIRECT
 
-# === 3. 抖音/微博 纯 IP 属地 & 核心 API (走指定节点/策略组) ===
+# === 2. 抖音/微博 纯 IP 属地 & 核心 API (走指定节点/策略组) ===
 # 抖音 IP 属地/评论 API
 DOMAIN-SUFFIX, amemv.com, 台湾手动策略
 DOMAIN-SUFFIX, douyin.com, 台湾手动策略
