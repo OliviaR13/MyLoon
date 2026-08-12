@@ -1,0 +1,43 @@
+#!name = 抖音&微博纯 IP 属地劫持 (全直连优化 & ChatGPT图片修复)
+#!desc = 仅将抖音/微博评论、个人主页及发博等涉及 IP 属地的 API 走节点，视频、直播、图片、正文 Feed 流全部走直连。已补全 ChatGPT 图片/CDN 渲染分流。
+#!author = OliviaR13
+#!homepage = https://github.com/OliviaR13
+#!icon = https://raw.githubusercontent.com/kwon/Loon-Plugins/main/Icons/douyin.png
+#!date = 2026-08-12
+
+[Rule]
+# === 1. ChatGPT 及图片 CDN (强制走代理) ===
+DOMAIN-SUFFIX, openai.com, 台湾手动策略
+DOMAIN-SUFFIX, chatgpt.com, 台湾手动策略
+DOMAIN-SUFFIX, oaistatic.com, 台湾手动策略
+DOMAIN-SUFFIX, oaiusercontent.com, 台湾手动策略
+
+# === 2. 抖音/微博 媒体流及 Feed 正文 (强制直连) ===
+# 抖音：视频、图片 CDN 及 Feed 推荐正文流
+DOMAIN-SUFFIX, douyinvod.com, DIRECT
+DOMAIN-SUFFIX, douyinpic.com, DIRECT
+DOMAIN-SUFFIX, douyincdn.com, DIRECT
+DOMAIN-SUFFIX, byteoversea.com, DIRECT
+DOMAIN-SUFFIX, ibyteimg.com, DIRECT
+DOMAIN-SUFFIX, pstatp.com, DIRECT
+DOMAIN-KEYWORD, douyin-video, DIRECT
+DOMAIN, aweme.snssdk.com, DIRECT
+DOMAIN-SUFFIX, bytev.com, DIRECT
+
+# 微博：图床、视频 CDN 及 Feed 正文刷新流
+DOMAIN-SUFFIX, sinaimg.cn, DIRECT
+DOMAIN-SUFFIX, sinajs.cn, DIRECT
+DOMAIN-SUFFIX, weibocdn.com, DIRECT
+DOMAIN-SUFFIX, video.weibo.com, DIRECT
+DOMAIN, unread.api.weibo.cn, DIRECT
+DOMAIN, status.api.weibo.cn, DIRECT
+
+# === 3. 抖音/微博 纯 IP 属地 & 核心 API (走指定节点/策略组) ===
+# 抖音 IP 属地/评论 API
+DOMAIN-SUFFIX, amemv.com, 台湾手动策略
+DOMAIN-SUFFIX, douyin.com, 台湾手动策略
+DOMAIN-SUFFIX, snssdk.com, 台湾手动策略
+
+# 微博 IP 属地/评论 API
+DOMAIN, api.weibo.cn, 台湾手动策略
+DOMAIN-SUFFIX, passport.weibo.cn, 台湾手动策略
