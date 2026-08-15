@@ -28,10 +28,10 @@ DOMAIN, status.api.weibo.cn, DIRECT
 
 # === 2. 抖音/微博 纯 IP 属地 & 核心 API (走指定节点/策略组) ===
 # 抖音 IP 属地/评论 API
-DOMAIN-SUFFIX, amemv.com, 台湾手动策略
-DOMAIN-SUFFIX, douyin.com, 台湾手动策略
-DOMAIN-SUFFIX, snssdk.com, 台湾手动策略
+DOMAIN-SUFFIX, amemv.com, 日本手动策略
+DOMAIN-SUFFIX, douyin.com, 日本手动策略
+DOMAIN-SUFFIX, snssdk.com, 日本手动策略
 
 # 微博 IP 属地/评论 API
-DOMAIN, api.weibo.cn, 台湾手动策略
-DOMAIN-SUFFIX, passport.weibo.cn, 台湾手动策略
+DOMAIN, api.weibo.cn, 日本手动策略
+DOMAIN-SUFFIX, passport.weibo.cn, 日本手动策略
