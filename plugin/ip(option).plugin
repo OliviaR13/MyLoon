@@ -1,12 +1,9 @@
 #!name = 抖音微博纯 IP 属地分流
-#!desc = 仅将抖音与微博涉及 IP 属地的核心接口送入代理，正文 Feed 流、视频、图片及网页服务（如举报页面）全部直连。
+#!desc = 仅将抖音与微博涉及 IP 属地的核心接口送入代理，正文 Feed 流、视频、图片及网页服务（如举报页面）全部直连。安装插件后，请在插件配置页选择用于代理的策略/节点。
 #!author = @OliviaR13
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://cdn.jsdelivr.net/gh/OliviaR13/MyLoon@main/icons/ip.png
 #!date = 2026-08-16
-
-[Argument]
-ProxyPolicy = select, "台湾手动策略", "日本手动策略", "新国手动策略", "美国手动策略", "全球手动策略", "台湾时延优选", "日本时延优选", "新国时延优选", "美国时延优选", "兜底后备策略", tag = 策略组选择, desc = 选择用于劫持抖音和微博 IP 属地的代理策略组
 
 [Rule]
 # === 1. 抖音/微博 媒体流、Feed 正文及 Web 服务 (强制直连) ===
@@ -31,12 +28,12 @@ DOMAIN, status.api.weibo.cn, DIRECT
 DOMAIN-SUFFIX, service.account.weibo.com, DIRECT
 DOMAIN-SUFFIX, weibo.com, DIRECT
 
-# === 2. 抖音/微博 纯 IP 属地 & 核心 API (绑定上面的 UI 参数) ===
+# === 2. 抖音/微博 纯 IP 属地 & 核心 API (走插件安装时用户选择的策略/节点) ===
 # 抖音 IP 属地/评论 API
-DOMAIN-SUFFIX, amemv.com, {ProxyPolicy}
-DOMAIN-SUFFIX, douyin.com, {ProxyPolicy}
-DOMAIN-SUFFIX, snssdk.com, {ProxyPolicy}
+DOMAIN-SUFFIX, amemv.com, PROXY
+DOMAIN-SUFFIX, douyin.com, PROXY
+DOMAIN-SUFFIX, snssdk.com, PROXY
 
 # 微博 IP 属地/评论 API
-DOMAIN, api.weibo.cn, {ProxyPolicy}
-DOMAIN-SUFFIX, passport.weibo.cn, {ProxyPolicy}
+DOMAIN, api.weibo.cn, PROXY
+DOMAIN-SUFFIX, passport.weibo.cn, PROXY
