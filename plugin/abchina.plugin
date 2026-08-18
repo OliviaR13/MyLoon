@@ -1,47 +1,25 @@
-#!name=农业银行服务异常修复
-#!desc=修复中国农业银行 App 在 Loon 下出现“服务异常/网络异常”等问题
-#!author=HOUDA+
-#!homepage=https://github.com/houda-hd
+#!name=农业银行网络兼容性修复
+#!desc=农业银行掌银网络连接优化，不拦截农行安全检测及业务请求
+#!author=OliviaR13
 
 [Rule]
 
-中国农业银行核心域名
+农业银行核心业务
 
 DOMAIN-SUFFIX,abchina.com.cn,DIRECT
 DOMAIN-SUFFIX,abchina.com,DIRECT
 
-农行常用业务域名
+农行开放银行及相关服务
 
 DOMAIN-SUFFIX,95599.cn,DIRECT
 DOMAIN-SUFFIX,openaboc.cn,DIRECT
 DOMAIN-SUFFIX,openaboc.com,DIRECT
 DOMAIN-SUFFIX,openaboc.com.cn,DIRECT
 
-农行相关 CDN / 静态资源
+农行 CDN
 
 DOMAIN-SUFFIX,cdn-static.abchina.com.cn,DIRECT
 
-农行相关接口
+注意：不要 REJECT 农行 VPN/安全检测域名
 
-DOMAIN-SUFFIX,abchina.cn,DIRECT
-
-[Host]
-
-防止 Fake-IP 导致农行 App 获取到异常地址
-
-*.abchina.com.cn = server:system
-*.abchina.com = server:system
-*.95599.cn = server:system
-*.openaboc.cn = server:system
-*.openaboc.com = server:system
-*.openaboc.com.cn = server:system
-
-[General]
-
-对农行域名使用真实 IP
-
-real-ip = .abchina.com.cn,.abchina.com,.95599.cn,.openaboc.cn,.openaboc.com,.openaboc.com.cn
-
-[MITM]
-
-enable = false
+DOMAIN,msmp.abchina.com.cn,DIRECT
