@@ -1,0 +1,6 @@
+#!name=屏蔽农业银行VPN检测
+#!desc=屏蔽农业银行 VPN 检测域名 msmp.abchina.com.cn
+#!author=HOUDA+
+
+[Rule]
+DOMAIN,msmp.abchina.com.cn,REJECT
