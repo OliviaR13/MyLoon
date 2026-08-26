@@ -1,25 +1,19 @@
-#!name=农业银行网络兼容性修复
-#!desc=农业银行掌银网络连接优化，不拦截农行安全检测及业务请求
-#!author=OliviaR13
+#!name = 农业银行/中国广电 闪退修复
+#!desc = 修复中国农业银行、中国广电 App 因 Loon MITM 证书嗅探导致的闪退问题。原理：将两款 App 的核心域名加入 MITM 跳过列表（不解密），并强制直连，避免证书校验失败和风控误判导致崩溃。若加入后仍闪退，说明具体报错的域名不在本插件覆盖范围内，需要抓包（Loon 日志 - 查看该 App 请求时报错/中断的域名）后补充。
+
+#!author = @OliviaR13
+#!homepage = https://www.github.com/OliviaR13
+#!icon = https://raw.githubusercontent.com/OliviaR13/MyLoon/main/icons/fix.png
+#!date = 2026-08-26
 
 [Rule]
+# ============ 中国农业银行 ============
+DOMAIN-SUFFIX, abchina.com, DIRECT
+DOMAIN-SUFFIX, abcchina.com, DIRECT
 
-农业银行核心业务
+# ============ 中国广电 ============
+DOMAIN-SUFFIX, chinabroadnet.com, DIRECT
+DOMAIN-SUFFIX, ai.obc.cbn.app, DIRECT
 
-DOMAIN-SUFFIX,abchina.com.cn,DIRECT
-DOMAIN-SUFFIX,abchina.com,DIRECT
-
-农行开放银行及相关服务
-
-DOMAIN-SUFFIX,95599.cn,DIRECT
-DOMAIN-SUFFIX,openaboc.cn,DIRECT
-DOMAIN-SUFFIX,openaboc.com,DIRECT
-DOMAIN-SUFFIX,openaboc.com.cn,DIRECT
-
-农行 CDN
-
-DOMAIN-SUFFIX,cdn-static.abchina.com.cn,DIRECT
-
-注意：不要 REJECT 农行 VPN/安全检测域名
-
-DOMAIN,msmp.abchina.com.cn,DIRECT
+[MITM]
+Hostname = %APPEND% *.abchina.com, *.abcchina.com, *.chinabroadnet.com
