@@ -1,5 +1,5 @@
-#!name = 农业银行/中国广电 闪退修复
-#!desc = 修复中国农业银行、中国广电 App 因 Loon MITM 证书嗅探导致的闪退问题。原理：将两款 App 的核心域名加入 MITM 跳过列表（不解密），并强制直连，避免证书校验失败和风控误判导致崩溃。若加入后仍闪退，说明具体报错的域名不在本插件覆盖范围内，需要抓包（Loon 日志 - 查看该 App 请求时报错/中断的域名）后补充。
+#!name = 中国农业银行 服务异常修复
+#!desc = 修复中国农业银行 App 提示"服务异常"的问题。将 App 网关（mobilepaas）、消息推送（firefly）、静态资源 CDN（cdn-static）三类核心域名加入 MITM 跳过列表并强制直连，避免 Loon 证书嗅探改动请求/响应内容触发风控误判。经实测抓包确认域名有效，如仍报错请检查对应请求的 Status Code 和 Response Body 是否为服务端业务报错。
 
 #!author = @OliviaR13
 #!homepage = https://www.github.com/OliviaR13
@@ -7,13 +7,15 @@
 #!date = 2026-08-26
 
 [Rule]
-# ============ 中国农业银行 ============
+# 网关/日志上报（mgw.htm、logUpload.do 等核心接口）
+DOMAIN, mobilepaas.abchina.com.cn, DIRECT
+# 消息推送/长连接
+DOMAIN, firefly.abchina.com.cn, DIRECT
+# 静态资源 CDN
+DOMAIN, mb.cdn-static.abchina.com.cn, DIRECT
+# 兜底：主域及其余子域
+DOMAIN-SUFFIX, abchina.com.cn, DIRECT
 DOMAIN-SUFFIX, abchina.com, DIRECT
-DOMAIN-SUFFIX, abcchina.com, DIRECT
-
-# ============ 中国广电 ============
-DOMAIN-SUFFIX, chinabroadnet.com, DIRECT
-DOMAIN-SUFFIX, ai.obc.cbn.app, DIRECT
 
 [MITM]
-Hostname = %APPEND% *.abchina.com, *.abcchina.com, *.chinabroadnet.com
+Hostname = %APPEND% mobilepaas.abchina.com.cn, firefly.abchina.com.cn, mb.cdn-static.abchina.com.cn, *.abchina.com.cn
