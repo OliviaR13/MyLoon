@@ -1,10 +1,11 @@
-#!name = 抖音微博纯 IP 属地分流(测试版)
-#!desc = 精准分流抖音微博平台的 IP 属地判定接口，其余正文 Feed 流、图片与视频等媒体 CDN 及风控数据一律直连，不影响加载速度与账号安全。规则范围严格限定于上述两款 App 的核心域名，不含任何海外服务规则，不会影响其他境外 App 的正常使用。安装插件后，请在插件配置页手动选择用于代理的策略组或节点（建议选用亚洲地区节点，属地展示更自然）。
-#!version = 1.8.4(beta)
+#!name = 抖音微博纯 IP 属地分流
+#!desc = 精准分流抖音微博平台的 IP 属地判定接口，其余正文 Feed 流、图片与视频等媒体 CDN 及风控数据一律直连，不影响加载速度与账号安全。规则范围严格限定于上述两款 App 的核心域名，不含任何海外服务规则，不会影响其他境外 App 的正常使用。安装插件后，请在插件配置页手动选择用于代理的策略组或节点（建议选用亚洲地区节点，属地展示更自然）。⚠️ 重要：请将本插件在配置文件中的引用位置放在 GEOIP,cn,DIRECT 等国内直连规则之前，否则属地判定请求会被提前拦截导致规则失效。
+
 #!author = @OliviaR13
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/OliviaR13/MyLoon/main/icons/ip.png
-#!date = 2026-08-17
+#!date = 2026-08-31
+#!version = 1.8.4(beta)
 
 [Rule]
 # === 1. 抖音：媒体/业务 CDN（强制直连，已社区验证非属地相关）===
@@ -16,7 +17,9 @@ DOMAIN-SUFFIX, ecombdapi.com, DIRECT
 DOMAIN-SUFFIX, pstatp.com, DIRECT
 DOMAIN, aweme.snssdk.com, DIRECT
 
-# === 2. 抖音：仅含属地判定特征的接口关键字（PROXY，不影响其余 amemv.com/douyin.com 流量）===
+# === 2. 抖音：IP 属地/风控相关域名及接口关键字（PROXY）===
+# amemv.com 整域代理，兜底 logbk 等未被关键字覆盖的属地/风控上报接口
+DOMAIN-SUFFIX, amemv.com, PROXY
 DOMAIN-KEYWORD, core-c-lq, PROXY
 DOMAIN-KEYWORD, core-lq, PROXY
 DOMAIN-KEYWORD, normal-c-lq, PROXY
@@ -33,12 +36,10 @@ DOMAIN, sso.douyin.com, PROXY
 DOMAIN, www.douyin.com, PROXY
 DOMAIN-SUFFIX, snssdk.com, PROXY
 
-# === 3. 微博：Feed 正文刷新流（直连；图床按需选择，见下方说明）===
+# === 3. 微博：Feed 正文刷新流（直连）===
 DOMAIN, unread.api.weibo.cn, DIRECT
 DOMAIN, status.api.weibo.cn, DIRECT
 DOMAIN-SUFFIX, sinajs.cn, DIRECT
-# 注：sinaimg.cn / weibocdn.com 社区报告中被归入了需代理的范围（无法排除携带属地信息），
-# 如果更看重"彻底隐藏属地"而非"极致速度"，可把下面两行改成 PROXY
 DOMAIN-SUFFIX, sinaimg.cn, DIRECT
 DOMAIN-SUFFIX, weibocdn.com, DIRECT
 
@@ -47,4 +48,3 @@ DOMAIN, api.weibo.cn, PROXY
 DOMAIN-SUFFIX, passport.weibo.cn, PROXY
 DOMAIN-SUFFIX, weibo.cn, PROXY
 DOMAIN-KEYWORD, weibo, PROXY
-
