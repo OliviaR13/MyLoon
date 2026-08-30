@@ -1,6 +1,6 @@
-#!name = 抖音微博纯 IP 属地分流
+#!name = 抖音微博纯 IP 属地分流(测试版)
 #!desc = 精准分流抖音微博平台的 IP 属地判定接口，其余正文 Feed 流、图片与视频等媒体 CDN 及风控数据一律直连，不影响加载速度与账号安全。规则范围严格限定于上述两款 App 的核心域名，不含任何海外服务规则，不会影响其他境外 App 的正常使用。安装插件后，请在插件配置页手动选择用于代理的策略组或节点（建议选用亚洲地区节点，属地展示更自然）。
-
+#!version = 1.8.4(beta)
 #!author = @OliviaR13
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/OliviaR13/MyLoon/main/icons/ip.png
