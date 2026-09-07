@@ -1,0 +1,18 @@
+#!name = Spotify 自选节点
+#!desc = 精准分流 Spotify 相关域名（含音频/图片 CDN），走 PROXY 策略。安装插件后请在插件详情页的"代理指向的策略"中手动选择用于代理的策略组或节点，不选则默认走全局策略第一个节点。⚠️ 请将本插件在配置文件中的引用位置放在 GEOIP,CN,DIRECT 等国内直连规则之前，避免被提前拦截。
+#!author = Claude
+#!homepage = https://claude.ai
+#!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Spotify.png
+
+[Rule]
+DOMAIN-SUFFIX,spotify.com,PROXY
+DOMAIN-SUFFIX,spotifycdn.com,PROXY
+DOMAIN-SUFFIX,scdn.co,PROXY
+DOMAIN-SUFFIX,spoti.fi,PROXY
+DOMAIN-SUFFIX,pscdn.co,PROXY
+DOMAIN-SUFFIX,spotify.map.fastly.net,PROXY
+DOMAIN-SUFFIX,audio-ak-spotify-com.akamaized.net,PROXY
+DOMAIN-SUFFIX,audio4-ak-spotify-com.akamaized.net,PROXY
+DOMAIN-SUFFIX,heads-ak-spotify-com.akamaized.net,PROXY
+DOMAIN-SUFFIX,heads4-ak-spotify-com.akamaized.net,PROXY
+DOMAIN-SUFFIX,spotify-static.akamaized.net,PROXY
