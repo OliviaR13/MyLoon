@@ -1,0 +1,16 @@
+#!name = Gemini 指定节点
+#!desc = 精准分流 Google Gemini（含网页版、App、API、AI Studio）相关域名，走 PROXY 策略。安装插件后请在插件详情页的"代理指向的策略"中手动选择用于代理的策略组或节点，不选则默认走全局策略第一个节点。⚠️ 请将本插件在配置文件中的引用位置放在 GEOIP,CN,DIRECT 等国内直连规则之前，避免被提前拦截。
+#!author = Claude
+#!homepage = https://claude.ai
+#!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Google.png
+
+[Rule]
+DOMAIN-SUFFIX,gemini.google.com,PROXY
+DOMAIN-SUFFIX,bard.google.com,PROXY
+DOMAIN-SUFFIX,generativelanguage.googleapis.com,PROXY
+DOMAIN-SUFFIX,aistudio.google.com,PROXY
+DOMAIN-SUFFIX,makersuite.google.com,PROXY
+DOMAIN-SUFFIX,ai.google.dev,PROXY
+DOMAIN-SUFFIX,alkalimakersuite-pa.clients6.google.com,PROXY
+DOMAIN-SUFFIX,proactivebackend-pa.googleapis.com,PROXY
+DOMAIN-SUFFIX,geller-pa.googleapis.com,PROXY
