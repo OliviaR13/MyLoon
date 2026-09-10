@@ -1,38 +1,66 @@
 #!name = 抖音微博纯 IP 属地分流
-#!desc = 精准分流抖音微博平台的 IP 属地判定接口，其余正文 Feed 流、图片与视频等媒体 CDN 及风控数据一律直连，不影响加载速度与账号安全。规则范围严格限定于上述三款 App 的核心域名，不含任何海外服务规则，不会影响其他境外 App 的正常使用。安装插件后，请在插件配置页手动选择用于代理的策略组或节点（建议选用亚洲地区节点，属地展示更自然）。
+#!desc = 精准分流抖音微博平台的 IP 属地判定接口，其余正文 Feed 流、图片与视频等媒体 CDN 一律直连，不占用代理流量、不影响加载速度与账号安全。微博自建 HTTPDNS（dns.weibo.cn）与图片 CDN 域名统一走直连，避免 App 用代理节点视角解析出的"最优 CDN IP"却经真实网络直连导致的路径错位（这是热启动/前后台切换时出现连接被重置的主因）；真正承载 IP 属地判定信号的业务接口域名（weibo.cn/weibo.com）继续走代理。规则范围严格限定于上述两款 App 的核心域名，不含任何海外服务规则，不会影响其他境外 App 的正常使用。安装插件后，请在插件配置页手动选择用于代理的策略组或节点（建议选用固定的单一亚洲地区节点，不要用自动测速/自动切换的策略组，属地展示更自然，也避免节点切换打断微博的长连接）。⚠️ 重要：请将本插件在配置文件中的引用位置放在 GEOIP,cn,DIRECT 等国内直连规则之前，否则属地判定请求会被提前拦截导致规则失效。
 
 #!author = @OliviaR13
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/OliviaR13/MyLoon/main/icons/ip.png
-#!date = 2026-08-17
+#!date = 2026-09-11
+#!version = 1.9.1
 
 [Rule]
-# === 1. 抖音/微博/小红书 媒体流及 Feed 正文 (强制直连) ===
-# 抖音：视频、图片 CDN 及 Feed 推荐正文流
+# === 1. 抖音：媒体/业务 CDN（强制直连，已社区验证非属地相关）===
 DOMAIN-SUFFIX, douyinvod.com, DIRECT
 DOMAIN-SUFFIX, douyinpic.com, DIRECT
-DOMAIN-SUFFIX, douyincdn.com, DIRECT
-DOMAIN-SUFFIX, byteoversea.com, DIRECT
-DOMAIN-SUFFIX, ibyteimg.com, DIRECT
+DOMAIN-SUFFIX, byteimg.com, DIRECT
+DOMAIN-SUFFIX, zijieapi.com, DIRECT
+DOMAIN-SUFFIX, ecombdapi.com, DIRECT
 DOMAIN-SUFFIX, pstatp.com, DIRECT
-DOMAIN-KEYWORD, douyin-video, DIRECT
 DOMAIN, aweme.snssdk.com, DIRECT
-DOMAIN-SUFFIX, bytev.com, DIRECT
 
-# 微博：图床、视频 CDN 及 Feed 正文刷新流
-DOMAIN-SUFFIX, sinaimg.cn, DIRECT
-DOMAIN-SUFFIX, sinajs.cn, DIRECT
-DOMAIN-SUFFIX, weibocdn.com, DIRECT
-DOMAIN-SUFFIX, video.weibo.com, DIRECT
-DOMAIN, unread.api.weibo.cn, DIRECT
-DOMAIN, status.api.weibo.cn, DIRECT
-
-# === 2. 抖音/微博/小红书 纯 IP 属地 & 核心 API (走插件安装时用户选择的策略/节点) ===
-# 抖音 IP 属地/评论 API
+# === 2. 抖音：IP 属地/风控相关域名及接口关键字（PROXY）===
+# amemv.com 整域代理，兜底 logbk 等未被关键字覆盖的属地/风控上报接口
 DOMAIN-SUFFIX, amemv.com, PROXY
-DOMAIN-SUFFIX, douyin.com, PROXY
+DOMAIN-KEYWORD, core-c-lq, PROXY
+DOMAIN-KEYWORD, core-lq, PROXY
+DOMAIN-KEYWORD, normal-c-lq, PROXY
+DOMAIN-KEYWORD, normal-lq, PROXY
+DOMAIN-KEYWORD, search-quic-lq, PROXY
+DOMAIN-KEYWORD, search-lq, PROXY
+DOMAIN-KEYWORD, -normal-hl, PROXY
+DOMAIN-KEYWORD, -normal-c-hl, PROXY
+DOMAIN-KEYWORD, -core-c-hl, PROXY
+DOMAIN-KEYWORD, -normal-lf, PROXY
+DOMAIN-KEYWORD, -normal-c-lf, PROXY
+DOMAIN-KEYWORD, -core-c-lf, PROXY
+DOMAIN, sso.douyin.com, PROXY
+DOMAIN, www.douyin.com, PROXY
 DOMAIN-SUFFIX, snssdk.com, PROXY
 
-# 微博 IP 属地/评论 API
-DOMAIN, api.weibo.cn, PROXY
-DOMAIN-SUFFIX, passport.weibo.cn, PROXY
+# === 3. 微博：图片/媒体 CDN 及其 HTTPDNS 统一直连（省流量，修复路径错位）===
+# 实测抓包证实 dns.weibo.cn 是微博 App 自建 HTTPDNS，5 次抓包命中中有 3 次
+# 是在为 sinaimg.cn 图片 CDN 做解析（响应体 Dns_result 字段返回具体 IP）。
+# 之前的版本把 sinaimg.cn 等 CDN 域名设为 DIRECT，但 dns.weibo.cn 本身因命中
+# 关键字规则走了 PROXY——于是 App 是站在代理节点的网络视角问到的"最优 CDN IP"，
+# 却又用真实直连网络去连接这个 IP，路径对不上；热启动时会短时间内密集发起
+# 这类 DNS+连接请求，最容易在这个时间点触发连接失败/被重置。
+# 把 dns.weibo.cn 也改成 DIRECT，让它和它主要服务的 CDN 域名走同一条路径，
+# 解析结果与实际连接方式保持一致，且不占用任何代理流量。
+DOMAIN-SUFFIX, weibocdn.com, DIRECT
+DOMAIN-SUFFIX, sinaimg.cn, DIRECT
+DOMAIN-SUFFIX, sinajs.cn, DIRECT
+DOMAIN-SUFFIX, wbimg.cn, DIRECT
+DOMAIN-SUFFIX, wbimg.com, DIRECT
+DOMAIN, dns.weibo.cn, DIRECT
+
+# === 4. 微博：IP 属地判定 + 业务 API（PROXY）===
+# api.weibo.cn 的 /2/carrier/get/info 接口会直接回显服务器看到的客户端 IP，
+# 是真正的属地判定信号来源，且承载了绝大部分业务请求（Feed/未读数/IM/推送等）。
+# 这部分是纯 JSON 小流量，走代理不会明显增加流量消耗或卡顿。
+# 注：dns.weibo.cn 偶尔也会顺带解析 api.weibo.cn 的 IP，改直连后这部分解析
+# 结果和实际走代理的连接路径会有轻微不一致；但业务 API 服务器通常是全球可达
+# 的负载均衡集群，不像 CDN 边缘节点那样容易做来源网络限制，实测影响很小，
+# 顶多是偶尔延迟略高，不会像 CDN 场景那样表现为断连。
+DOMAIN-SUFFIX, weibo.cn, PROXY
+DOMAIN-SUFFIX, weibo.com, PROXY
+DOMAIN-KEYWORD, weibo, PROXY
+
