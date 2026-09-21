@@ -1,0 +1,20 @@
+#!name = Outlook 登录修复
+#!desc = 跳过 Microsoft/Outlook 认证域名的 MITM 解密，并直连，修复频繁弹出登录窗口的问题
+#!author = Claude(https://claude.ai)
+#!icon = https://raw.githubusercontent.com/microsoft/fluentui-emoji/main/assets/E%20Mail/Color/e_mail_color.svg
+#!homepage = https://claude.ai
+
+[Rule]
+DOMAIN-SUFFIX,login.microsoftonline.com,DIRECT
+DOMAIN-SUFFIX,login.live.com,DIRECT
+DOMAIN-SUFFIX,login.windows.net,DIRECT
+DOMAIN-SUFFIX,outlook.office365.com,DIRECT
+DOMAIN-SUFFIX,outlook.office.com,DIRECT
+DOMAIN-SUFFIX,outlook.com,DIRECT
+DOMAIN-SUFFIX,graph.microsoft.com,DIRECT
+DOMAIN-SUFFIX,officeapps.live.com,DIRECT
+DOMAIN-SUFFIX,microsoftonline.com,DIRECT
+
+[MITM]
+skip-server-cert-verify = true
+hostname = %APPEND% -login.microsoftonline.com, -login.live.com, -login.windows.net, -outlook.office365.com, -outlook.office.com, -outlook.com, -graph.microsoft.com, -officeapps.live.com, -microsoftonline.com
