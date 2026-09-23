@@ -1,5 +1,5 @@
 #!name = 抖音微博纯 IP 属地分流
-#!desc = 精准分流抖音微博平台的 IP 属地判定接口，其余正文 Feed 流、图片与视频等媒体 CDN 一律直连，不占用代理流量、不影响加载速度与账号安全。微博自建 HTTPDNS（dns.weibo.cn）统一走直连，避免 App 用代理节点视角解析出的“最优 CDN IP”却经真实网络直连导致的路径错位；真正承载 IP 属地判定信号的业务接口域名（weibo.cn/weibo.com）继续走代理。实测发现 sinaimg.cn 图片 CDN 中 163.181.39.0/24 这一小段边缘节点在部分移动网络下直连存在偶发握手成功后被远端重置的问题（与属地判定无关，纯连通性问题），已单独摘出改走代理，其余 sinaimg.cn 节点仍直连。规则范围严格限定于上述两款 App 的核心域名，不含任何海外服务规则，不会影响其他境外 App 的正常使用。安装插件后，请在插件配置页手动选择用于代理的策略组或节点（建议选用固定的单一亚洲地区节点，不要用自动测速/自动切换的策略组，属地展示更自然，也避免节点切换打断微博的长连接）。⚠️ 重要：请将本插件在配置文件中的引用位置放在 GEOIP,cn,DIRECT 等国内直连规则之前，否则属地判定请求会被提前拦截导致规则失效；同时请确认本插件在其他第三方参考规则集（如 anti-ip-attribution）之前加载，避免被其无 DIRECT 例外的同名规则抢先命中。
+#!desc = 只代理抖音、微博两款 App 中真正承载 IP 属地判定信号的接口，其余 Feed 流、图片、视频等媒体 CDN 一律直连，不占用代理流量，也不影响加载速度与账号安全。微博自建的 HTTPDNS（dns.weibo.cn）改走直连：它解析出的是站在直连网络视角下最合适的 CDN IP，若仍走代理，App 会误用代理节点视角解析出的 IP，再用真实网络去连，路径不一致就容易在热启动这类高频建连场景下触发连接异常。sinaimg.cn 图片 CDN 中 163.181.39.0/24 这一小段边缘节点经抓包证实直连时偶发握手成功后被远端重置（与属地判定无关，纯连通性问题），已单独摘出改走代理，其余节点仍直连。规则范围严格限定于这两款 App 的核心域名，不含任何海外服务规则，不影响其他境外 App。安装后请在插件配置页手动指定一个固定的单一亚洲节点作为代理策略——不要用自动测速/自动切换的策略组，否则节点切换会打断微博的长连接，属地展示也会不稳定。⚠️ 请将本插件放在 GEOIP,cn,DIRECT 等国内直连规则之前，并确认它排在其他同类参考规则集（如 anti-ip-attribution）之前加载，避免被后者未做直连例外的同名规则抢先命中。
 
 #!author = @OliviaR13
 #!homepage = https://www.github.com/OliviaR13
@@ -8,7 +8,8 @@
 #!version = 1.9.2
 
 [Rule]
-# === 1. 抖音：媒体/业务 CDN（强制直连，已社区验证非属地相关）===
+# === 1. 抖音媒体/业务 CDN —— 直连 ===
+# 均为内容分发域名，社区多次验证与属地判定无关
 DOMAIN-SUFFIX, douyinvod.com, DIRECT
 DOMAIN-SUFFIX, douyinpic.com, DIRECT
 DOMAIN-SUFFIX, byteimg.com, DIRECT
@@ -17,8 +18,8 @@ DOMAIN-SUFFIX, ecombdapi.com, DIRECT
 DOMAIN-SUFFIX, pstatp.com, DIRECT
 DOMAIN, aweme.snssdk.com, DIRECT
 
-# === 2. 抖音：IP 属地/风控相关域名及接口关键字（PROXY）===
-# amemv.com 整域代理，兜底 logbk 等未被关键字覆盖的属地/风控上报接口
+# === 2. 抖音属地/风控信号 —— 代理 ===
+# amemv.com 整域代理，兜底 logbk 等未被下方关键字覆盖的上报接口
 DOMAIN-SUFFIX, amemv.com, PROXY
 DOMAIN-KEYWORD, core-c-lq, PROXY
 DOMAIN-KEYWORD, core-lq, PROXY
@@ -36,37 +37,33 @@ DOMAIN, sso.douyin.com, PROXY
 DOMAIN, www.douyin.com, PROXY
 DOMAIN-SUFFIX, snssdk.com, PROXY
 
-# === 3. 微博：图片/媒体 CDN 及其 HTTPDNS 统一直连（省流量，修复路径错位）===
-# 实测抓包证实 dns.weibo.cn 是微博 App 自建 HTTPDNS，5 次抓包命中中有 3 次
-# 是在为 sinaimg.cn 图片 CDN 做解析（响应体 Dns_result 字段返回具体 IP）。
-# 之前的版本把 sinaimg.cn 等 CDN 域名设为 DIRECT，但 dns.weibo.cn 本身因命中
-# 关键字规则走了 PROXY——于是 App 是站在代理节点的网络视角问到的"最优 CDN IP"，
-# 却又用真实直连网络去连接这个 IP，路径对不上。
-# 把 dns.weibo.cn 也改成 DIRECT，让它和它主要服务的 CDN 域名走同一条路径，
-# 解析结果与实际连接方式保持一致，且不占用任何代理流量。
+# === 3. 微博媒体 CDN 与 HTTPDNS —— 直连 ===
+# 抓包证实 dns.weibo.cn 是微博自建 HTTPDNS，主要用于解析 sinaimg.cn 图片 CDN
+# （响应体 Dns_result 字段直接返回具体 IP）。它和它解析的 CDN 域名必须走同一
+# 条网络路径：如果 dns.weibo.cn 走代理、CDN 域名走直连，App 拿到的是"代理视
+# 角下的最优 IP"，却用真实网络去连，路径不一致，热启动这种短时间密集建连的
+# 场景下最容易表现为连接异常。此处不占用任何代理流量。
 DOMAIN-SUFFIX, weibocdn.com, DIRECT
 DOMAIN-SUFFIX, sinajs.cn, DIRECT
 DOMAIN-SUFFIX, wbimg.cn, DIRECT
 DOMAIN-SUFFIX, wbimg.com, DIRECT
 DOMAIN, dns.weibo.cn, DIRECT
 
-# === 3a. sinaimg.cn 个别边缘节点网段直连不稳定，单独摘出走代理 ===
-# 抓包实测发现 163.181.39.0/24 这段边缘节点存在偶发问题：TCP 握手成功，
-# 但对端在返回任何数据前主动 RST（Socket closed by remote peer），同批并发
-# 请求里只有落在这个网段的会失败，其余边缘节点正常。这与 IP 属地判定无关，
-# 是该网段到本机直连出口的连通性问题，代理节点的出口线路更稳定，故单独让
-# 这一小段 IP 走代理；必须写在下面 sinaimg.cn 的 DIRECT 规则之前，且不能加
-# no-resolve（本规则需要对域名类请求做解析后再匹配 IP 段，加了 no-resolve
-# 会导致这条规则对域名请求永远不生效）。
+# === 3a. sinaimg.cn 问题网段单独代理 ===
+# 抓包实测：163.181.39.0/24 这段边缘节点在直连下会出现 TCP 握手成功、但对端
+# 在返回任何数据前主动 RST 的情况（Socket closed by remote peer）；同批并发
+# 请求里只有落在这个网段的会失败，其余边缘节点正常，与属地判定无关，是该网
+# 段到直连出口的连通性问题。代理节点出口线路更稳定，故单独摘出来走代理。
+# 必须写在下面 sinaimg.cn 的 DIRECT 规则之前；且不能加 no-resolve —— 域名类
+# 请求需要先解析出 IP 才能匹配到这个网段，加了 no-resolve 这条规则会对域名
+# 请求永远失效。
 IP-CIDR, 163.181.39.0/24, PROXY
 DOMAIN-SUFFIX, sinaimg.cn, DIRECT
 
-# === 4. 微博：IP 属地判定 + 业务 API（PROXY）===
+# === 4. 微博属地判定与业务 API —— 代理 ===
 # api.weibo.cn 的 /2/carrier/get/info 接口会直接回显服务器看到的客户端 IP，
-# 是真正的属地判定信号来源，且承载了绝大部分业务请求（Feed/未读数/IM/推送等）。
-# 这部分是纯 JSON 小流量，走代理不会明显增加流量消耗或卡顿。
+# 是真正的属地判定信号来源，同时承载了 Feed、未读数、IM、推送等绝大部分业
+# 务请求。纯 JSON 小流量，走代理不会明显增加流量消耗或卡顿。
 DOMAIN-SUFFIX, weibo.cn, PROXY
 DOMAIN-SUFFIX, weibo.com, PROXY
 DOMAIN-KEYWORD, weibo, PROXY
-
-
