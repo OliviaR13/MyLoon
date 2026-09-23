@@ -1,0 +1,40 @@
+#!name = 微博纯 IP 属地分流
+#!desc = 只代理微博 App 中真正承载 IP 属地判定信号的接口，其余 Feed 流、图片等媒体 CDN 一律直连，不占用代理流量，也不影响加载速度与账号安全。微博自建 HTTPDNS（dns.weibo.cn）改走直连，经两次独立抓包验证有效。抓包同时发现两类与本插件规则无关的热启动异常，已记录在规则注释中：一是 sinaimg.cn 个别边缘节点偶发直连被远端重置（仅一次抓包出现，此后未复现，暂不额外加规则）；二是部分预加载接口（如视频播放信息批量获取）设有 3 秒客户端超时，热启动瞬间首次建立到代理节点的连接如果超过这个时间就会被 App 自己取消；后续抓包进一步发现同一节点单次请求耗时可达 10 秒以上，说明这是节点本身当下的连接质量问题，不是路由问题，也不是策略组自动切换导致的（已验证换成手动固定节点后问题依旧）。规则范围严格限定于微博核心域名，不含任何海外服务规则，不影响其他境外 App。安装后请在插件配置页手动指定一个固定的单一节点（select 类型策略组，不要用 url-test/自动测速类型）作为代理策略，节点建议选延迟较低的地区，避免长时间冷建连超出 App 自带的短超时。⚠️ 请将本插件放在 GEOIP,cn,DIRECT 等国内直连规则之前，并确认它排在其他同类参考规则集（如 anti-ip-attribution）之前加载，避免被后者未做直连例外的同名规则抢先命中。若同时使用了微博去广告类插件，注意它可能会对 api.weibo.cn/api.weibo.com 做 MITM 解密和响应体脚本改写，属于独立的另一层机制，出现异常时建议分别排查。原插件同时包含抖音部分，1.9.6 起已拆分为独立插件（抖音纯IP属地分流.plugin），可按需分别启用/禁用，不再依赖插件内部的开关参数。
+
+#!author = @OliviaR13
+#!homepage = https://www.github.com/OliviaR13
+#!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png
+#!date = 2026-09-24
+#!version = 1.9.6
+
+[Rule]
+# === 1. 微博媒体 CDN 与 HTTPDNS —— 直连 ===
+# dns.weibo.cn 是微博自建 HTTPDNS，主要用于解析 sinaimg.cn 图片 CDN。
+# 它必须和它解析的 CDN 域名走同一条网络路径，否则 App 拿到的是"代理视角
+# 下的最优 IP"、却用真实网络去连，路径不一致；此规则已通过两次独立抓包
+# 验证有效，不占用任何代理流量。
+DOMAIN-SUFFIX, weibocdn.com, DIRECT
+DOMAIN-SUFFIX, sinajs.cn, DIRECT
+DOMAIN-SUFFIX, wbimg.cn, DIRECT
+DOMAIN-SUFFIX, wbimg.com, DIRECT
+DOMAIN, dns.weibo.cn, DIRECT
+DOMAIN-SUFFIX, sinaimg.cn, DIRECT
+# 观察记录（非规则）：早期一次抓包里 163.181.39.0/24 网段的个别边缘节点
+# 出现过 TCP 握手成功后被远端直接 RST 的情况，此后抓包未再复现，且证据
+# 不足以支撑加一条网段例外（会有误伤其他流量的副作用），暂不处理，如
+# 再次复现记录下具体 IP/子域名再决定。
+
+# === 2. 微博属地判定与业务 API —— 代理 ===
+# api.weibo.cn 的 /2/carrier/get/info 接口会直接回显服务器看到的客户端 IP，
+# 是真正的属地判定信号来源（抓包已验证响应体为 {"ip":"代理节点出口IP"}），
+# 同时承载了 Feed、未读数、IM、推送、预加载等绝大部分业务请求。纯 JSON
+# 小流量，走代理不会明显增加流量消耗或卡顿。
+DOMAIN-SUFFIX, weibo.cn, PROXY
+DOMAIN-SUFFIX, weibo.com, PROXY
+DOMAIN-KEYWORD, weibo, PROXY
+# 已知与本插件规则无关的热启动/连接异常（记录备查，规则层面无法解决）：
+# 1) 部分接口（如 /2/!/multimedia/playback/batch_get）自带 3 秒客户端
+#    超时，热启动首批请求冷建连若超时会被 App 自己取消。
+# 2) 后续抓包证实同一固定节点单次请求可耗时 10+ 秒才返回，且切换为
+#    手动固定节点（非自动测速）后问题依旧——说明是节点当下连接质量
+#    本身的问题，建议更换节点或改用延迟更低的地区，而不是改这份规则。

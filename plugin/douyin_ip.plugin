@@ -1,0 +1,46 @@
+#!name = 抖音纯 IP 属地分流
+#!desc = 只代理抖音 App 中真正承载 IP 属地/风控判定信号的接口，其余 Feed 流、图片、直播与点播视频等媒体 CDN 一律直连，不占用代理流量，也不影响加载速度与账号安全。1.9.4 删除了误伤大片正常流量的 DOMAIN-SUFFIX,snssdk.com,PROXY，风控/属地上报接口已由同段 DOMAIN-KEYWORD 规则覆盖，不受影响。1.9.5 抓包实测抖音直播拉流（pull-x3-f5.douyincdn.com）命中的是 douyincdn.com 而非 douyinvod.com，此前插件未覆盖该域名，此次补上，之前能直连是靠主配置 GEOIP,cn,DIRECT 兜底、非插件自身规则命中，现改为插件显式覆盖。规则范围严格限定于抖音核心域名，不含任何海外服务规则，不影响其他境外 App。⚠️ 请将本插件放在 GEOIP,cn,DIRECT 等国内直连规则之前，并确认它排在其他同类参考规则集之前加载，避免被后者未做直连例外的同名规则抢先命中。原插件同时包含微博部分，1.9.6 起已拆分为独立插件（微博纯IP属地分流.plugin），可按需分别启用/禁用，不再依赖插件内部的开关参数。
+
+#!author = @OliviaR13
+#!homepage = https://www.github.com/OliviaR13
+#!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Douyin.png
+#!date = 2026-09-24
+#!version = 1.9.6
+
+[Rule]
+# === 1. 抖音媒体/业务 CDN —— 直连 ===
+# 均为内容分发域名，社区多次验证与属地判定无关。
+# douyincdn.com 是直播拉流域名（如 pull-x3-f5.douyincdn.com），跟点播/
+# 短视频用的 douyinvod.com 是两个不同域名，1.9.5 抓包证实前者未被覆盖，
+# 此前能直连纯粹是命中了主配置的 GEOIP,cn,DIRECT 兜底，现补上显式规则。
+DOMAIN-SUFFIX, douyinvod.com, DIRECT
+DOMAIN-SUFFIX, douyincdn.com, DIRECT
+DOMAIN-SUFFIX, douyinpic.com, DIRECT
+DOMAIN-SUFFIX, byteimg.com, DIRECT
+DOMAIN-SUFFIX, zijieapi.com, DIRECT
+DOMAIN-SUFFIX, ecombdapi.com, DIRECT
+DOMAIN-SUFFIX, pstatp.com, DIRECT
+DOMAIN, aweme.snssdk.com, DIRECT
+
+# === 2. 抖音属地/风控信号 —— 代理 ===
+# amemv.com 整域代理，兜底 logbk 等未被下方关键字覆盖的上报接口。
+# 注意：snssdk.com 是字节跳动核心域名，Feed/图片/视频等大量非属地相关
+# 功能都挂在它的子域名下，如果对整个后缀 DOMAIN-SUFFIX,snssdk.com,PROXY，
+# 会把这些无关流量全部错误代理（1.9.3 及之前版本的问题，已在 1.9.4 移除）。
+# 风控/属地上报接口靠下面这些 DOMAIN-KEYWORD 精确关键字规则命中即可，
+# 不需要也不应该对整个域名后缀下狠手。
+DOMAIN-SUFFIX, amemv.com, PROXY
+DOMAIN-KEYWORD, core-c-lq, PROXY
+DOMAIN-KEYWORD, core-lq, PROXY
+DOMAIN-KEYWORD, normal-c-lq, PROXY
+DOMAIN-KEYWORD, normal-lq, PROXY
+DOMAIN-KEYWORD, search-quic-lq, PROXY
+DOMAIN-KEYWORD, search-lq, PROXY
+DOMAIN-KEYWORD, -normal-hl, PROXY
+DOMAIN-KEYWORD, -normal-c-hl, PROXY
+DOMAIN-KEYWORD, -core-c-hl, PROXY
+DOMAIN-KEYWORD, -normal-lf, PROXY
+DOMAIN-KEYWORD, -normal-c-lf, PROXY
+DOMAIN-KEYWORD, -core-c-lf, PROXY
+DOMAIN, sso.douyin.com, PROXY
+DOMAIN, www.douyin.com, PROXY
