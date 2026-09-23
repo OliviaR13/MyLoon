@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-09-23T23:30:20.168779+00:00",
+  "generatedAt": "2026-09-23T23:35:14.020934+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -31,7 +31,7 @@
       "file": "plugin/douyin_ip.plugin",
       "version": "1.9.6",
       "author": "@OliviaR13",
-      "category": "IP 属地",
+      "category": "其他",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/TikTok_1.png",
       "description": "只代理抖音 App 中真正承载 IP 属地/风控判定信号的接口，其余 Feed 流、图片、直播与点播视频等媒体 CDN 一律直连，不占用代理流量，也不影响加载速度与账号安全。1.9.4 删除了误伤大片正常流量的 DOMAIN-SUFFIX,snssdk.com,PROXY，风控/属地上报接口已由同段 DOMAIN-KEYWORD 规则覆盖，不受影响。1.9.5 抓包实测抖音直播拉流（pull-x3-f5.douyincdn.com）命中的是 douyincdn.com 而非 douyinvod.com，此前插件未覆盖该域名，此次补上，之前能直连是靠主配置 GEOIP,cn,DIRECT 兜底、非插件自身规则命中，现改为插件显式覆盖。规则范围严格限定于抖音核心域名，不含任何海外服务规则，不影响其他境外 App。⚠️ 请将本插件放在 GEOIP,cn,DIRECT 等国内直连规则之前，并确认它排在其他同类参考规则集之前加载，避免被后者未做直连例外的同名规则抢先命中。原插件同时包含微博部分，1.9.6 起已拆分为独立插件（微博纯IP属地分流.plugin），可按需分别启用/禁用，不再依赖插件内部的开关参数。"
     },
@@ -41,7 +41,7 @@
       "file": "plugin/outlook.plugin",
       "version": null,
       "author": "OliviaR13",
-      "category": "登录修复",
+      "category": "其他",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Microsoft.png",
       "description": "跳过 Microsoft/Outlook 认证域名的 MITM 解密，并直连，修复频繁弹出登录窗口的问题"
     },
@@ -51,7 +51,7 @@
       "file": "plugin/weibo_ip.plugin",
       "version": "1.9.6",
       "author": "@OliviaR13",
-      "category": "IP 属地",
+      "category": "其他",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png",
       "description": "只代理微博 App 中真正承载 IP 属地判定信号的接口，其余 Feed 流、图片等媒体 CDN 一律直连，不占用代理流量，也不影响加载速度与账号安全。微博自建 HTTPDNS（dns.weibo.cn）改走直连，经两次独立抓包验证有效。抓包同时发现两类与本插件规则无关的热启动异常，已记录在规则注释中：一是 sinaimg.cn 个别边缘节点偶发直连被远端重置（仅一次抓包出现，此后未复现，暂不额外加规则）；二是部分预加载接口（如视频播放信息批量获取）设有 3 秒客户端超时，热启动瞬间首次建立到代理节点的连接如果超过这个时间就会被 App 自己取消；后续抓包进一步发现同一节点单次请求耗时可达 10 秒以上，说明这是节点本身当下的连接质量问题，不是路由问题，也不是策略组自动切换导致的（已验证换成手动固定节点后问题依旧）。规则范围严格限定于微博核心域名，不含任何海外服务规则，不影响其他境外 App。安装后请在插件配置页手动指定一个固定的单一节点（select 类型策略组，不要用 url-test/自动测速类型）作为代理策略，节点建议选延迟较低的地区，避免长时间冷建连超出 App 自带的短超时。⚠️ 请将本插件放在 GEOIP,cn,DIRECT 等国内直连规则之前，并确认它排在其他同类参考规则集（如 anti-ip-attribution）之前加载，避免被后者未做直连例外的同名规则抢先命中。若同时使用了微博去广告类插件，注意它可能会对 api.weibo.cn/api.weibo.com 做 MITM 解密和响应体脚本改写，属于独立的另一层机制，出现异常时建议分别排查。原插件同时包含抖音部分，1.9.6 起已拆分为独立插件（抖音纯IP属地分流.plugin），可按需分别启用/禁用，不再依赖插件内部的开关参数。"
     }
