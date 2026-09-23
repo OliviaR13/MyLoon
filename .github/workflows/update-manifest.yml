@@ -1,25 +1,37 @@
-name: Update MyLoon manifest
+name: Update MyLoon Box
 
 on:
   push:
     branches: [main]
     paths:
       - "plugin/*.plugin"
+      - "box/**"
+      - "manifest.json"
       - ".github/workflows/update-manifest.yml"
   workflow_dispatch:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: myloon-pages
+  cancel-in-progress: true
 
 jobs:
-  manifest:
+  build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      # ==============================
+      # 自动生成 manifest.json
+      # ==============================
       - name: Generate manifest
         shell: python
         run: |
@@ -31,27 +43,21 @@ jobs:
           root = Path("plugin")
           plugins = []
 
-          categories = {
-              "gemini": "代理分流",
-              "spotify": "代理分流",
-              "douyin_ip": "IP 属地",
-              "weibo_ip": "IP 属地",
-              "outlook": "登录修复",
-          }
-
           def meta(text, key):
-              m = re.search(r"^#!"+re.escape(key)+r"\s*=\s*(.+?)\s*$", text, re.M)
-              return m.group(1).strip() if m else None
+              pattern = r"^#!" + re.escape(key) + r"\s*=\s*(.+?)\s*$"
+              match = re.search(pattern, text, re.MULTILINE)
+              return match.group(1).strip() if match else None
 
           for path in sorted(root.glob("*.plugin")):
               text = path.read_text(encoding="utf-8")
+
               plugins.append({
                   "id": path.stem,
                   "name": meta(text, "name") or path.stem,
                   "file": path.as_posix(),
                   "version": meta(text, "version"),
                   "author": meta(text, "author") or "MyLoon",
-                  "category": categories.get(path.stem, "其他"),
+                  "category": meta(text, "category") or "其他",
                   "icon": meta(text, "icon"),
                   "description": meta(text, "desc") or "Loon 插件",
               })
@@ -66,18 +72,59 @@ jobs:
           }
 
           Path("manifest.json").write_text(
-              json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+              json.dumps(
+                  manifest,
+                  ensure_ascii=False,
+                  indent=2
+              ) + "\n",
               encoding="utf-8"
           )
 
-      - name: Commit manifest when changed
+      # ==============================
+      # 提交自动生成的 manifest
+      # ==============================
+      - name: Commit manifest
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add manifest.json
+
           if git diff --cached --quiet; then
             echo "manifest.json unchanged"
           else
             git commit -m "chore: update plugin manifest"
             git push
           fi
+
+      # ==============================
+      # 配置 GitHub Pages
+      # ==============================
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      # ==============================
+      # 准备网站文件
+      # ==============================
+      - name: Prepare Pages site
+        run: |
+          rm -rf _site
+          mkdir -p _site
+
+          cp -R box/. _site/
+          cp manifest.json _site/manifest.json
+
+      # ==============================
+      # 上传 Pages Artifact
+      # ==============================
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      # ==============================
+      # 部署 GitHub Pages
+      # ==============================
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
