@@ -1,4 +1,4 @@
-const MANIFEST_URL = "./manifest.json";
+const MANIFEST_URL = new URL("manifest.json", document.baseURI).href;
 const RAW_BASE = "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/";
 
 const state = { plugins: [], category: "全部", query: "" };
