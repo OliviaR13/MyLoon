@@ -1,4 +1,4 @@
-const MANIFEST_URL = "../manifest.json";
+const MANIFEST_URL = "./manifest.json";
 const RAW_BASE = "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/";
 
 const state = { plugins: [], category: "全部", query: "" };
