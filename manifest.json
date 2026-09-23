@@ -1,0 +1,58 @@
+{
+  "name": "MyLoon",
+  "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
+  "repository": "https://github.com/OliviaR13/MyLoon",
+  "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
+  "plugins": [
+    {
+      "id": "gemini",
+      "name": "Gemini 指定节点",
+      "file": "plugin/Gemini.plugin",
+      "version": null,
+      "author": "Claude",
+      "category": "代理分流",
+      "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Google.png",
+      "description": "精准分流 Google Gemini、网页版、App、API 与 AI Studio，走 PROXY 策略。"
+    },
+    {
+      "id": "spotify",
+      "name": "Spotify 自选节点",
+      "file": "plugin/Spotify.plugin",
+      "version": null,
+      "author": "Claude",
+      "category": "代理分流",
+      "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Spotify.png",
+      "description": "精准分流 Spotify 主站、音频、图片与 CDN 相关域名，走 PROXY 策略。"
+    },
+    {
+      "id": "douyin-ip",
+      "name": "抖音纯 IP 属地分流",
+      "file": "plugin/douyin_ip.plugin",
+      "version": "1.9.6",
+      "author": "@OliviaR13",
+      "category": "IP 属地",
+      "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/TikTok_1.png",
+      "description": "只代理抖音 IP 属地/风控信号，其余 Feed、图片、直播与视频 CDN 直连。"
+    },
+    {
+      "id": "outlook",
+      "name": "Outlook 登录修复",
+      "file": "plugin/outlook.plugin",
+      "version": null,
+      "author": "Claude",
+      "category": "登录修复",
+      "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Microsoft.png",
+      "description": "认证域名直连并跳过对应 MITM，减少 Outlook 反复弹出登录窗口。"
+    },
+    {
+      "id": "weibo-ip",
+      "name": "微博纯 IP 属地分流",
+      "file": "plugin/weibo_ip.plugin",
+      "version": "1.9.6",
+      "author": "@OliviaR13",
+      "category": "IP 属地",
+      "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png",
+      "description": "只代理微博 IP 属地判定相关请求，媒体 CDN 与 HTTPDNS 直连。"
+    }
+  ]
+}
