@@ -1,0 +1,83 @@
+name: Update MyLoon manifest
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "plugin/*.plugin"
+      - ".github/workflows/update-manifest.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate manifest
+        shell: python
+        run: |
+          import json
+          import re
+          from pathlib import Path
+          from datetime import datetime, timezone
+
+          root = Path("plugin")
+          plugins = []
+
+          categories = {
+              "gemini": "代理分流",
+              "spotify": "代理分流",
+              "douyin_ip": "IP 属地",
+              "weibo_ip": "IP 属地",
+              "outlook": "登录修复",
+          }
+
+          def meta(text, key):
+              m = re.search(r"^#!"+re.escape(key)+r"\s*=\s*(.+?)\s*$", text, re.M)
+              return m.group(1).strip() if m else None
+
+          for path in sorted(root.glob("*.plugin")):
+              text = path.read_text(encoding="utf-8")
+              plugins.append({
+                  "id": path.stem,
+                  "name": meta(text, "name") or path.stem,
+                  "file": path.as_posix(),
+                  "version": meta(text, "version"),
+                  "author": meta(text, "author") or "MyLoon",
+                  "category": categories.get(path.stem, "其他"),
+                  "icon": meta(text, "icon"),
+                  "description": meta(text, "desc") or "Loon 插件",
+              })
+
+          manifest = {
+              "name": "MyLoon",
+              "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
+              "repository": "https://github.com/OliviaR13/MyLoon",
+              "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
+              "generatedAt": datetime.now(timezone.utc).isoformat(),
+              "plugins": plugins,
+          }
+
+          Path("manifest.json").write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8"
+          )
+
+      - name: Commit manifest when changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          if git diff --cached --quiet; then
+            echo "manifest.json unchanged"
+          else
+            git commit -m "chore: update plugin manifest"
+            git push
+          fi
