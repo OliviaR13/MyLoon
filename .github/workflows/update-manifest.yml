@@ -17,11 +17,16 @@ permissions:
 
 concurrency:
   group: myloon-pages
-  cancel-in-progress: true
+  # 部署流程不做抢占取消：连续提交时掐掉进行中的 deploy
+  # 只会让 Pages 的上线顺序变得不可预测，排队等它跑完更安全
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       # ========================================
@@ -172,6 +177,9 @@ jobs:
             echo "manifest.json unchanged"
           else
             git commit -m "chore: update plugin manifest"
+            # 必须用默认的 GITHUB_TOKEN：它推送产生的事件不会触发新的 workflow run。
+            # 一旦换成 PAT，上面 generatedAt 每次都是新时间戳 → manifest 永远有 diff
+            # → 提交 → 触发新一轮 → 无限循环，几分钟就能烧完 Actions 额度。
             git push
           fi
 

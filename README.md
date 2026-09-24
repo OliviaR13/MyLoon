@@ -22,9 +22,9 @@
 
 如果启用 GitHub Pages，可通过：
 
-`https://oliviar13.github.io/MyLoon/box/`
+`https://oliviar13.github.io/MyLoon/`
 
-访问盒子页面。
+访问盒子页面。构建时 `box/` 下的文件会被复制到 Pages 根目录，而不是保留 `box/` 这一层目录结构，所以地址里不带 `/box/`。
 
 ## 使用方法
 
