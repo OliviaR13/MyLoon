@@ -129,13 +129,17 @@ button, input { font: inherit; color: inherit; }
 button { -webkit-tap-highlight-color: transparent; }
 
 .skip-link {
-  position: absolute; left: 12px; top: -48px;
+  position: absolute; left: 12px; top: -64px;
   padding: 10px 14px; background: var(--surface); color: var(--text);
   border: 1px solid var(--line-strong); border-radius: var(--r-control);
-  box-shadow: var(--shadow-pop); text-decoration: none; z-index: 20;
+  text-decoration: none; z-index: 20;
   transition: top var(--dur) var(--ease);
 }
-.skip-link:focus { top: 12px; }
+/* No shadow while parked above the viewport: a shadow is not clipped by the
+   viewport edge the way the element is, so it bleeds ~30px into the page and
+   reads as a mystery gradient under the status bar. It only belongs to the
+   visible state. */
+.skip-link:focus { top: 12px; box-shadow: var(--shadow-pop); }
 
 .shell {
   flex: 1;
