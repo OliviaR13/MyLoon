@@ -94,7 +94,15 @@
 }
 input:focus-visible { outline-offset: 0; border-radius: var(--r-control); }
 
-html { background: var(--bg); }
+/* ---------- No sideways panning ---------- */
+/* This page is one column, so horizontal movement is always a defect, never
+   a feature. clip is preferred over hidden: hidden would turn <html> into a
+   scroll container and change how nested scrollers behave. The hidden line
+   stays as the fallback for Safari before 16, which has no clip. */
+html { background: var(--bg); overflow-x: hidden; }
+@supports (overflow-x: clip) {
+  html, body { overflow-x: clip; }
+}
 
 body {
   margin: 0;
@@ -248,7 +256,16 @@ kbd {
   padding: 2px 6px;
   white-space: nowrap;
 }
-.filters { display: flex; gap: 7px; overflow-x: auto; scrollbar-width: none; padding: 2px; }
+/* The strip keeps its own scroll so every category stays reachable, but
+   overscroll is contained: a sideways swipe here must not chain out and drag
+   the page with it. */
+.filters {
+  display: flex; gap: 7px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  padding: 2px;
+}
 .filters::-webkit-scrollbar { display: none; }
 .chip-filter {
   flex: none;
@@ -278,7 +295,9 @@ kbd {
   color: var(--text-3);
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
+  min-width: 0;
 }
+.meta > span { min-width: 0; overflow-wrap: anywhere; }
 
 /* ---------- Results ---------- */
 .results { border-top: 1px solid var(--line); }
@@ -303,10 +322,15 @@ kbd {
 .plugin-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .plugin-name {
   margin: 0;
+  min-width: 0;
   font-size: 1.0625rem;
   line-height: 1.3;
   letter-spacing: -0.015em;
   font-weight: 600;
+  /* A plugin name can be one long unbreakable token. anywhere (not
+     break-word) is what lets min-content collapse, so a long name can never
+     widen the row, and the page with it. */
+  overflow-wrap: anywhere;
 }
 .chip {
   display: inline-flex; align-items: center;
@@ -317,7 +341,7 @@ kbd {
   font-variant-numeric: tabular-nums;
 }
 .chip-version { border: 1px solid var(--line-strong); color: var(--text-2); }
-.chip-cat { background: var(--accent-soft); color: var(--accent); }
+.chip-cat { background: var(--accent-soft); color: var(--accent); max-width: 100%; overflow-wrap: anywhere; }
 .plugin-name + .chip-version:empty,
 .chip-version:empty,
 .chip-cat:empty { display: none; }
@@ -332,8 +356,15 @@ kbd {
 .plugin-foot {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   margin-top: 9px;
+  min-width: 0;
 }
-.plugin-author { color: var(--text-3); font-size: 0.75rem; }
+.plugin-foot > * { min-width: 0; }
+.plugin-author {
+  color: var(--text-3);
+  font-size: 0.75rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .plugin-install { align-self: center; }
 
 /* collapsed to two lines, revealed on demand: the rules notes are long
@@ -359,8 +390,17 @@ kbd {
   color: var(--text-2);
   font-size: 0.875rem;
 }
-.notice h2 { margin: 0 0 3px; font-size: 0.9375rem; color: var(--text); font-weight: 600; }
-.notice p { margin: 0 0 10px; max-width: 52ch; }
+/* min-width: 0 because this is a flex item next to the icon: without it the
+   item refuses to shrink under its longest word and pushes the page wide. */
+.notice > div { min-width: 0; }
+.notice h2 {
+  margin: 0 0 3px;
+  font-size: 0.9375rem;
+  color: var(--text);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.notice p { margin: 0 0 10px; max-width: 52ch; overflow-wrap: anywhere; }
 .notice-empty { justify-content: center; text-align: center; padding: 44px 20px; }
 .notice-empty div { max-width: 40ch; }
 .notice-alert { border-color: var(--line-strong); }
