@@ -78,7 +78,7 @@ function normalize(raw) {
     id: String(raw.id || raw.file || Math.random()),
     name: String(raw.name || raw.file || "未命名插件"),
     file: String(raw.file || ""),
-    version: raw.version ? String(raw.version) : "",
+    version: raw.version ? String(raw.version) : "1.0.0",
     author: String(raw.author || "MyLoon"),
     category: String(raw.category || "其他"),
     icon: String(raw.icon || ""),

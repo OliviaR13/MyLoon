@@ -1,6 +1,7 @@
 #!name = Outlook 登录修复
 #!desc = 跳过 Microsoft/Outlook 认证域名的 MITM 解密，并直连，修复频繁弹出登录窗口的问题
 #!author = OliviaR13
+#!version = 1.0.0
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Microsoft.png
 #!homepage = https://www.github.com/OliviaR13
 
