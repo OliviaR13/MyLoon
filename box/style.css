@@ -150,13 +150,12 @@ button { -webkit-tap-highlight-color: transparent; }
 .brand-mark {
   flex: none;
   width: 46px; height: 46px;
-  display: grid; place-items: center;
+  padding: 5px;
+  object-fit: contain;
   border: 1px solid var(--line-strong);
   border-radius: var(--r-surface);
   background: var(--surface);
   box-shadow: var(--shadow-row);
-  font-size: 15px; font-weight: 650; letter-spacing: -0.02em;
-  color: var(--text);
 }
 .brand-copy { min-width: 0; }
 h1 {
@@ -420,7 +419,7 @@ kbd {
 @media (max-width: 640px) {
   .shell { padding: 24px 16px 16px; }
   h1 { font-size: 1.45rem; }
-  .brand-mark { width: 40px; height: 40px; font-size: 13px; }
+  .brand-mark { width: 40px; height: 40px; padding: 4px; }
   .search { flex-basis: 100%; }
   kbd { display: none; }
   .plugin {
