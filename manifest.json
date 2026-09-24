@@ -3,14 +3,14 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-09-24T00:44:59.657832+00:00",
+  "generatedAt": "2026-09-24T01:16:06.351624+00:00",
   "plugins": [
     {
       "id": "Gemini",
       "name": "Gemini 指定节点",
       "file": "plugin/Gemini.plugin",
       "version": null,
-      "author": "Claude",
+      "author": "OliviaR13",
       "category": "代理分流",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Google.png",
       "description": "精准分流 Google Gemini（含网页版、App、API、AI Studio）相关域名，走 PROXY 策略。安装插件后请在插件详情页的\"代理指向的策略\"中手动选择用于代理的策略组或节点，不选则默认走全局策略第一个节点。⚠️ 请将本插件在配置文件中的引用位置放在 GEOIP,CN,DIRECT 等国内直连规则之前，避免被提前拦截。"
@@ -20,7 +20,7 @@
       "name": "Spotify 自选节点",
       "file": "plugin/Spotify.plugin",
       "version": null,
-      "author": "Claude",
+      "author": "OliviaR13",
       "category": "代理分流",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Spotify.png",
       "description": "精准分流 Spotify 相关域名（含音频/图片/CDN/短链），全部走 PROXY 策略。安装后请在插件详情页的\"代理指向的策略\"中手动选择实际使用的策略组或节点，未选择时默认走全局策略组的第一个节点。⚠️ 请将本插件在配置文件中的引用位置放在 GEOIP,CN,DIRECT 等国内直连规则之前，避免被提前拦截为直连。"
