@@ -243,7 +243,11 @@ h1 {
 .search input {
   flex: 1; min-width: 0;
   border: 0; outline: 0; background: none;
-  font-size: 0.9375rem;
+  /* 16px, not smaller. iOS Safari zooms the whole page whenever an input's
+     font-size is under 16px, and a zoomed page is wider than the viewport,
+     which is what let this page pan sideways while searching. Do not lower
+     this value: it looks like a type size and behaves like a layout bug. */
+  font-size: 1rem;
 }
 .search input::placeholder { color: var(--text-3); }
 .search input::-webkit-search-cancel-button { -webkit-appearance: none; }
