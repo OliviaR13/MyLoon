@@ -90,10 +90,7 @@ function matches(plugin) {
   if (state.category !== ALL && plugin.category !== state.category) return false;
   const q = state.query.trim().toLowerCase();
   if (!q) return true;
-  return [plugin.name, plugin.description, plugin.author, plugin.category]
-    .join(" ")
-    .toLowerCase()
-    .includes(q);
+  return plugin.name.toLowerCase().includes(q);
 }
 
 /* ---------- rendering ---------- */
