@@ -35,8 +35,32 @@ function isSafeIcon(value) {
   }
 }
 
-function pluginDownloadURL(plugin) {
+/* ---------- 安装链接 ---------- */
+
+function pluginSourceURL(plugin) {
   return RAW_BASE + String(plugin.file || "").replace(/^\/+/, "");
+}
+
+/**
+ * 构建正确的 Loon 插件安装链接
+ * @param {string} pluginUrl 原始插件地址
+ * @returns {string} 适用于 Loon 的唤起链接
+ */
+function fixLoonInstallUrl(pluginUrl) {
+  if (!pluginUrl) return "";
+
+  let url = pluginUrl.trim();
+
+  // GitHub 的 blob 页面返回的是带语法高亮的 HTML 外壳，Loon 拿不到插件原文，
+  // 必须先换成 raw 源文件链接。
+  if (url.includes("github.com") && url.includes("/blob/")) {
+    url = url
+      .replace("github.com", "raw.githubusercontent.com")
+      .replace("/blob/", "/");
+  }
+
+  // 参数名固定为 plugin，取值整体编码，避免 ? & # 截断或污染外层 scheme。
+  return `loon://import?plugin=${encodeURIComponent(url)}`;
 }
 
 let toastTimer = 0;
@@ -104,8 +128,12 @@ function buildRow(plugin) {
   });
 
   row.querySelector(".plugin-install").addEventListener("click", () => {
-    window.location.href =
-      "loon://install?url=" + encodeURIComponent(pluginDownloadURL(plugin));
+    const target = fixLoonInstallUrl(pluginSourceURL(plugin));
+    if (!target) {
+      toast("这个条目没有可安装的插件文件");
+      return;
+    }
+    window.location.href = target;
     toast("已尝试调用 Loon 安装 " + plugin.name);
   });
 
