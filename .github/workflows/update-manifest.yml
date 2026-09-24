@@ -24,14 +24,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ========================================
+      # 1. 获取仓库
+      # ========================================
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # ==============================
-      # 自动生成 manifest.json
-      # ==============================
+      # ========================================
+      # 2. 自动生成 manifest.json
+      # ========================================
       - name: Generate manifest
         shell: python
         run: |
@@ -43,34 +46,99 @@ jobs:
           root = Path("plugin")
           plugins = []
 
+          # ----------------------------------------
+          # 内置分类映射
+          # 用于没有填写 #!category 的旧插件
+          # ----------------------------------------
+          categories = {
+              "Gemini": "代理分流",
+              "Spotify": "代理分流",
+              "douyin_ip": "IP 属地",
+              "weibo_ip": "IP 属地",
+              "outlook": "登录修复",
+          }
+
+          # ----------------------------------------
+          # 读取插件元数据
+          # ----------------------------------------
           def meta(text, key):
               pattern = r"^#!" + re.escape(key) + r"\s*=\s*(.+?)\s*$"
               match = re.search(pattern, text, re.MULTILINE)
-              return match.group(1).strip() if match else None
 
+              if match:
+                  return match.group(1).strip()
+
+              return None
+
+          # ----------------------------------------
+          # 扫描所有 .plugin
+          # ----------------------------------------
           for path in sorted(root.glob("*.plugin")):
               text = path.read_text(encoding="utf-8")
 
+              # 插件自己的 category 优先
+              # 没有 category 时使用内置映射
+              category = (
+                  meta(text, "category")
+                  or categories.get(path.stem, "其他")
+              )
+
               plugins.append({
                   "id": path.stem,
-                  "name": meta(text, "name") or path.stem,
+
+                  "name": (
+                      meta(text, "name")
+                      or path.stem
+                  ),
+
                   "file": path.as_posix(),
+
                   "version": meta(text, "version"),
-                  "author": meta(text, "author") or "MyLoon",
-                  "category": meta(text, "category") or "其他",
+
+                  "author": (
+                      meta(text, "author")
+                      or "MyLoon"
+                  ),
+
+                  "category": category,
+
                   "icon": meta(text, "icon"),
-                  "description": meta(text, "desc") or "Loon 插件",
+
+                  "description": (
+                      meta(text, "desc")
+                      or "Loon 插件"
+                  ),
               })
 
+          # ----------------------------------------
+          # 生成 manifest
+          # ----------------------------------------
           manifest = {
               "name": "MyLoon",
-              "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
-              "repository": "https://github.com/OliviaR13/MyLoon",
-              "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-              "generatedAt": datetime.now(timezone.utc).isoformat(),
+
+              "description": (
+                  "OliviaR13 的 Loon 插件合集与一键安装盒子"
+              ),
+
+              "repository": (
+                  "https://github.com/OliviaR13/MyLoon"
+              ),
+
+              "rawBase": (
+                  "https://raw.githubusercontent.com/"
+                  "OliviaR13/MyLoon/main/"
+              ),
+
+              "generatedAt": (
+                  datetime.now(timezone.utc).isoformat()
+              ),
+
               "plugins": plugins,
           }
 
+          # ----------------------------------------
+          # 写入 manifest.json
+          # ----------------------------------------
           Path("manifest.json").write_text(
               json.dumps(
                   manifest,
@@ -80,9 +148,19 @@ jobs:
               encoding="utf-8"
           )
 
-      # ==============================
-      # 提交自动生成的 manifest
-      # ==============================
+          print(
+              f"Generated manifest with {len(plugins)} plugins."
+          )
+
+          for plugin in plugins:
+              print(
+                  f"- {plugin['name']} "
+                  f"[{plugin['category']}]"
+              )
+
+      # ========================================
+      # 3. 提交 manifest.json
+      # ========================================
       - name: Commit manifest
         run: |
           git config user.name "github-actions[bot]"
@@ -97,15 +175,15 @@ jobs:
             git push
           fi
 
-      # ==============================
-      # 配置 GitHub Pages
-      # ==============================
+      # ========================================
+      # 4. 配置 GitHub Pages
+      # ========================================
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
-      # ==============================
-      # 准备网站文件
-      # ==============================
+      # ========================================
+      # 5. 准备 Pages 网站
+      # ========================================
       - name: Prepare Pages site
         run: |
           rm -rf _site
@@ -114,17 +192,17 @@ jobs:
           cp -R box/. _site/
           cp manifest.json _site/manifest.json
 
-      # ==============================
-      # 上传 Pages Artifact
-      # ==============================
+      # ========================================
+      # 6. 上传 Pages Artifact
+      # ========================================
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
-      # ==============================
-      # 部署 GitHub Pages
-      # ==============================
+      # ========================================
+      # 7. 部署 GitHub Pages
+      # ========================================
       - name: Deploy GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
