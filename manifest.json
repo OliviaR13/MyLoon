@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-09-25T06:56:34.093244+00:00",
+  "generatedAt": "2026-09-25T10:19:12.311831+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -54,6 +54,16 @@
       "category": "其他",
       "icon": "https://raw.githubusercontent.com/luestr/IconResource/main/App_icon/120px/RedPaper.png",
       "description": "只代理小红书 App 中真正承载 IP 属地/风控判定信号的接口，其余 Feed 流、图片、头像、视频 CDN 等媒体流量一律直连，不占用代理流量。基于实际抓包（609 条请求记录）整理，rec.xiaohongshu.com 的 homefeed/localfeed 接口带明文 geo= 经纬度参数，as.xiaohongshu.com 命中 dvf/gch 设备指纹注册接口，t2/lng/spider-tracker/apm-native 均为 /api/collect、/api/spider 打点上报接口，均确认为风控/属地信号载体。"
+    },
+    {
+      "id": "test",
+      "name": "测试",
+      "file": "plugin/test.plugin",
+      "version": "1.9.7",
+      "author": "@OliviaR13",
+      "category": "其他",
+      "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png",
+      "description": "测试"
     },
     {
       "id": "weibo_ip",
