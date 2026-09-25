@@ -1,0 +1,28 @@
+#!name = 小红书纯 IP 属地分流
+#!desc = 只代理小红书 App 中真正承载 IP 属地/风控判定信号的接口，其余 Feed 流、图片、头像、视频 CDN 等媒体流量一律直连，不占用代理流量。基于实际抓包（609 条请求记录）整理，rec.xiaohongshu.com 的 homefeed/localfeed 接口带明文 geo= 经纬度参数，as.xiaohongshu.com 命中 dvf/gch 设备指纹注册接口，t2/lng/spider-tracker/apm-native 均为 /api/collect、/api/spider 打点上报接口，均确认为风控/属地信号载体。
+#!author = @OliviaR13
+#!homepage = https://www.github.com/OliviaR13
+#!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/RED.png
+#!date = 2026-09-25
+#!version = 1.0.0
+
+[Rule]
+# === 1. 小红书媒体 CDN —— 直连 ===
+# 图片/头像/视频/前端静态资源，抓包确认与属地判定无关。
+DOMAIN-SUFFIX, xhscdn.com, DIRECT
+DOMAIN, fe.xiaohongshu.com, DIRECT
+
+# === 2. 属地/风控信号接口 —— 代理 ===
+# rec.xiaohongshu.com：homefeed/localfeed 接口带明文 geo= 经纬度参数
+DOMAIN, rec.xiaohongshu.com, PROXY
+# as.xiaohongshu.com：设备指纹/注册接口（/api/v1/dvf/gch/ios 等）
+DOMAIN, as.xiaohongshu.com, PROXY
+# 打点/反爬上报接口
+DOMAIN, t2.xiaohongshu.com, PROXY
+DOMAIN, lng.xiaohongshu.com, PROXY
+DOMAIN, spider-tracker.xiaohongshu.com, PROXY
+DOMAIN, apm-native.xiaohongshu.com, PROXY
+DOMAIN, crash.xiaohongshu.com, PROXY
+# 核心业务网关，含 update_device/ads 记录等设备相关接口
+DOMAIN, edith.xiaohongshu.com, PROXY
+DOMAIN, www.xiaohongshu.com, PROXY
