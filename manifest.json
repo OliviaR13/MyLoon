@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-09-26T05:36:11.906901+00:00",
+  "generatedAt": "2026-09-26T05:48:41.398256+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -77,13 +77,13 @@
     },
     {
       "id": "weibo_test",
-      "name": "微博纯 IP 属地分流",
+      "name": "（测试）微博纯 IP 属地分流",
       "file": "plugin/weibo_test.plugin",
-      "version": "2.2.0",
+      "version": "2.3.0",
       "author": "@OliviaR13",
       "category": "其他",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png",
-      "description": "仅代理 api.weibo.cn/2/carrier/get/info 这一个真正决定属地显示的接口，同域名下的 Feed、未读数、视频信息、分享配置等其余业务接口与 IM/广告/网页版/媒体CDN 全部直连。history: v1.x 用关键词代理整个weibo域名，节点一卡全App转圈；v2.0 想用URL-REGEX单独代理属地接口但没配MITM，HTTPS下规则从不生效，属地接口实际直连、外显仍是真实IP；v2.1 改为整个api.weibo.cn域名代理，属地问题解决了，但该域名下所有业务接口跟着一起走代理，遇到延迟高的节点仍感觉\"加载慢、很多东西在走代理\"；v2.2 正式启用MITM解密api.weibo.cn，配合URL-REGEX把代理范围精确收窄到这一个接口，其余api.weibo.cn下的业务请求全部直连，只有代理节点慢时才只影响属地判定本身，不再影响加载速度。"
+      "description": "仅代理 api.weibo.cn/2/carrier/get/info 这一个决定属地显示的接口，且该接口背后挂的是一个\"故障转移\"策略组（固定节点优先，节点失效自动秒切直连），避免发帖时因为节点卡顿而转圈；同域名下其余业务接口与IM/广告/网页版/媒体CDN全部直连。history: v2.2 用URL-REGEX+MITM把代理范围收窄到仅这一个接口，范围问题解决了，但直接绑定单一固定节点，一旦该节点对这个接口无响应会卡30秒——实测发现每次发帖微博都会调用这个接口做属地校验，节点一卡，发帖动作跟着转圈。v2.3 把这个接口背后的策略换成 fallback 类型（固定节点+直连兜底，健康探测目标就是这个接口本身），节点异常时自动降级直连，不再转圈，代价是节点异常期间那几次属地会短暂显示真实IP，等探测恢复会自动切回代理。"
     }
   ]
 }
