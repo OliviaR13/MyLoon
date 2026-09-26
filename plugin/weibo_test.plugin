@@ -1,27 +1,47 @@
 #!name = （测试）微博纯 IP 属地分流
-#!desc = 只代理微博 App 中真正回显客户端 IP、承载属地判定的单一接口（api.weibo.cn/2/carrier/get/info），其余全部业务接口（Feed、未读数、IM、推送、广告、评论详情等）与媒体 CDN 一律直连。此前版本用 DOMAIN-KEYWORD 把整个 weibo 域名都代理，导致代理节点一旦连接质量差，会连带拖垮全部业务请求，表现为整个 App 转圈加载不出来；已通过抓包定位并收窄规则范围修正。
+#!desc = 只让属地判定信号所在域名（api.weibo.cn）走代理，其余业务域名（IM/广告/网页版）与媒体CDN、自建HTTPDNS一律直连。history: v1.x 用 DOMAIN-KEYWORD 把整个 weibo 域名都代理，节点一卡就全App转圈；v2.0 改用 URL-REGEX 想只代理属地接口本身，但 HTTPS 下没开 MITM 时客户端只能按域名(SNI)匹配、看不到具体路径，规则从未命中过，属地接口实际走了直连，外显还是真实IP。v2.1 改为按 api.weibo.cn 整个域名代理：既保证属地接口一定进代理（同域名下按域名匹配必中，无需MITM），又把IM/广告/网页版单独摘出来直连，避免代理节点一卡拖垮整个App。
 #!author = @OliviaR13
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png
 #!date = 2026-09-26
-#!version = 2.0.0
+#!version = 2.1.0
 
 [Rule]
 # === 1. 属地判定 + 核心业务 API 所在域名 —— 整体代理 ===
-# carrier/get/info 与 Feed、未读数等绝大多数业务接口都挂在 api.weibo.cn 这
-# 一个域名下；HTTPS 下没开 MITM 时客户端只能按域名(SNI)匹配，无法只挑一
-# 个路径出来代理，所以这里对整个域名做代理，保证属地接口一定走代理出口。
+# carrier/get/info（真正回显客户端IP、决定属地显示的接口）与Feed、未读数
+# 等绝大多数业务接口都挂在 api.weibo.cn 这一个域名下。HTTPS 下没有 MITM
+# 时客户端只能按域名(SNI)匹配，无法只挑一个路径单独代理，所以这里对整个
+# 域名做代理，确保属地接口一定从代理节点出口，外显才会变成节点所在地区。
 DOMAIN, api.weibo.cn, PROXY
 
-# === 2. 其他 *weibo* 域名（IM/广告/网页版）—— 直连，避免被同一节点拖累 ===
+# === 2. 其他 *weibo* 域名（IM/广告/网页版）—— 直连 ===
+# 这些域名不承载属地判定，且与 api.weibo.cn 是不同的连接/服务器，单独摘
+# 出来直连后，即使代理节点当下卡顿，也只影响 Feed/未读数这类走代理的接
+# 口，IM消息、广告拉取、网页版不会被连带拖死，不会再出现整个App转圈。
 DOMAIN-SUFFIX, im.weibo.cn, DIRECT
 DOMAIN-SUFFIX, weibo.com, DIRECT
 DOMAIN-KEYWORD, weibo, DIRECT
 
 # === 3. 媒体 CDN 与自建 HTTPDNS —— 直连 ===
+# dns.weibo.cn 解析 sinaimg.cn 图片CDN，须与其解析出的CDN走同一网络路径，
+# 否则出现"代理视角最优IP、真实网络去连"的路径不一致；两次抓包验证有效。
 DOMAIN-SUFFIX, weibocdn.com, DIRECT
 DOMAIN-SUFFIX, sinajs.cn, DIRECT
 DOMAIN-SUFFIX, wbimg.cn, DIRECT
 DOMAIN-SUFFIX, wbimg.com, DIRECT
 DOMAIN, dns.weibo.cn, DIRECT
 DOMAIN-SUFFIX, sinaimg.cn, DIRECT
+
+# 踩坑记录（规则层面无法解决，供排查参考）：
+# - URL-REGEX 是HTTP层规则，必须配合 [MITM] hostname 声明解密该域名HTTPS
+#   流量才能生效；不开MITM时该规则永远不匹配，会被后面更宽的域名规则接
+#   管，本插件不采用这个思路，改用域名级匹配规避该问题；
+# - sinaimg.cn 个别边缘节点偶发直连被远端RST，仅一次抓包出现，未复现；
+# - 部分接口自带3秒客户端超时，热启动冷建连超时会被App自行取消；同一固
+#   定节点单次请求可耗时10+秒，换手动固定节点后依旧，是节点当下连接质
+#   量问题，与本规则/策略组切换无关，建议更换延迟更低的节点；
+# - 若同时装了微博去广告插件，它可能对 api.weibo.cn/com 做MITM解密和响
+#   应体脚本改写，是独立的另一层机制，出问题请分开排查，两边若都声明了
+#   [MITM] hostname 需要合并，避免后装的覆盖前面的声明。
+# 抖音部分自1.9.6起已拆分为独立插件（抖音纯IP属地分流.plugin）。
+
