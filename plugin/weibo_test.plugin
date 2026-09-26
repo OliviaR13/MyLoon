@@ -63,6 +63,7 @@ DOMAIN-SUFFIX, sinaimg.cn, DIRECT
 # 如果你已经确认自己的证书环境不会被 api.weibo.cn 拒绝（比如已经在同域名
 # 上稳定跑过其他 MITM 脚本），且仍然想要"路径级精确代理"，可参考文件末尾
 # 的【精确模式】，手动打开对应的 [MITM] 与 URL-REGEX 规则，默认保持关闭。
+URL-REGEX, ^https?:\/\/api\.weibo\.cn\/2\/carrier\/get\/info, PROXY
 DOMAIN, api.weibo.cn, PROXY
 DOMAIN-SUFFIX, weibo.cn, PROXY
 DOMAIN-SUFFIX, weibo.com, PROXY
@@ -95,9 +96,8 @@ DOMAIN-KEYWORD, weibo, PROXY
 #   3) 开启后请先正常登录、刷新一次 Feed、发一条测试帖，确认没有出现
 #      "网络异常""验证失败""登录状态过期"等提示再长期使用；一旦出现
 #      异常，第一时间关闭 MITM，而不是继续排查规则本身。
-# URL-REGEX, ^https?:\/\/api\.weibo\.cn\/2\/carrier\/get\/info, PROXY
 
 [MITM]
 # 精确模式专用，默认不生效；仅在你已接受上方风险说明并主动启用【精确模式】
 # 时才取消下一行注释：
-# hostname = api.weibo.cn
+hostname = api.weibo.cn
