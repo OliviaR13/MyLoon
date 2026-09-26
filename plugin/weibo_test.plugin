@@ -1,0 +1,41 @@
+#!name = （测试）微博纯 IP 属地分流
+#!desc = 只代理微博 App 中真正回显客户端 IP、承载属地判定的单一接口（api.weibo.cn/2/carrier/get/info），其余全部业务接口（Feed、未读数、IM、推送、广告、评论详情等）与媒体 CDN 一律直连。此前版本用 DOMAIN-KEYWORD 把整个 weibo 域名都代理，导致代理节点一旦连接质量差，会连带拖垮全部业务请求，表现为整个 App 转圈加载不出来；已通过抓包定位并收窄规则范围修正。
+#!author = @OliviaR13
+#!homepage = https://www.github.com/OliviaR13
+#!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png
+#!date = 2026-09-26
+#!version = 2.0.0
+
+[Rule]
+# === 1. 属地判定信号来源 —— 仅此一条走代理 ===
+# 该接口响应体直接回显服务器看到的客户端 IP（{"ip":"出口IP"}），是唯一
+# 真正决定"IP属地"显示结果的请求，且为纯 JSON 小流量。
+URL-REGEX, ^https?://api\.weibo\.cn/2/carrier/get/info, PROXY
+
+# === 2. 其余全部微博业务接口 —— 直连 ===
+# 未读数、Feed、IM(dp.im.weibo.cn)、推送、广告拉取(wbapp.uve.weibo.com)、
+# 评论/详情等均不参与属地判定，走代理只会平白多一次节点绕行，且一旦节点
+# 慢会拖累这些高频请求，造成"整个App转圈"（已通过抓包证实：同一批
+# 未读数/IM/广告请求与属地接口曾被同一条宽泛规则一起代理并同时卡死）。
+DOMAIN-SUFFIX, weibo.cn, DIRECT
+DOMAIN-SUFFIX, weibo.com, DIRECT
+DOMAIN-KEYWORD, weibo, DIRECT
+
+# === 3. 媒体 CDN 与自建 HTTPDNS —— 直连 ===
+# dns.weibo.cn 解析 sinaimg.cn 图片CDN，须与其解析出的CDN走同一网络路径，
+# 否则出现"代理视角最优IP、真实网络去连"的路径不一致；两次抓包验证有效。
+DOMAIN-SUFFIX, weibocdn.com, DIRECT
+DOMAIN-SUFFIX, sinajs.cn, DIRECT
+DOMAIN-SUFFIX, wbimg.cn, DIRECT
+DOMAIN-SUFFIX, wbimg.com, DIRECT
+DOMAIN, dns.weibo.cn, DIRECT
+DOMAIN-SUFFIX, sinaimg.cn, DIRECT
+
+# 踩坑记录（规则层面无法解决，供排查参考）：
+# - sinaimg.cn 个别边缘节点偶发直连被远端 RST，仅一次抓包出现，未复现；
+# - 部分预加载接口自带 3 秒客户端超时，热启动冷建连超时会被 App 自行取消；
+# - 同一固定代理节点单次请求可耗时 10+ 秒，换手动固定节点后依旧，是节点
+#   当下连接质量问题，与本规则/策略组切换无关；
+# - 若同时装了微博去广告插件，它对 api.weibo.cn/com 的 MITM 解密与响应体
+#   脚本改写是独立的另一层，出问题请分开排查。
+# 抖音部分自 1.9.6 起已拆分为独立插件（抖音纯IP属地分流.plugin）。
