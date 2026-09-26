@@ -1,24 +1,19 @@
-#!name = 微博纯 IP 属地分流
-#!desc = 仅代理 api.weibo.cn/2/carrier/get/info 这一个真正决定属地显示的接口，同域名下的 Feed、未读数、视频信息、分享配置等其余业务接口与 IM/广告/网页版/媒体CDN 全部直连。history: v1.x 用关键词代理整个weibo域名，节点一卡全App转圈；v2.0 想用URL-REGEX单独代理属地接口但没配MITM，HTTPS下规则从不生效，属地接口实际直连、外显仍是真实IP；v2.1 改为整个api.weibo.cn域名代理，属地问题解决了，但该域名下所有业务接口跟着一起走代理，遇到延迟高的节点仍感觉"加载慢、很多东西在走代理"；v2.2 正式启用MITM解密api.weibo.cn，配合URL-REGEX把代理范围精确收窄到这一个接口，其余api.weibo.cn下的业务请求全部直连，只有代理节点慢时才只影响属地判定本身，不再影响加载速度。
+#!name = （测试）微博纯 IP 属地分流
+#!desc = 仅代理 api.weibo.cn/2/carrier/get/info 这一个决定属地显示的接口，且该接口背后挂的是一个"故障转移"策略组（固定节点优先，节点失效自动秒切直连），避免发帖时因为节点卡顿而转圈；同域名下其余业务接口与IM/广告/网页版/媒体CDN全部直连。history: v2.2 用URL-REGEX+MITM把代理范围收窄到仅这一个接口，范围问题解决了，但直接绑定单一固定节点，一旦该节点对这个接口无响应会卡30秒——实测发现每次发帖微博都会调用这个接口做属地校验，节点一卡，发帖动作跟着转圈。v2.3 把这个接口背后的策略换成 fallback 类型（固定节点+直连兜底，健康探测目标就是这个接口本身），节点异常时自动降级直连，不再转圈，代价是节点异常期间那几次属地会短暂显示真实IP，等探测恢复会自动切回代理。
 #!author = @OliviaR13
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png
 #!date = 2026-09-26
-#!version = 2.2.0
+#!version = 2.3.0
 
 [Rule]
-# === 1. 属地判定信号来源 —— 仅此一条走代理 ===
-# 该接口响应体直接回显服务器看到的客户端IP（{"ip":"出口IP"}），是唯一真
-# 正决定"IP属地"显示结果的请求，且为纯JSON小流量。必须配合下方[MITM]
-# 声明解密api.weibo.cn，否则Loon在HTTPS下只能看到域名(SNI)看不到路径，
-# 这条规则会静默失效（v2.0版本翻过的车）。
-URL-REGEX, ^https?://api\.weibo\.cn/2/carrier/get/info, PROXY
+# === 1. 属地判定信号来源 —— 仅此一条走"属地代理"故障转移组 ===
+# 每次发帖，微博都会同步调用这个接口做属地校验；如果背后节点无响应，会
+# 直接拖累发帖流程转圈。所以这里不再直接绑单一节点，而是绑一个fallback
+# 策略组（见下方[Proxy Group]），固定节点优先、节点失效自动切直连。
+URL-REGEX, ^https?://api\.weibo\.cn/2/carrier/get/info, 属地代理
 
 # === 2. api.weibo.cn 下其余全部业务接口 —— 直连 ===
-# Feed、未读数、视频信息、分享配置、用户资料等都不参与属地判定，走代理
-# 只会白白多一次节点绕行；节点一旦延迟高，这些高频接口会拖慢整个App的
-# 加载速度（v2.1版本的问题）。收窄后这些接口全部直连，只有属地判定本身
-# 会受节点质量影响。
 DOMAIN, api.weibo.cn, DIRECT
 
 # === 3. 其他 *weibo* 域名（IM/广告/网页版）—— 直连 ===
@@ -27,8 +22,6 @@ DOMAIN-SUFFIX, weibo.com, DIRECT
 DOMAIN-KEYWORD, weibo, DIRECT
 
 # === 4. 媒体 CDN 与自建 HTTPDNS —— 直连 ===
-# dns.weibo.cn 解析 sinaimg.cn 图片CDN，须与其解析出的CDN走同一网络路径，
-# 否则出现"代理视角最优IP、真实网络去连"的路径不一致；两次抓包验证有效。
 DOMAIN-SUFFIX, weibocdn.com, DIRECT
 DOMAIN-SUFFIX, sinajs.cn, DIRECT
 DOMAIN-SUFFIX, wbimg.cn, DIRECT
@@ -36,17 +29,24 @@ DOMAIN-SUFFIX, wbimg.com, DIRECT
 DOMAIN, dns.weibo.cn, DIRECT
 DOMAIN-SUFFIX, sinaimg.cn, DIRECT
 
+[Proxy Group]
+# "属地代理"优先走"属地节点"（安装本插件后，请在Loon里把"属地节点"手动
+# 指定为你自己选好的那个固定单一节点，而不是自动测速组）；health-check
+# 直接探测这个接口本身，探测超时3秒就判定节点不可用，自动整体切到DIRECT，
+# 不会再让某一次发帖傻等30秒。探测恢复正常后会自动切回代理。
+属地代理 = fallback, 属地节点, DIRECT, url = https://api.weibo.cn/2/carrier/get/info, interval = 120, timeout = 3
+
 [MITM]
 hostname = api.weibo.cn
 
-# 踩坑记录（规则层面无法解决，供排查参考）：
-# - 本插件现在会解密 api.weibo.cn 的HTTPS流量以匹配URL-REGEX，安装/更新
-#   插件后请确认 Loon「证书管理」里已信任根证书，且MITM总开关已打开，
-#   否则不仅这条规则不生效，api.weibo.cn的请求可能直接失败；
-# - 若同时装了微博去广告插件，它也可能声明了对 api.weibo.cn 的MITM，两
-#   者的hostname会在Loon里自动合并，一般不冲突；但它对响应体的脚本改写
-#   是独立机制，出问题请分开排查；
-# - sinaimg.cn 个别边缘节点偶发直连被远端RST，仅一次抓包出现，未复现；
-# - 同一固定代理节点单次请求可耗时10+秒是节点当下连接质量问题，与本规
-#   则无关，建议更换延迟更低的节点。
+# 踩坑记录：
+# - "属地节点"这个策略组名Loon安装时会提示你绑定——请绑定到你自己选好的
+#   那个固定单一节点（不要绑url-test自动测速组），保证属地稳定不漂移；
+# - fallback的健康探测是周期性的（这里120秒一次），不是每次请求都实时探
+#   测，所以节点刚好在两次探测之间失效的那一次发帖，仍可能等一次超时；
+#   但从下一次探测失败开始，后续请求会立刻走直连，不会反复转圈；
+# - 若同时装了微博去广告插件且也声明了对api.weibo.cn的MITM，两者hostname
+#   会自动合并，一般不冲突，响应体脚本改写是独立机制，问题请分开排查；
+# - 若发现节点频繁被判定失效，大概率是微博对该节点IP做了针对性限流/风控
+#   （常见于机房IP），换一个不容易被识别成机房的节点会更稳定。
 # 抖音部分自1.9.6起已拆分为独立插件（抖音纯IP属地分流.plugin）。
