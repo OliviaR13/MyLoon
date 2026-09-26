@@ -1,52 +1,103 @@
-#!name = （测试）微博纯 IP 属地分流
-#!desc = 仅代理 api.weibo.cn/2/carrier/get/info 这一个决定属地显示的接口，且该接口背后挂的是一个"故障转移"策略组（固定节点优先，节点失效自动秒切直连），避免发帖时因为节点卡顿而转圈；同域名下其余业务接口与IM/广告/网页版/媒体CDN全部直连。history: v2.2 用URL-REGEX+MITM把代理范围收窄到仅这一个接口，范围问题解决了，但直接绑定单一固定节点，一旦该节点对这个接口无响应会卡30秒——实测发现每次发帖微博都会调用这个接口做属地校验，节点一卡，发帖动作跟着转圈。v2.3 把这个接口背后的策略换成 fallback 类型（固定节点+直连兜底，健康探测目标就是这个接口本身），节点异常时自动降级直连，不再转圈，代价是节点异常期间那几次属地会短暂显示真实IP，等探测恢复会自动切回代理。
+#!name = 微博纯 IP 属地分流
+#!desc = 只代理微博 App 中真正承载 IP 属地判定信号的接口，其余 Feed 流、图片等媒体 CDN 一律直连，不占用代理流量，也不影响加载速度与账号安全。微博自建 HTTPDNS（dns.weibo.cn）改走直连，经三次独立抓包验证有效（第三次为"发帖"场景专项抓包，见下方注释）。第三次抓包复核发现：1）dns.weibo.cn 的两次调用实际均为明文 HTTP，而非 HTTPS；2）api.weibo.cn/2/carrier/get/info 只在 App 冷/热启动阶段调用一次，并非"每发一次帖子都检测"，此前描述已修正，但不影响该接口作为唯一已证实 IP 回显信号源的判断。规则范围严格限定于微博核心域名，不含任何海外服务规则，不影响其他境外 App。⚠️ 关于"只代理这一个接口、其余全部直连"：Surge / Loon 的 [Rule] 分流引擎按域名（证书 SNI）匹配，同一域名下不同 URL 路径若不开启 MITM 解密无法被区分；而 api.weibo.cn 大概率和登录/发帖一样做了证书锁定，贸然对其开 MITM 有导致发帖/登录直接失败的风险，这与本插件"不影响账号安全"的初衷相悖，因此默认规则仍以域名为最小颗粒度（api.weibo.cn 整体代理），只把已确认的媒体 CDN 域名摘出来直连；文件末尾提供了可选的【精确模式】（默认关闭，需要开 MITM，风险自担）。安装后请在插件配置页手动指定一个固定的单一节点（select 类型策略组，不要用 url-test/自动测速类型）作为代理策略，节点建议选延迟较低的地区，避免长时间冷建连超出 App 自带的短超时。请将本插件放在 GEOIP,cn,DIRECT 等国内直连规则之前，并确认它排在其他同类参考规则集（如 anti-ip-attribution）之前加载，避免被后者未做直连例外的同名规则抢先命中。若同时使用了微博去广告类插件，注意它可能会对 api.weibo.cn/api.weibo.com 做 MITM 解密和响应体脚本改写，属于独立的另一层机制，出现异常时建议分别排查。原插件同时包含抖音部分，1.9.6 起已拆分为独立插件（抖音纯IP属地分流.plugin），可按需分别启用/禁用，不再依赖插件内部的开关参数。
+
 #!author = @OliviaR13
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png
 #!date = 2026-09-26
-#!version = 2.3.0
+#!version = 1.9.7
 
 [Rule]
-# === 1. 属地判定信号来源 —— 仅此一条走"属地代理"故障转移组 ===
-# 每次发帖，微博都会同步调用这个接口做属地校验；如果背后节点无响应，会
-# 直接拖累发帖流程转圈。所以这里不再直接绑单一节点，而是绑一个fallback
-# 策略组（见下方[Proxy Group]），固定节点优先、节点失效自动切直连。
-URL-REGEX, ^https?://api\.weibo\.cn/2/carrier/get/info, 属地代理
-
-# === 2. api.weibo.cn 下其余全部业务接口 —— 直连 ===
-DOMAIN, api.weibo.cn, DIRECT
-
-# === 3. 其他 *weibo* 域名（IM/广告/网页版）—— 直连 ===
-DOMAIN-SUFFIX, im.weibo.cn, DIRECT
-DOMAIN-SUFFIX, weibo.com, DIRECT
-DOMAIN-KEYWORD, weibo, DIRECT
-
-# === 4. 媒体 CDN 与自建 HTTPDNS —— 直连 ===
+# === 1. 微博媒体 CDN 与 HTTPDNS —— 直连 ===
+# dns.weibo.cn 是微博自建 HTTPDNS，主要用于解析 sinaimg.cn 图片 CDN。
+# 它必须和它解析的 CDN 域名走同一条网络路径，否则 App 拿到的是"代理视角
+# 下的最优 IP"、却用真实网络去连，路径不一致；此规则已通过三次独立抓包
+# 验证有效，不占用任何代理流量。
+#
+# 本次"发帖"专项抓包新增确认：dns.weibo.cn 的两次调用（GET /v2/c、
+# POST /v3/d）实际走的都是明文 HTTP，不是 HTTPS——App 对这条自建 HTTPDNS
+# 通道本身不做证书校验，这也从侧面说明它必须和真实网络路径完全一致：
+# 用明文 HTTP 问出来的"最优 IP"，如果和后面 sinaimg.cn 图片实际连接的
+# 路径不一样，下发结果就没有意义。
+#
+# 本次抓包（纯文字发帖）未捕获到 sinaimg.cn / weibocdn.com 的图片、视频
+# 请求，推测是图片已缓存或本条为纯文字帖，因此 CDN 部分沿用此前两次抓包
+# 验证过的域名列表，未做增删。
 DOMAIN-SUFFIX, weibocdn.com, DIRECT
 DOMAIN-SUFFIX, sinajs.cn, DIRECT
 DOMAIN-SUFFIX, wbimg.cn, DIRECT
 DOMAIN-SUFFIX, wbimg.com, DIRECT
 DOMAIN, dns.weibo.cn, DIRECT
 DOMAIN-SUFFIX, sinaimg.cn, DIRECT
+# 观察记录（非规则）：早期一次抓包里 163.181.39.0/24 网段的个别边缘节点
+# 出现过 TCP 握手成功后被远端直接 RST 的情况，此后抓包（含本次）均未再
+# 复现，且证据不足以支撑加一条网段例外（会有误伤其他流量的副作用），暂
+# 不处理，如再次复现记录下具体 IP/子域名再决定。
 
-[Proxy Group]
-# "属地代理"优先走"属地节点"（安装本插件后，请在Loon里把"属地节点"手动
-# 指定为你自己选好的那个固定单一节点，而不是自动测速组）；health-check
-# 直接探测这个接口本身，探测超时3秒就判定节点不可用，自动整体切到DIRECT，
-# 不会再让某一次发帖傻等30秒。探测恢复正常后会自动切回代理。
-属地代理 = fallback, 属地节点, DIRECT, url = https://api.weibo.cn/2/carrier/get/info, interval = 120, timeout = 3
+# === 2. 微博属地判定与业务 API —— 代理 ===
+# api.weibo.cn 的 /2/carrier/get/info 接口会直接回显服务器看到的客户端 IP，
+# 是真正的属地判定信号来源（抓包已验证响应体为 {"ip":"代理节点出口IP"}），
+# 同时该域名承载了 Feed、发帖、未读数、IM、推送、预加载等绝大部分业务
+# 请求。纯 JSON 小流量，走代理不会明显增加流量消耗或卡顿。
+#
+# 本次"发帖"抓包按完整时间线复核：carrier/get/info 只在 App 冷/热启动
+# 阶段被调用一次（本次先于 /2/statuses/send 发帖请求约 6 秒），发帖动作
+# 前后并未再次触发该接口或其他明显的网络环境探测请求。也就是说，触发
+# 属地判定的时机是"启动/切前台"而不是"每发一次帖子"，此前版本的描述
+# 有误，这版已修正——但不影响规则本身：carrier/get/info 依然是目前唯一
+# 经抓包证实、会回显客户端 IP 的接口。
+#
+# 【关于"只代理这一个接口、其余全部直连"的技术边界，请务必读完】
+# Surge / Loon 的 [Rule] 分流引擎工作在域名（证书 SNI）层面，同一域名下
+# 不同 URL 路径若不解密 HTTPS 流量（即开启 MITM）是无法被区分的。也就是
+# 说，要让 api.weibo.cn 下"只有 /2/carrier/get/info 走代理，其余
+# /2/statuses/send、/2/profile/*、/2/push/* 等全部直连"，唯一实现方式是
+# 对 api.weibo.cn 开启 MITM 证书解密，再用 URL-REGEX 规则单独匹配这一条
+# 路径。而 api.weibo.cn 大概率和微博 App 的登录 / 发帖一样做了证书锁定
+# （certificate pinning）——一旦对它开 MITM，轻则该请求全部失败、重则
+# 发帖 / 登录直接报错，这恰好与本插件"不影响账号安全"的初衷相反，所以
+# 默认规则不采用 MITM 方案，仍以域名整体作为最小颗粒度：把已确认的媒体
+# CDN / HTTPDNS 摘出来直连（上面第 1 部分），业务 API 域名整体代理，这是
+# 在不牺牲账号安全前提下能做到的最接近"只代理 IP 判定信号"的方案。
+#
+# 如果你已经确认自己的证书环境不会被 api.weibo.cn 拒绝（比如已经在同域名
+# 上稳定跑过其他 MITM 脚本），且仍然想要"路径级精确代理"，可参考文件末尾
+# 的【精确模式】，手动打开对应的 [MITM] 与 URL-REGEX 规则，默认保持关闭。
+DOMAIN, api.weibo.cn, PROXY
+DOMAIN-SUFFIX, weibo.cn, PROXY
+DOMAIN-SUFFIX, weibo.com, PROXY
+DOMAIN-KEYWORD, weibo, PROXY
+# 本次抓包中出现的以下微博关联域名，均已被上面 weibo.cn / weibo.com /
+# DOMAIN-KEYWORD 规则覆盖，无需额外规则，且均为小体积请求，不涉及媒体
+# 带宽：
+#   adstrategy.biz.weibo.com   广告策略下发
+#   bootpreload.uve.weibo.com  开屏广告预加载
+#   sdkapp.uve.weibo.com       第三方 SDK 配置
+#   wbapp.uve.weibo.com        广告 lua 脚本
+#   dp.im.weibo.cn             私信 / IM 入口
+#
+# 已知与本插件规则无关的热启动/连接异常（沿用此前抓包记录，规则层面
+# 无法解决，仅供排查参考）：
+# 1) 部分接口（如 /2/!/multimedia/playback/batch_get）自带 3 秒客户端
+#    超时，热启动首批请求冷建连若超时会被 App 自己取消。
+# 2) 后续抓包证实同一固定节点单次请求可耗时 10+ 秒才返回，且切换为
+#    手动固定节点（非自动测速）后问题依旧——说明是节点当下连接质量
+#    本身的问题，建议更换节点或改用延迟更低的地区，而不是改这份规则。
+
+# === 3.【精确模式 · 默认关闭，风险自担】 ===
+# 如需真正做到"api.weibo.cn 下只有 carrier/get/info 走代理、其余接口
+# 直连"，按以下步骤操作：
+#   1) 取消本文件底部 [MITM] 小节里 hostname 一行的注释；
+#   2) 取消下面这条 URL-REGEX 规则的注释，并确保它排在第 2 部分里
+#      "DOMAIN, api.weibo.cn, PROXY" 这条规则之前（[Rule] 按从上到下
+#      顺序匹配，先命中的规则生效，此规则文件里已经放在前面，正常粘贴
+#      不改变顺序即可）；
+#   3) 开启后请先正常登录、刷新一次 Feed、发一条测试帖，确认没有出现
+#      "网络异常""验证失败""登录状态过期"等提示再长期使用；一旦出现
+#      异常，第一时间关闭 MITM，而不是继续排查规则本身。
+# URL-REGEX, ^https?:\/\/api\.weibo\.cn\/2\/carrier\/get\/info, PROXY
 
 [MITM]
-hostname = api.weibo.cn
-
-# 踩坑记录：
-# - "属地节点"这个策略组名Loon安装时会提示你绑定——请绑定到你自己选好的
-#   那个固定单一节点（不要绑url-test自动测速组），保证属地稳定不漂移；
-# - fallback的健康探测是周期性的（这里120秒一次），不是每次请求都实时探
-#   测，所以节点刚好在两次探测之间失效的那一次发帖，仍可能等一次超时；
-#   但从下一次探测失败开始，后续请求会立刻走直连，不会反复转圈；
-# - 若同时装了微博去广告插件且也声明了对api.weibo.cn的MITM，两者hostname
-#   会自动合并，一般不冲突，响应体脚本改写是独立机制，问题请分开排查；
-# - 若发现节点频繁被判定失效，大概率是微博对该节点IP做了针对性限流/风控
-#   （常见于机房IP），换一个不容易被识别成机房的节点会更稳定。
-# 抖音部分自1.9.6起已拆分为独立插件（抖音纯IP属地分流.plugin）。
+# 精确模式专用，默认不生效；仅在你已接受上方风险说明并主动启用【精确模式】
+# 时才取消下一行注释：
+# hostname = api.weibo.cn
