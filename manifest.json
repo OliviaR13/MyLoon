@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-09-27T13:10:17.668243+00:00",
+  "generatedAt": "2026-09-27T13:19:10.542801+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -77,13 +77,13 @@
     },
     {
       "id": "weibo_beta2",
-      "name": "微博隐藏IP归属地",
+      "name": "微博纯 IP 属地分流_beta1",
       "file": "plugin/weibo_beta2.plugin",
-      "version": null,
-      "author": "MyLoon",
+      "version": "1.9.7",
+      "author": "@OliviaR13",
       "category": "其他",
-      "icon": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/icons/weibo.png",
-      "description": "拦截微博相关接口返回内容，移除 region_name / ip_location 等 IP 归属地字段"
+      "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png",
+      "description": "仅代理微博 IP 属地判定接口(api.weibo.cn),图片/视频 CDN 及自建 HTTPDNS 直连,不影响加载速度与账号安全。详见 README。"
     },
     {
       "id": "weibo_ip",
