@@ -1,16 +1,33 @@
-#!name = 微博隐藏IP归属地
-#!desc = 拦截微博相关接口返回内容，移除 region_name / ip_location 等 IP 归属地字段
-#!author = MyLoon
-#!homepage = https://github.com/OliviaR13/MyLoon
-#!icon = https://raw.githubusercontent.com/OliviaR13/MyLoon/main/icons/weibo.png
-#!tag = 微博, IP归属地
+#!name = 微博纯 IP 属地分流_beta1
+#!desc = 仅代理微博 IP 属地判定接口(api.weibo.cn),图片/视频 CDN 及自建 HTTPDNS 直连,不影响加载速度与账号安全。详见 README。
+#!author = @OliviaR13
+#!homepage = https://www.github.com/OliviaR13
+#!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png
+#!date = 2026-09-26
+#!version = 1.9.7
+
+[Rule]
+# 媒体 CDN / 自建 HTTPDNS,直连
+DOMAIN-SUFFIX, weibocdn.com, DIRECT
+DOMAIN-SUFFIX, sinajs.cn, DIRECT
+DOMAIN-SUFFIX, wbimg.cn, DIRECT
+DOMAIN-SUFFIX, wbimg.com, DIRECT
+DOMAIN, dns.weibo.cn, DIRECT
+DOMAIN-SUFFIX, sinaimg.cn, DIRECT
+
+# 属地判定接口 + 其余业务 API,代理
+URL-REGEX, ^https?:\/\/api\.weibo\.cn\/2\/carrier\/get\/info, PROXY
+# 精确模式用,需配合下方 [MITM] 一起开启,默认关闭
+# URL-REGEX, ^https?:\/\/api\.weibo\.cn\/(?!2\/carrier\/get\/info), DIRECT
+DOMAIN, api.weibo.cn, PROXY
+DOMAIN-SUFFIX, weibo.cn, PROXY
+DOMAIN-SUFFIX, weibo.com, PROXY
+DOMAIN-KEYWORD, weibo, PROXY
 
 [MITM]
-hostname = %APPEND% *.weibo.com, *.weibo.cn, weibo.com, weibo.cn
+# 精确模式用,默认关闭。api.weibo.cn 可能有证书锁定,开启前请看 README
+# hostname = api.weibo.cn
 
-[Rewrite]
-# 时间线 / 详情 / 评论等接口，命中后交给 scripts/weibo_ip.js 处理
-^https?:\/\/(m\.weibo\.cn|weibo\.com)\/(api\/container\/getIndex|profile\/info|comments\/hotflow|statuses\/(show|repost_timeline)) url script-response-body https://raw.githubusercontent.com/OliviaR13/MyLoon/main/scripts/weibo_ip.js
-
-[Script]
-微博隐藏IP归属地 = type=http-response, pattern=^https?:\/\/(m\.weibo\.cn|weibo\.com)\/(api\/container\/getIndex|profile\/info|comments\/hotflow|statuses\/(show|repost_timeline)), requires-body=true, max-size=-1, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/main/scripts/weibo_ip.js, timeout=30
+# [Script]
+# 精确模式的保险层,清理响应体里残留的地区文字,需配合上方 MITM 一起开启
+# weibo_ip = type=http-response, pattern=^https?:\/\/api\.weibo\.cn\/2\/carrier\/get\/info, requires-body=true, max-size=-1, script-path=scripts/weibo_ip.js, timeout=10
