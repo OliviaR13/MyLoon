@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-09-27T13:19:10.542801+00:00",
+  "generatedAt": "2026-09-27T13:19:29.549991+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -77,7 +77,7 @@
     },
     {
       "id": "weibo_beta2",
-      "name": "微博纯 IP 属地分流_beta1",
+      "name": "微博纯 IP 属地分流_beta2",
       "file": "plugin/weibo_beta2.plugin",
       "version": "1.9.7",
       "author": "@OliviaR13",
