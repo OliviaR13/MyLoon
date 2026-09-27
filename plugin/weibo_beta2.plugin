@@ -1,0 +1,16 @@
+#!name = 微博隐藏IP归属地
+#!desc = 拦截微博相关接口返回内容，移除 region_name / ip_location 等 IP 归属地字段
+#!author = MyLoon
+#!homepage = https://github.com/OliviaR13/MyLoon
+#!icon = https://raw.githubusercontent.com/OliviaR13/MyLoon/main/icons/weibo.png
+#!tag = 微博, IP归属地
+
+[MITM]
+hostname = %APPEND% *.weibo.com, *.weibo.cn, weibo.com, weibo.cn
+
+[Rewrite]
+# 时间线 / 详情 / 评论等接口，命中后交给 scripts/weibo_ip.js 处理
+^https?:\/\/(m\.weibo\.cn|weibo\.com)\/(api\/container\/getIndex|profile\/info|comments\/hotflow|statuses\/(show|repost_timeline)) url script-response-body https://raw.githubusercontent.com/OliviaR13/MyLoon/main/scripts/weibo_ip.js
+
+[Script]
+微博隐藏IP归属地 = type=http-response, pattern=^https?:\/\/(m\.weibo\.cn|weibo\.com)\/(api\/container\/getIndex|profile\/info|comments\/hotflow|statuses\/(show|repost_timeline)), requires-body=true, max-size=-1, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/main/scripts/weibo_ip.js, timeout=30
