@@ -1,4 +1,4 @@
-#!name = 微博纯 IP 属地分流_beta1
+#!name = 微博纯 IP 属地分流_beta2
 #!desc = 仅代理微博 IP 属地判定接口(api.weibo.cn),图片/视频 CDN 及自建 HTTPDNS 直连,不影响加载速度与账号安全。详见 README。
 #!author = @OliviaR13
 #!homepage = https://www.github.com/OliviaR13
