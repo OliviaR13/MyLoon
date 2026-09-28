@@ -7,20 +7,7 @@
 #!version = 2.1.0
 
 [Rule]
-# 媒体 CDN / 自建 HTTPDNS,直连
-DOMAIN-SUFFIX, weibocdn.com, DIRECT
-DOMAIN-SUFFIX, sinajs.cn, DIRECT
-DOMAIN-SUFFIX, wbimg.cn, DIRECT
-DOMAIN-SUFFIX, wbimg.com, DIRECT
-DOMAIN, dns.weibo.cn, DIRECT
-DOMAIN-SUFFIX, sinaimg.cn, DIRECT
-
-# 广告 / SDK / 预加载,与归属地判定无关,直连
-DOMAIN, ai.s.weibo.com, DIRECT
-DOMAIN, bootpreload.uve.weibo.com, DIRECT
-DOMAIN, brandvideo.biz.weibo.com, DIRECT
-DOMAIN, sdkapp.uve.weibo.com, DIRECT
-DOMAIN, wbapp.uve.weibo.com, DIRECT
-
-# 发帖、Feed、资料、详情等业务 API,归属地判定实际发生在这个域名下,代理
 DOMAIN, api.weibo.cn, PROXY
+
+[MITM]
+api.weibo.com
