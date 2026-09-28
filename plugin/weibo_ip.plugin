@@ -8,6 +8,3 @@
 
 [Rule]
 DOMAIN, api.weibo.cn,PROXY
-
-[MITM]
-hostname = api.weibo.com
