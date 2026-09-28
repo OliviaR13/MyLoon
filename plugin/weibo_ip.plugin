@@ -9,5 +9,5 @@
 [Rule]
 DOMAIN, api.weibo.cn,PROXY
 
-[hostname]
-api.weibo.com
+[MITM]
+hostname = api.weibo.com
