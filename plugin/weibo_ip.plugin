@@ -7,7 +7,7 @@
 #!version = 2.1.0
 
 [Rule]
-DOMAIN, api.weibo.cn, PROXY
+DOMAIN, api.weibo.cn,PROXY
 
-[MITM]
+[hostname]
 api.weibo.com
