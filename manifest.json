@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-09-29T15:30:24.591478+00:00",
+  "generatedAt": "2026-09-29T15:35:43.236632+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -72,8 +72,8 @@
       "version": null,
       "author": "OliviaR13",
       "category": "工具",
-      "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png",
-      "description": "修改发博请求里的设备型号（默认 iPhone 18 Pro Max），日志可在 Loon 里查看"
+      "icon": null,
+      "description": "修改发博请求里的设备型号，默认 iPhone 18 Pro Max"
     },
     {
       "id": "weibo_ip",
