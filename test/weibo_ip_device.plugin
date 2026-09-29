@@ -14,8 +14,8 @@ DEBUG = switch,true,tag=输出日志,desc=开启后在 Loon 日志里显示脚�
 DOMAIN, api.weibo.cn,PROXY
 
 [Script]
-http-request ^https?:\/\/api\.weibo\.cn\/2\/device\/ script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/test/weibo_device.js, requires-body=true, timeout=10, tag=微博机型伪装-来源列表, argument=[{MODEL},{DEBUG}]
-http-request ^https?:\/\/api\.weibo\.cn\/2\/statuses\/(send|update|repost) script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/test/weibo_device.js, requires-body=true, timeout=10, tag=微博机型伪装-发博, argument=[{MODEL},{DEBUG}]
+http-request ^https?:\/\/api\.weibo\.cn\/2\/device\/ script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/test/weibo%20device.js, requires-body=true, timeout=10, tag=微博机型伪装-来源列表, argument=[{MODEL},{DEBUG}]
+http-request ^https?:\/\/api\.weibo\.cn\/2\/statuses\/(send|update|repost) script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/test/weibo%20device.js, requires-body=true, timeout=10, tag=微博机型伪装-发博, argument=[{MODEL},{DEBUG}]
 
 [MITM]
 hostname = api.weibo.cn
