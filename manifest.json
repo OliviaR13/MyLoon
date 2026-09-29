@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-09-29T20:13:02.494369+00:00",
+  "generatedAt": "2026-09-29T20:23:47.064043+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -67,13 +67,13 @@
     },
     {
       "id": "weibo",
-      "name": "微博纯 IP 属地分流",
+      "name": "微博增强｜属地分流 · 机型伪装",
       "file": "plugin/weibo.plugin",
       "version": "2.3.1",
       "author": "@OliviaR13",
       "category": "其他",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png",
-      "description": "仅代理 api.weibo.cn(实测确认的归属地判定域名)，并可在插件设置里选择伪装的机型。"
+      "description": "① 属地分流：仅让IP属地判定域名走代理，其余流量不受影响。② 机型伪装：改写来源列表与发博请求里的设备标识，插件设置里下拉即可切换 iPhone 11 至 iPhone 18 Pro Max、iPhone 17e、iPhone Air、iPhone Duo 共 33 款机型。换机型后请到微博「微博来源」里重新选择一次。"
     }
   ]
 }
