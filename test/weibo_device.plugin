@@ -1,0 +1,14 @@
+#!name=微博机型伪装(test)
+#!desc=修改微博来源列表和发博请求里的ua机型标识，默认 iPhone 18 Pro Max
+#!author=OliviaR13
+#!homepage=https://github.com/OliviaR13/MyLoon
+#!category=工具
+#!system=iOS
+#!arguments=MODEL:iPhone19.7,NAME:iPhone 18 Pro Max,DEBUG:true
+#!arguments-desc=MODEL：设备标识，逗号写成点号（iPhone19.7 表示 iPhone19,7）\nNAME：暂未使用，保留\nDEBUG：true 时在日志输出修改结果
+
+[Script]
+http-request ^https?:\/\/api\.weibo\.cn\/2\/(device\/|statuses\/send|statuses\/update|statuses\/repost) script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/test/weibo_device.js, requires-body=true, timeout=10, tag=微博机型伪装(test), argument=[{MODEL},{NAME},{DEBUG}]
+
+[MITM]
+hostname = api.weibo.cn
