@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-09-29T19:07:44.978359+00:00",
+  "generatedAt": "2026-09-29T19:16:52.150077+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -84,6 +84,16 @@
       "category": "IP 属地",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png",
       "description": "仅代理 api.weibo.cn(实测确认的归属地判定域名)。"
+    },
+    {
+      "id": "weibo_phone",
+      "name": "微博机型伪装-来源列表",
+      "file": "plugin/weibo_phone.plugin",
+      "version": null,
+      "author": "OliviaR13",
+      "category": "其他",
+      "icon": null,
+      "description": "让微博来源列表按 iPhone 18 Pro Max 生成"
     }
   ]
 }
