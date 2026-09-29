@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-09-29T19:35:17.211338+00:00",
+  "generatedAt": "2026-09-29T20:13:02.494369+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -69,31 +69,11 @@
       "id": "weibo",
       "name": "微博纯 IP 属地分流",
       "file": "plugin/weibo.plugin",
-      "version": "2.2.0",
+      "version": "2.3.1",
       "author": "@OliviaR13",
       "category": "其他",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png",
-      "description": "仅代理 api.weibo.cn(实测确认的归属地判定域名)，并修改来源列表和发博请求里的机型标识（默认 iPhone 18 Pro Max）。"
-    },
-    {
-      "id": "weibo_device",
-      "name": "微博机型伪装",
-      "file": "plugin/weibo_device.plugin",
-      "version": null,
-      "author": "OliviaR13",
-      "category": "其他",
-      "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png",
-      "description": "修改发博请求里的设备型号（默认 iPhone 18 Pro Max），日志可在 Loon 里查看"
-    },
-    {
-      "id": "weibo_phone",
-      "name": "微博机型伪装-来源列表",
-      "file": "plugin/weibo_phone.plugin",
-      "version": null,
-      "author": "OliviaR13",
-      "category": "其他",
-      "icon": null,
-      "description": "让微博来源列表按 iPhone 18 Pro Max 生成"
+      "description": "仅代理 api.weibo.cn(实测确认的归属地判定域名)，并可在插件设置里选择伪装的机型。"
     }
   ]
 }
