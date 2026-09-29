@@ -1,14 +1,12 @@
-#!name=微博机型伪装(test)
-#!desc=修改微博来源列表和发博请求里的ua机型标识，默认 iPhone 18 Pro Max
+#!name=微博机型伪装
+#!desc=修改微博来源列表和发博请求里的设备型号（默认 iPhone 18 Pro Max），日志可在 Loon 里查看
 #!author=OliviaR13
 #!homepage=https://github.com/OliviaR13/MyLoon
-#!category=工具
-#!system=iOS
-#!arguments=MODEL:iPhone19.7,NAME:iPhone 18 Pro Max,DEBUG:true
-#!arguments-desc=MODEL：设备标识，逗号写成点号（iPhone19.7 表示 iPhone19,7）\nNAME：暂未使用，保留\nDEBUG：true 时在日志输出修改结果
+#!icon=https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png
 
 [Script]
-http-request ^https?:\/\/api\.weibo\.cn\/2\/(device\/|statuses\/send|statuses\/update|statuses\/repost) script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/test/weibo_device.js, requires-body=true, timeout=10, tag=微博机型伪装(test), argument=[{MODEL},{NAME},{DEBUG}]
+http-request ^https?:\/\/api\.weibo\.cn\/2\/device\/ script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/test/weibo_device.js, requires-body=true, timeout=10, tag=微博机型伪装-来源列表
+http-request ^https?:\/\/api\.weibo\.cn\/2\/statuses\/(send|update|repost) script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/test/weibo_device.js, requires-body=true, timeout=10, tag=微博机型伪装-发博
 
 [MITM]
 hostname = api.weibo.cn
