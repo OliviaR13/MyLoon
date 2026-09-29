@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-09-28T12:45:26.140895+00:00",
+  "generatedAt": "2026-09-29T15:30:24.591478+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -64,6 +64,16 @@
       "category": "其他",
       "icon": "https://raw.githubusercontent.com/luestr/IconResource/main/App_icon/120px/RedPaper.png",
       "description": "只代理小红书 App 中真正承载 IP 属地/风控判定信号的接口，其余 Feed 流、图片、头像、视频 CDN 等媒体流量一律直连，不占用代理流量。基于实际抓包（609 条请求记录）整理，rec.xiaohongshu.com 的 homefeed/localfeed 接口带明文 geo= 经纬度参数，as.xiaohongshu.com 命中 dvf/gch 设备指纹注册接口，t2/lng/spider-tracker/apm-native 均为 /api/collect、/api/spider 打点上报接口，均确认为风控/属地信号载体。"
+    },
+    {
+      "id": "weibo_device",
+      "name": "微博机型伪装",
+      "file": "plugin/weibo_device.plugin",
+      "version": null,
+      "author": "OliviaR13",
+      "category": "工具",
+      "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png",
+      "description": "修改发博请求里的设备型号（默认 iPhone 18 Pro Max），日志可在 Loon 里查看"
     },
     {
       "id": "weibo_ip",
