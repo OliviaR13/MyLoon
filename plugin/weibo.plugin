@@ -1,5 +1,5 @@
-#!name = 微博纯 IP 属地分流
-#!desc = 仅代理 api.weibo.cn(实测确认的归属地判定域名)，并可在插件设置里选择伪装的机型。
+#!name = 微博增强｜属地分流 · 机型伪装
+#!desc = ① 属地分流：仅让IP属地判定域名走代理，其余流量不受影响。② 机型伪装：改写来源列表与发博请求里的设备标识，插件设置里下拉即可切换 iPhone 11 至 iPhone 18 Pro Max、iPhone 17e、iPhone Air、iPhone Duo 共 33 款机型。换机型后请到微博「微博来源」里重新选择一次。
 #!author = @OliviaR13
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png
