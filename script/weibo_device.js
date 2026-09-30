@@ -3,10 +3,9 @@
 // MODEL 参数可以是下拉框里的机型名，也可以直接写标识（iPhone19,7 或 iPhone19.7）
 
 const MODELS = {
-  "iPhone 18 Pro Max": "iPhone19,7",      // 国际版（国行同属此标识）
-  "iPhone 18 Pro Max 美版": "iPhone19,3",
+  "iPhone 18 Pro Max": "iPhone19,7",
   "iPhone 18 Pro": "iPhone19,2",
-  "iPhone Duo": "iPhone19,4",           // 折叠屏，10 月 23 日发售
+  "iPhone Duo": "iPhone19,4",
   "iPhone 17 Pro Max": "iPhone18,2",
   "iPhone 17 Pro": "iPhone18,1",
   "iPhone 17": "iPhone18,3",
@@ -47,6 +46,7 @@ function resolveModel(v) {
 }
 
 const arg = (typeof $argument === "object" && $argument) || {};
+const enabled = String(arg.ENABLE) !== "false"; // 开关关闭时原样放行，参数缺失时默认开启
 const model = resolveModel(arg.MODEL);
 const debug = String(arg.DEBUG) !== "false";
 
@@ -54,7 +54,9 @@ const url = $request.url;
 const path = url.split("?")[0];
 let result = {};
 
-if (/\/2\/(device\/|statuses\/(send|update|repost))/.test(path)) {
+if (!enabled) {
+  if (debug) console.log("[weibo_device] 机型伪装已关闭，请求原样放行");
+} else if (/\/2\/(device\/|statuses\/(send|update|repost))/.test(path)) {
   // URL 里的 ua 参数，保留后面的 __weibo__版本__iphone__系统
   const newUrl = url.replace(/([?&]ua=)iPhone\d+(?:,|%2C)\d+/i, "$1" + model);
 
