@@ -1,6 +1,5 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/Loon0x00/Loon0x00.github.io/main/static/img/loon.png" alt="Loon" width="96" height="96">
 
 # MyLoon
 
