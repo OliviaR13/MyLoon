@@ -72,8 +72,6 @@
 *::after { box-sizing: border-box; }
 
 /* ---------- Browser surfaces ---------- */
-/* These parts are not drawn by any component, but they are what the
-   user touches. Unthemed they advertise an assembled page. */
 ::selection {
   background: var(--accent-soft);
   color: var(--text);
@@ -94,11 +92,6 @@
 }
 input:focus-visible { outline-offset: 0; border-radius: var(--r-control); }
 
-/* ---------- No sideways panning ---------- */
-/* This page is one column, so horizontal movement is always a defect, never
-   a feature. clip is preferred over hidden: hidden would turn <html> into a
-   scroll container and change how nested scrollers behave. The hidden line
-   stays as the fallback for Safari before 16, which has no clip. */
 html { background: var(--bg); overflow-x: hidden; }
 @supports (overflow-x: clip) {
   html, body { overflow-x: clip; }
@@ -135,10 +128,6 @@ button { -webkit-tap-highlight-color: transparent; }
   text-decoration: none; z-index: 20;
   transition: top var(--dur) var(--ease);
 }
-/* No shadow while parked above the viewport: a shadow is not clipped by the
-   viewport edge the way the element is, so it bleeds ~30px into the page and
-   reads as a mystery gradient under the status bar. It only belongs to the
-   visible state. */
 .skip-link:focus { top: 12px; box-shadow: var(--shadow-pop); }
 
 .shell {
@@ -247,10 +236,6 @@ h1 {
 .search input {
   flex: 1; min-width: 0;
   border: 0; outline: 0; background: none;
-  /* 16px, not smaller. iOS Safari zooms the whole page whenever an input's
-     font-size is under 16px, and a zoomed page is wider than the viewport,
-     which is what let this page pan sideways while searching. Do not lower
-     this value: it looks like a type size and behaves like a layout bug. */
   font-size: 1rem;
 }
 .search input::placeholder { color: var(--text-3); }
@@ -264,9 +249,6 @@ kbd {
   padding: 2px 6px;
   white-space: nowrap;
 }
-/* The strip keeps its own scroll so every category stays reachable, but
-   overscroll is contained: a sideways swipe here must not chain out and drag
-   the page with it. */
 .filters {
   display: flex; gap: 7px;
   overflow-x: auto;
@@ -294,6 +276,14 @@ kbd {
   border-color: var(--accent);
   color: var(--accent);
   font-weight: 600;
+}
+
+/* ---------- Cloudflare Turnstile Wrapper ---------- */
+.turnstile-wrapper {
+  display: flex;
+  justify-content: center;
+  margin: 12px 0 16px;
+  min-height: 65px;
 }
 
 /* ---------- Meta row ---------- */
@@ -335,9 +325,6 @@ kbd {
   line-height: 1.3;
   letter-spacing: -0.015em;
   font-weight: 600;
-  /* A plugin name can be one long unbreakable token. anywhere (not
-     break-word) is what lets min-content collapse, so a long name can never
-     widen the row, and the page with it. */
   overflow-wrap: anywhere;
 }
 .chip {
@@ -375,9 +362,6 @@ kbd {
 }
 .plugin-install { align-self: center; }
 
-/* collapsed to two lines, revealed on demand: the rules notes are long
-   and they are the reason someone picks a plugin, but a wall of text
-   destroys scanning */
 .plugin-desc[data-clamped="true"] {
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -398,8 +382,6 @@ kbd {
   color: var(--text-2);
   font-size: 0.875rem;
 }
-/* min-width: 0 because this is a flex item next to the icon: without it the
-   item refuses to shrink under its longest word and pushes the page wide. */
 .notice > div { min-width: 0; }
 .notice h2 {
   margin: 0 0 3px;
