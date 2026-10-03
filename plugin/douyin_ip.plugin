@@ -1,6 +1,6 @@
-#!name = 抖音纯 IP 属地分流
-#!desc = 只代理抖音 App 中真正承载 IP 属地/风控判定信号的接口，其余 Feed 流、图片、直播与点播视频等媒体 CDN 一律直连，不占用代理流量，也不影响加载速度与账号安全。1.9.4 删除了误伤大片正常流量的 DOMAIN-SUFFIX,snssdk.com,PROXY，风控/属地上报接口已由同段 DOMAIN-KEYWORD 规则覆盖，不受影响。1.9.5 抓包实测抖音直播拉流（pull-x3-f5.douyincdn.com）命中的是 douyincdn.com 而非 douyinvod.com，此前插件未覆盖该域名，此次补上，之前能直连是靠主配置 GEOIP,cn,DIRECT 兜底、非插件自身规则命中，现改为插件显式覆盖。规则范围严格限定于抖音核心域名，不含任何海外服务规则，不影响其他境外 App。⚠️ 请将本插件放在 GEOIP,cn,DIRECT 等国内直连规则之前，并确认它排在其他同类参考规则集之前加载，避免被后者未做直连例外的同名规则抢先命中。原插件同时包含微博部分，1.9.6 起已拆分为独立插件（微博纯IP属地分流.plugin），可按需分别启用/禁用，不再依赖插件内部的开关参数。
-
+#!name = 抖音 自选节点
+#!desc = 仅代理抖音 App 中承载 IP 属地/风控判定信号的接口，Feed、图片、直播与点播视频等媒体 CDN 直连，不占用代理流量。规则仅涉及抖音相关域名，不影响其他 App。安装后请在插件详情页的「代理指向的策略」中选择用于代理的策略组或节点，未选择时默认使用全局策略的第一个节点。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前，否则规则可能被提前匹配而失效。同时请确认本插件排在其他同类规则集之前加载，避免被未设置直连例外的同名规则先行匹配。
+#!tag = IP 属地
 #!author = @OliviaR13
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/TikTok_1.png
