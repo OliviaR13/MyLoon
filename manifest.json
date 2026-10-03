@@ -3,17 +3,17 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-10-03T16:06:26.027195+00:00",
+  "generatedAt": "2026-10-03T16:24:26.249210+00:00",
   "plugins": [
     {
       "id": "Gemini",
-      "name": "Gemini 指定节点",
+      "name": "Gemini 自选节点",
       "file": "plugin/Gemini.plugin",
       "version": "1.0.0",
       "author": "OliviaR13",
       "category": "代理分流",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Google.png",
-      "description": "精准分流 Google Gemini（含网页版、App、API、AI Studio）相关域名，走 PROXY 策略。安装插件后请在插件详情页的\"代理指向的策略\"中手动选择用于代理的策略组或节点，不选则默认走全局策略第一个节点。⚠️ 请将本插件在配置文件中的引用位置放在 GEOIP,CN,DIRECT 等国内直连规则之前，避免被提前拦截。"
+      "description": "将 Google Gemini（网页版、App、API、AI Studio）相关域名统一走 PROXY 策略。安装后请在插件详情页的「代理指向的策略」中选择用于代理的策略组或节点，未选择时默认使用全局策略的第一个节点。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前，否则规则可能被提前匹配而失效。"
     },
     {
       "id": "Spotify",
@@ -23,27 +23,27 @@
       "author": "OliviaR13",
       "category": "代理分流",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Spotify.png",
-      "description": "精准分流 Spotify 相关域名（含音频/图片/CDN/短链），全部走 PROXY 策略。安装后请在插件详情页的\"代理指向的策略\"中手动选择实际使用的策略组或节点，未选择时默认走全局策略组的第一个节点。⚠️ 请将本插件在配置文件中的引用位置放在 GEOIP,CN,DIRECT 等国内直连规则之前，避免被提前拦截为直连。"
+      "description": "将 Spotify 相关域名（官方站点与 API、音频/图片 CDN、短链）统一走 PROXY 策略。安装后请在插件详情页的「代理指向的策略」中选择用于代理的策略组或节点，未选择时默认使用全局策略的第一个节点。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前，否则规则可能被提前匹配而失效。"
     },
     {
       "id": "Twitter",
-      "name": "推特 指定节点",
+      "name": "推特 自选节点",
       "file": "plugin/Twitter.plugin",
       "version": "1.0.0",
       "author": "OliviaR13",
       "category": "其他",
       "icon": "https://www.google.com/s2/favicons?sz=128&domain=x.com",
-      "description": "精准分流 Twitter/X（含网页版、App、图片视频 CDN、短链服务）相关域名，走 PROXY 策略。安装插件后请在插件详情页的\"代理指向的策略\"中手动选择用于代理的策略组或节点，不选则默认走全局策略第一个节点。⚠️ 请将本插件在配置文件中的引用位置放在 GEOIP,CN,DIRECT 等国内直连规则之前，避免被提前拦截。"
+      "description": "将 Twitter/X（网页版、App、图片视频 CDN、短链服务）相关域名统一走 PROXY 策略。安装后请在插件详情页的「代理指向的策略」中选择用于代理的策略组或节点，未选择时默认使用全局策略的第一个节点。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前，否则规则可能被提前匹配而失效。"
     },
     {
       "id": "douyin_ip",
-      "name": "抖音纯 IP 属地分流",
+      "name": "抖音 自选节点",
       "file": "plugin/douyin_ip.plugin",
       "version": "1.9.6",
       "author": "@OliviaR13",
       "category": "IP 属地",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/TikTok_1.png",
-      "description": "只代理抖音 App 中真正承载 IP 属地/风控判定信号的接口，其余 Feed 流、图片、直播与点播视频等媒体 CDN 一律直连，不占用代理流量，也不影响加载速度与账号安全。1.9.4 删除了误伤大片正常流量的 DOMAIN-SUFFIX,snssdk.com,PROXY，风控/属地上报接口已由同段 DOMAIN-KEYWORD 规则覆盖，不受影响。1.9.5 抓包实测抖音直播拉流（pull-x3-f5.douyincdn.com）命中的是 douyincdn.com 而非 douyinvod.com，此前插件未覆盖该域名，此次补上，之前能直连是靠主配置 GEOIP,cn,DIRECT 兜底、非插件自身规则命中，现改为插件显式覆盖。规则范围严格限定于抖音核心域名，不含任何海外服务规则，不影响其他境外 App。⚠️ 请将本插件放在 GEOIP,cn,DIRECT 等国内直连规则之前，并确认它排在其他同类参考规则集之前加载，避免被后者未做直连例外的同名规则抢先命中。原插件同时包含微博部分，1.9.6 起已拆分为独立插件（微博纯IP属地分流.plugin），可按需分别启用/禁用，不再依赖插件内部的开关参数。"
+      "description": "仅代理抖音 App 中承载 IP 属地/风控判定信号的接口，Feed、图片、直播与点播视频等媒体 CDN 直连，不占用代理流量。规则仅涉及抖音相关域名，不影响其他 App。安装后请在插件详情页的「代理指向的策略」中选择用于代理的策略组或节点，未选择时默认使用全局策略的第一个节点。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前，否则规则可能被提前匹配而失效。同时请确认本插件排在其他同类规则集之前加载，避免被未设置直连例外的同名规则先行匹配。"
     },
     {
       "id": "outlook",
@@ -53,17 +53,17 @@
       "author": "OliviaR13",
       "category": "登录修复",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Microsoft.png",
-      "description": "跳过 Microsoft/Outlook 认证域名的 MITM 解密，并直连，修复频繁弹出登录窗口的问题"
+      "description": "对 Microsoft / Outlook 认证相关域名直连，并跳过 MITM 解密，用于处理登录窗口反复弹出的问题。"
     },
     {
       "id": "rednotebook_ip",
-      "name": "小红书纯 IP 属地分流",
+      "name": "小红书 自选节点",
       "file": "plugin/rednotebook_ip.plugin",
       "version": "1.0.0",
       "author": "@OliviaR13",
       "category": "其他",
       "icon": "https://raw.githubusercontent.com/luestr/IconResource/main/App_icon/120px/RedPaper.png",
-      "description": "只代理小红书 App 中真正承载 IP 属地/风控判定信号的接口，其余 Feed 流、图片、头像、视频 CDN 等媒体流量一律直连，不占用代理流量。基于实际抓包（609 条请求记录）整理，rec.xiaohongshu.com 的 homefeed/localfeed 接口带明文 geo= 经纬度参数，as.xiaohongshu.com 命中 dvf/gch 设备指纹注册接口，t2/lng/spider-tracker/apm-native 均为 /api/collect、/api/spider 打点上报接口，均确认为风控/属地信号载体。"
+      "description": "仅代理小红书 App 中承载 IP 属地/风控判定信号的接口（含经纬度参数的推荐接口、设备指纹注册接口、打点上报接口），Feed、图片、头像、视频等媒体 CDN 直连，不占用代理流量。安装后请在插件详情页的「代理指向的策略」中选择用于代理的策略组或节点，未选择时默认使用全局策略的第一个节点。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前，否则规则可能被提前匹配而失效。"
     },
     {
       "id": "weibo",
