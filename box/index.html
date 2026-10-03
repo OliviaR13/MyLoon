@@ -11,15 +11,12 @@
   <meta name="description" content="MyLoon Box：浏览、搜索 OliviaR13 整理的 Loon 插件，并一键安装到 Loon。">
   <title>MyLoon Box</title>
   <link rel="stylesheet" href="./style.css">
+  <!-- Cloudflare Turnstile API -->
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <body>
 
-  <!--
-    Icon set: authored inline SVG, one family, stroke-width 1.6, 24px grid.
-    No icon library: this page ships dependency-free and has no build step, so a
-    runtime-unavailable package would break rendering offline. Authored SVG keeps
-    the stroke weight consistent, which is what the consistency rule actually asks for.
-  -->
+  <!-- Icon set -->
   <svg class="sprite" aria-hidden="true" focusable="false">
     <symbol id="i-search" viewBox="0 0 24 24">
       <circle cx="11" cy="11" r="6.5"/><path d="M16.2 16.2 20.5 20.5"/>
@@ -59,7 +56,7 @@
           <svg class="ico" aria-hidden="true"><use href="#i-external"/></svg>
           <span>源码仓库</span>
         </a>
-        <button class="btn btn-ghost btn-icon" id="refreshBtn" type="button">
+        <button class="btn btn-ghost btn-icon" id="refreshBtn" type="button" disabled>
           <svg class="ico" aria-hidden="true"><use href="#i-refresh"/></svg>
           <span class="sr-only">刷新清单</span>
         </button>
@@ -69,19 +66,27 @@
     <section class="toolbar" aria-label="搜索与筛选">
       <div class="search">
         <svg class="ico search-ico" aria-hidden="true"><use href="#i-search"/></svg>
-        <input id="searchInput" type="search" autocomplete="off" aria-label="搜索插件名称"
-               placeholder="搜索插件名称">
+        <input id="searchInput" type="search" autocomplete="off" aria-label="搜索插件名称" placeholder="搜索插件名称">
         <kbd id="kbdHint">Ctrl K</kbd>
       </div>
       <div class="filters" id="filters" role="group" aria-label="按分类筛选"></div>
     </section>
 
+    <!-- Cloudflare Turnstile 验证容器 -->
+    <div class="turnstile-wrapper">
+      <div class="cf-turnstile" 
+           data-sitekey="0x4AAAAAAFM6TQJfkewCeO_g" 
+           data-callback="onTurnstileSuccess"
+           data-error-callback="onTurnstileError">
+      </div>
+    </div>
+
     <p class="meta" id="metaRow">
-      <span id="countText">正在加载清单</span>
+      <span id="countText">请完成人机验证以解锁插件列表</span>
       <span id="updatedText"></span>
     </p>
 
-    <section id="results" class="results" aria-live="polite" aria-busy="true"></section>
+    <section id="results" class="results" aria-live="polite" aria-busy="false"></section>
 
     <noscript>
       <p class="notice notice-alert">
