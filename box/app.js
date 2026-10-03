@@ -10,7 +10,7 @@ const RAW_BASE = "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/";
 
 const ALL = "全部";
 
-const state = { plugins: [], category: ALL, query: "" };
+const state = { plugins: [], category: ALL, query: "", verified: false };
 
 const els = {
   results: document.getElementById("results"),
@@ -21,6 +21,20 @@ const els = {
   refresh: document.getElementById("refreshBtn"),
   rowTpl: document.getElementById("rowTpl"),
   toast: document.getElementById("toast"),
+};
+
+/* ---------- Turnstile 回调 ---------- */
+
+window.onTurnstileSuccess = function (token) {
+  state.verified = true;
+  toast("人机验证通过，开始加载插件清单");
+  loadManifest();
+};
+
+window.onTurnstileError = function () {
+  state.verified = false;
+  els.count.textContent = "人机验证未通过或加载失败";
+  toast("Turnstile 验证错误，请刷新页面重试");
 };
 
 /* ---------- helpers ---------- */
@@ -41,25 +55,17 @@ function pluginSourceURL(plugin) {
   return RAW_BASE + String(plugin.file || "").replace(/^\/+/, "");
 }
 
-/**
- * 构建正确的 Loon 插件安装链接
- * @param {string} pluginUrl 原始插件地址
- * @returns {string} 适用于 Loon 的唤起链接
- */
 function fixLoonInstallUrl(pluginUrl) {
   if (!pluginUrl) return "";
 
   let url = pluginUrl.trim();
 
-  // GitHub 的 blob 页面返回的是带语法高亮的 HTML 外壳，Loon 拿不到插件原文，
-  // 必须先换成 raw 源文件链接。
   if (url.includes("github.com") && url.includes("/blob/")) {
     url = url
       .replace("github.com", "raw.githubusercontent.com")
       .replace("/blob/", "/");
   }
 
-  // 参数名固定为 plugin，取值整体编码，避免 ? & # 截断或污染外层 scheme。
   return `loon://import?plugin=${encodeURIComponent(url)}`;
 }
 
@@ -261,6 +267,11 @@ function resetFilters() {
 /* ---------- data ---------- */
 
 async function loadManifest(announce = false) {
+  if (!state.verified) {
+    toast("请先完成人机验证");
+    return;
+  }
+
   els.results.setAttribute("aria-busy", "true");
   els.refresh.disabled = true;
   renderSkeleton();
@@ -316,7 +327,7 @@ els.search.addEventListener("input", (event) => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => {
     state.query = value;
-    render();
+    if (state.verified) render();
   }, 120);
 });
 
@@ -324,7 +335,7 @@ els.search.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && event.target.value) {
     event.target.value = "";
     state.query = "";
-    render();
+    if (state.verified) render();
   }
 });
 
@@ -342,5 +353,3 @@ const kbd = document.getElementById("kbdHint");
 if (kbd && /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent)) {
   kbd.textContent = "⌘ K";
 }
-
-loadManifest();
