@@ -1,5 +1,5 @@
 // 微博机型伪装：把请求里的 ua 机型标识换成所选机型
-// 覆盖：来源列表（/2/device/*）和发博（/2/statuses/send|update|repost）
+// 覆盖：来源列表（/2/device/*）、发博（/2/statuses/send|update|repost）、评论/回复含「同时转发」（/2/comments/create|reply）
 // MODEL 参数可以是下拉框里的机型名，也可以直接写标识（iPhone19,7 或 iPhone19.7）
 
 const MODELS = {
@@ -56,7 +56,7 @@ let result = {};
 
 if (!enabled) {
   if (debug) console.log("[weibo_device] 机型伪装已关闭，请求原样放行");
-} else if (/\/2\/(device\/|statuses\/(send|update|repost))/.test(path)) {
+} else if (/\/2\/(device\/|statuses\/(send|update|repost)|comments\/(create|reply))/.test(path)) {
   // URL 里的 ua 参数，保留后面的 __weibo__版本__iphone__系统
   const newUrl = url.replace(/([?&]ua=)iPhone\d+(?:,|%2C)\d+/i, "$1" + model);
 
