@@ -1,6 +1,8 @@
 <div align="center">
 
-# 🐦 MyLoon
+<img src="https://raw.githubusercontent.com/Loon0x00/Loon0x00.github.io/main/static/img/loon.png" alt="Loon" width="96" height="96">
+
+# MyLoon
 
 **一份 [Loon](https://www.nsloon.com/) 插件合集，外加一个能一键安装的网页插件盒子。**
 
@@ -45,10 +47,10 @@ App 发出请求
 | 分类 | 内容 |
 |---|---|
 | 🔀 代理分流 | 指定 App 或服务的相关域名统一走 `PROXY` |
-| 📍 IP 属地 | 仅代理属地 / 风控相关接口，Feed、图片、视频等媒体 CDN 直连 |
+| 📍 IP 属地 | 仅指定接口走代理，Feed、图片、视频等媒体 CDN 直连 |
 | 🔑 登录修复 | 认证域名直连并跳过 MITM |
 
-`#!tag` 可写多个标签，以英文逗号分隔，如 `#!tag = IP 属地,功能增强`。
+`#!tag` 可写多个标签，以英文逗号分隔，如 `#!tag = 代理分流,功能增强`。
 
 当前包含哪些插件，以 `plugin/` 目录和插件盒子为准。
 
@@ -63,9 +65,6 @@ App 发出请求
 
 **为什么叫「自选节点」？**
 插件里只写了哪些域名走代理，具体走哪个节点由你在插件详情页自己选。
-
-**选了机型之后微博里没变化？**
-切换机型后，需要到微博「微博来源」中重新选择一次。
 
 **插件装了但好像没生效？**
 先检查插件是否排在 `GEOIP,CN,DIRECT` 等国内直连规则之前。
@@ -109,7 +108,7 @@ App 发出请求
 ## 🙏 参考
 
 - [Loon 插件文档](https://nsloon.app/docs/Plugin/)
-- [SunsetMkt/anti-ip-attribution](https://github.com/SunsetMkt/anti-ip-attribution)：IP 属地分流思路
+- [SunsetMkt/anti-ip-attribution](https://github.com/SunsetMkt/anti-ip-attribution)
 - [Koolson/Qure](https://github.com/Koolson/Qure)：插件图标
 
 ## 📄 许可
