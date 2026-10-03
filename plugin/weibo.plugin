@@ -1,10 +1,10 @@
 #!name = 微博增强｜属地分流 · 机型伪装
-#!desc = ① 属地分流：仅让 api.weibo.cn(实测确认的 IP 属地判定域名)走代理，其余流量不受影响。② 机型伪装：改写来源列表与发博请求里的设备标识，插件设置里下拉即可切换 iPhone 11 至 iPhone 18 Pro Max、iPhone 17e、iPhone Air、iPhone Duo 共 32 款机型。换机型后请到微博「微博来源」里重新选择一次。机型伪装可用开关随时关闭。
+#!desc = ① 属地分流：仅让 api.weibo.cn(实测确认的 IP 属地判定域名)走代理，其余流量不受影响。② 机型伪装：改写来源列表、发博、评论同时转发请求里的设备标识，插件设置里下拉即可切换 iPhone 11 至 iPhone 18 Pro Max、iPhone 17e、iPhone Air、iPhone Duo 共 32 款机型。换机型后请到微博「微博来源」里重新选择一次。机型伪装可用开关随时关闭。
 #!author = @OliviaR13
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png
-#!date = 2026-09-30
-#!version = 2.4.0
+#!date = 2026-10-03
+#!version = 2.4.1
 
 [Argument]
 ENABLE = switch,true,tag=机型伪装,desc=关闭后脚本不再改写机型 关闭后需在微博的微博来源里重新选回真实机型
@@ -17,6 +17,7 @@ DOMAIN, api.weibo.cn,PROXY
 [Script]
 http-request ^https?:\/\/api\.weibo\.cn\/2\/device\/ script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_device.js, requires-body=true, timeout=10, tag=微博机型伪装-来源列表, argument=[{ENABLE},{MODEL},{DEBUG}]
 http-request ^https?:\/\/api\.weibo\.cn\/2\/statuses\/(send|update|repost) script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_device.js, requires-body=true, timeout=10, tag=微博机型伪装-发博, argument=[{ENABLE},{MODEL},{DEBUG}]
+http-request ^https?:\/\/api\.weibo\.cn\/2\/comments\/(create|reply) script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_device.js, requires-body=true, timeout=10, tag=微博机型伪装-评论转发, argument=[{ENABLE},{MODEL},{DEBUG}]
 
 [MITM]
 hostname = api.weibo.cn
