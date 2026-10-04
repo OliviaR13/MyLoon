@@ -8,6 +8,7 @@ import manifest from "../../manifest.json";
 const SITEVERIFY = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 const ACTION = "load_manifest"; // 需与 app.js 中 CONFIG.turnstile.action 一致
 
+const forbidden = (reason) => json({ error: "forbidden", reason }, 403);
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -20,7 +21,7 @@ export async function onRequestPost({ request, env }) {
 
   let token;
   try { ({ token } = await request.json()); } catch {}
-  if (typeof token !== "string" || !token || token.length > 2048) return json({ error: "forbidden" }, 403);
+  if (typeof token !== "string" || !token || token.length > 2048) return forbidden("no_token");
 
   const body = new URLSearchParams({ secret: env.TURNSTILE_SECRET, response: token });
   const ip = request.headers.get("CF-Connecting-IP");
@@ -32,11 +33,12 @@ export async function onRequestPost({ request, env }) {
     if (!res.ok) throw new Error("siteverify " + res.status);
     result = await res.json();
   } catch {
-    return json({ error: "forbidden" }, 403);
+    return forbidden("siteverify_unreachable");
   }
 
-  if (!result.success || result.action !== ACTION || !hostnames.has(result.hostname)) {
-    return json({ error: "forbidden" }, 403);
-  }
+  // reason 只包含错误码、action 和访问域名，便于排查，不含密钥
+  if (!result.success) return forbidden("siteverify_failed:" + (result["error-codes"] || []).join(","));
+  if (result.action !== ACTION) return forbidden("action_mismatch:" + result.action);
+  if (!hostnames.has(result.hostname)) return forbidden("hostname_mismatch:" + result.hostname);
   return json(manifest);
 }
