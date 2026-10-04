@@ -1,0 +1,15 @@
+#!name = Blued 直连
+#!desc = Blued 相关域名（接口、图片、个推推送）统一直连，使各请求的出口 IP 保持一致。用于排查登录失效和收不到推送的问题。
+#!tag = 登录修复
+#!author = @OliviaR13
+#!homepage = https://www.github.com/OliviaR13
+#!date = 2026-10-04
+#!version = 1.0.0
+
+[Rule]
+DOMAIN-SUFFIX, irisgw.cn, DIRECT
+DOMAIN-SUFFIX, blued.cn, DIRECT
+DOMAIN-SUFFIX, blued.com, DIRECT
+DOMAIN-SUFFIX, bldimg.cn, DIRECT
+DOMAIN-SUFFIX, bldimg.com, DIRECT
+DOMAIN-SUFFIX, gepush.com, DIRECT
