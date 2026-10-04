@@ -272,7 +272,11 @@ async function load(announce = false) {
       init = { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }), cache: "no-store" };
     }
     const res = await fetch(url, init);
-    if (!res.ok) throw new Error(res.status === 403 ? "verify" : "HTTP " + res.status);
+    if (!res.ok) {
+      let reason = "";
+      try { reason = (await res.json()).reason || ""; } catch {}
+      throw new Error(res.status === 403 ? "verify:" + reason : "HTTP " + res.status);
+    }
     const data = await res.json();
     state.plugins = (data.plugins || []).map(normalize);
     state.category = CONFIG.all;
@@ -285,13 +289,13 @@ async function load(announce = false) {
   } catch (err) {
     console.error(err);
     const msg = String(err.message);
-    const verify = msg === "verify" || msg === "script" || msg.startsWith("turnstile");
+    const verify = msg.startsWith("verify") || msg === "script" || msg.startsWith("turnstile");
     els.count.textContent = verify ? "人机验证未通过" : "清单加载失败";
     els.list.replaceChildren(
       notice(
         verify ? "人机验证未通过" : "暂时拿不到插件清单",
         verify
-          ? "请检查网络后重试。如果当前网络访问不到 Cloudflare，验证组件无法加载。"
+          ? "请检查网络后重试。如果当前网络访问不到 Cloudflare，验证组件无法加载。错误信息：" + msg
           : "可能是网络问题，或清单尚未生成。可以重试，也可以到 GitHub 的 plugin 目录手动获取。",
         "重试",
         () => load(true)
