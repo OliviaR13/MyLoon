@@ -16,7 +16,7 @@ a{color:var(--accent)}
 .head{display:flex;align-items:center;gap:12px;margin-bottom:18px}
 .logo{border-radius:11px;flex:none}
 .head-text{flex:1;min-width:0}
-.head h1{font-size:20px;line-height:1.2}
+.head h1{font-size:19px;line-height:1.2;text-wrap:balance}
 .head p{color:var(--muted);font-size:13px;margin-top:2px}
 
 .btn{font:inherit;font-size:14px;font-weight:600;border:1px solid var(--line);background:var(--card);color:var(--text);
