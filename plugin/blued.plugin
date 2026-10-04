@@ -1,5 +1,6 @@
 #!name = Blued 直连
 #!desc = Blued 相关域名（接口、图片、个推推送）统一直连，使各请求的出口 IP 保持一致。用于排查登录失效和收不到推送的问题。
+#!icon = https://raw.githubusercontent.com/OliviaR13/MyLoon/main/icon/blued.png
 #!tag = 登录修复
 #!author = @OliviaR13
 #!homepage = https://www.github.com/OliviaR13
