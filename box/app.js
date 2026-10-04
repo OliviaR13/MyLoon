@@ -18,10 +18,16 @@ const $ = (sel) => document.querySelector(sel);
 const els = {
   list: $("#results"), count: $("#countText"), updated: $("#updatedText"), filters: $("#filters"),
   search: $("#searchInput"), refresh: $("#refreshBtn"), tpl: $("#rowTpl"), toast: $("#toast"),
-  turnstile: $("#turnstile"),
+  turnstile: $("#turnstile"), sort: $("#sortBox"),
 };
 // 页面里没有 Turnstile 容器时，不做人机验证
-const state = { plugins: [], category: CONFIG.all, query: "" };
+const SORT_KEY = "myloon_box_sort";
+const state = { plugins: [], category: CONFIG.all, query: "", sort: readSort() };
+
+// 排序方式记在浏览器里；存储不可用时使用默认值「时间」
+function readSort() {
+  try { return localStorage.getItem(SORT_KEY) === "name" ? "name" : "date"; } catch { return "date"; }
+}
 
 /* ---------- 工具 ---------- */
 
@@ -99,7 +105,21 @@ function normalize(raw) {
     tags: tags.filter((t) => t && t !== category),
     icon: safeIcon(raw.icon || ""),
     description: String(raw.description || ""),
+    date: raw.date ? String(raw.date).trim() : "",
   };
+}
+
+/* 排序：时间 = 插件头部 #!date 由新到旧（没有日期的排最后）；名称 = 按拼音 / 字母顺序。
+   两种方式在相同时都回退到名称，保证顺序稳定。 */
+const collator = new Intl.Collator("zh-Hans-CN", { numeric: true, sensitivity: "base" });
+// 手动解析日期，不依赖 Date.parse（Safari 对 2026-9-5 这类非补零格式会返回无效）
+const dateValue = (p) => {
+  const m = p.date.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+  return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) : -Infinity;
+};
+function sortPlugins(list) {
+  const byName = (a, b) => collator.compare(a.name, b.name);
+  return [...list].sort(state.sort === "name" ? byName : (a, b) => dateValue(b) - dateValue(a) || byName(a, b));
 }
 
 function matches(p) {
@@ -156,6 +176,7 @@ function buildCard(p) {
   tags.append(el("span", "chip chip-cat", p.category));
   p.tags.forEach((t) => tags.append(el("span", "chip", t)));
   if (p.author) tags.append(el("span", "chip", p.author));
+  if (p.date) tags.append(el("span", "chip", p.date));
 
   const more = card.querySelector(".more");
   more.addEventListener("click", () => {
@@ -185,7 +206,7 @@ function notice(title, body, label, onClick) {
 }
 
 function render({ animate = false } = {}) {
-  const visible = state.plugins.filter(matches);
+  const visible = sortPlugins(state.plugins.filter(matches));
   const total = state.plugins.length;
   els.count.textContent = visible.length === total ? `共 ${total} 个插件` : `${visible.length} / ${total} 个插件`;
 
@@ -248,9 +269,34 @@ function resetFilters() {
   render({ animate: true });
 }
 
-function renderSkeleton() {
-  els.list.replaceChildren(...[0, 1, 2].map(() => el("div", "sk")));
+/* 加载占位：顶部状态行（转圈 / 对勾 + 当前阶段文字）+ 与真实卡片结构一致的骨架卡片 */
+function renderLoading(text) {
+  const status = el("div", "status");
+  status.setAttribute("role", "status");
+  status.append(el("span", "spinner"), el("span", "status-text", text));
+  const cards = [0, 1, 2].map((i) => {
+    const c = el("div", "sk-card");
+    c.style.setProperty("--i", i);
+    const lines = el("div", "sk-lines");
+    lines.append(el("div", "sk-line"), el("div", "sk-line"), el("div", "sk-line"));
+    const chips = el("div", "sk-chips");
+    chips.append(el("span", "sk-chip"), el("span", "sk-chip"));
+    lines.append(chips);
+    c.append(el("div", "sk-icon"), lines, el("div", "sk-btn"));
+    return c;
+  });
+  els.list.classList.remove("enter");
+  els.list.replaceChildren(status, ...cards);
 }
+
+// 更新状态行文字；done = true 时转圈变成对勾
+function setPhase(text, done = false) {
+  const status = els.list.querySelector(".status");
+  if (!status) return;
+  status.dataset.state = done ? "ok" : "wait";
+  status.querySelector(".status-text").textContent = text;
+}
+
 
 /* ---------- Turnstile ----------
    每次加载清单都获取一个新令牌（令牌只能使用一次），交给 /api/manifest 在服务端校验。
@@ -287,8 +333,8 @@ async function getToken() {
       language: "zh-cn",
       appearance: "interaction-only",
       callback: (token) => { removeTurnstile(); resolve(token); },
-      "before-interactive-callback": () => els.turnstile.classList.add("show"),
-      "after-interactive-callback": () => els.turnstile.classList.remove("show"),
+      "before-interactive-callback": () => { els.turnstile.classList.add("show"); setPhase("请先完成上方的验证"); },
+      "after-interactive-callback": () => { els.turnstile.classList.remove("show"); setPhase("正在验证…"); },
       "expired-callback": () => turnstile.reset(tsWidget),
       "timeout-callback": () => turnstile.reset(tsWidget),
       "error-callback": (code) => { removeTurnstile(); reject(new Error("turnstile " + code)); return true; },
@@ -301,16 +347,19 @@ async function getToken() {
 async function load(announce = false) {
   els.list.setAttribute("aria-busy", "true");
   els.refresh.disabled = true;
-  els.count.textContent = CONFIG.turnstile.siteKey ? "正在进行人机验证…" : "正在加载清单";
+  els.count.textContent = "加载中";
   els.updated.textContent = "";
-  renderSkeleton();
+  renderLoading(CONFIG.turnstile.siteKey ? "正在进行人机验证…" : "正在加载清单…");
+  // 验证超过 4 秒还没完成时，提示一下
+  const slowTimer = setTimeout(() => setPhase("验证时间较长，请稍候…"), 4000);
 
   try {
     let url = CONFIG.staticManifest;
     let init = { cache: "no-store" };
     if (CONFIG.turnstile.siteKey) {
       const token = await getToken();
-      els.count.textContent = "正在加载清单";
+      clearTimeout(slowTimer);
+      setPhase("验证通过，正在加载清单…", true);
       url = CONFIG.manifest;
       init = { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }), cache: "no-store" };
     }
@@ -345,6 +394,7 @@ async function load(announce = false) {
       )
     );
   } finally {
+    clearTimeout(slowTimer);
     removeTurnstile();
     els.refresh.disabled = false;
     els.list.setAttribute("aria-busy", "false");
@@ -359,5 +409,18 @@ els.search.addEventListener("input", (e) => {
   timer = setTimeout(() => { state.query = e.target.value; if (state.plugins.length) render(); }, 120);
 });
 els.refresh.addEventListener("click", () => load(true));
+
+function syncSort() {
+  els.sort.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.sort === state.sort)));
+}
+els.sort.addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-sort]");
+  if (!b || b.dataset.sort === state.sort) return;
+  state.sort = b.dataset.sort;
+  try { localStorage.setItem(SORT_KEY, state.sort); } catch {}
+  syncSort();
+  if (state.plugins.length) render({ animate: true });
+});
+syncSort();
 
 load();

@@ -28,6 +28,14 @@ a{color:var(--accent)}
 .btn-ghost{background:transparent}
 .btn:focus-visible,.chip-filter:focus-visible,.more:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
+.toolbar{display:flex;gap:8px}
+.search{flex:1;min-width:0}
+.sort{display:flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:12px;background:var(--card);flex:none}
+.sort button{font:inherit;font-size:13px;font-weight:600;border:0;border-radius:9px;padding:0 13px;background:transparent;color:var(--muted);
+  cursor:pointer;transition:background-color .2s,color .2s,transform .12s}
+.sort button:active{transform:scale(.96)}
+.sort button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.sort button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .search input{width:100%;font:inherit;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text);transition:border-color .15s}
 .filters{display:flex;gap:8px;overflow-x:auto;padding:12px 0 4px;scrollbar-width:none}
 .filters::-webkit-scrollbar{display:none}
@@ -71,10 +79,29 @@ a{color:var(--accent)}
   .card-actions{grid-column:auto;grid-template-columns:1fr;align-content:start}
 }
 
-.sk{height:128px;border-radius:var(--radius);border:1px solid var(--line);
-  background:linear-gradient(90deg,var(--card),var(--chip),var(--card));background-size:200% 100%;animation:sk 1.2s linear infinite}
-@keyframes sk{to{background-position:-200% 0}}
-@media (prefers-reduced-motion:reduce){.sk{animation:none}}
+/* 加载状态：状态行 + 骨架卡片 */
+.status{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--muted);font-size:13.5px;padding:4px 0 6px;animation:fade .3s both}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.spinner{position:relative;flex:none;width:16px;height:16px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);
+  animation:spin .8s linear infinite;transition:background-color .25s,border-color .25s}
+@keyframes spin{to{transform:rotate(360deg)}}
+.status[data-state="ok"] .spinner{animation:none;background:var(--accent);border-color:var(--accent)}
+.status[data-state="ok"] .spinner::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;
+  border:solid var(--accent-ink);border-width:0 2px 2px 0;transform:rotate(45deg)}
+.sk-card{display:grid;grid-template-columns:44px 1fr;gap:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;
+  animation:rise .4s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 90ms)}
+.sk-icon,.sk-line,.sk-chip,.sk-btn{border-radius:8px;background:linear-gradient(90deg,var(--chip) 30%,color-mix(in srgb,var(--chip) 50%,var(--card)) 50%,var(--chip) 70%);
+  background-size:300% 100%;animation:shimmer 1.5s ease-in-out infinite}
+@keyframes shimmer{from{background-position:100% 0}to{background-position:0 0}}
+.sk-icon{width:44px;height:44px;border-radius:10px}
+.sk-lines{display:grid;gap:8px;align-content:start;min-width:0}
+.sk-line{height:11px}
+.sk-line:nth-child(1){width:42%;height:15px}
+.sk-line:nth-child(3){width:72%}
+.sk-chips{display:flex;gap:6px;margin-top:2px}
+.sk-chip{width:56px;height:20px;border-radius:999px}
+.sk-btn{grid-column:1 / -1;height:36px;border-radius:10px}
+@media (min-width:600px){.sk-card{grid-template-columns:44px 1fr 88px}.sk-btn{grid-column:auto}}
 
 .notice{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;text-align:center;color:var(--muted)}
 .notice h2{color:var(--text);font-size:16px;margin-bottom:4px}
