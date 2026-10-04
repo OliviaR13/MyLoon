@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-10-04T08:37:27.792712+00:00",
+  "generatedAt": "2026-10-04T08:47:16.312151+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -12,6 +12,11 @@
       "version": "1.0.0",
       "author": "OliviaR13",
       "category": "代理分流",
+      "tags": [
+        "代理分流"
+      ],
+      "date": null,
+      "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Google.png",
       "description": "将 Google Gemini（网页版、App、API、AI Studio）相关域名统一走 PROXY 策略。安装后请在插件详情页的「代理指向的策略」中选择用于代理的策略组或节点，未选择时默认使用全局策略的第一个节点。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前，否则规则可能被提前匹配而失效。"
     },
@@ -22,6 +27,11 @@
       "version": "1.0.0",
       "author": "OliviaR13",
       "category": "代理分流",
+      "tags": [
+        "代理分流"
+      ],
+      "date": null,
+      "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Spotify.png",
       "description": "将 Spotify 相关域名（官方站点与 API、音频/图片 CDN、短链）统一走 PROXY 策略。安装后请在插件详情页的「代理指向的策略」中选择用于代理的策略组或节点，未选择时默认使用全局策略的第一个节点。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前，否则规则可能被提前匹配而失效。"
     },
@@ -32,6 +42,11 @@
       "version": "1.0.0",
       "author": "OliviaR13",
       "category": "代理分流",
+      "tags": [
+        "代理分流"
+      ],
+      "date": null,
+      "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://www.google.com/s2/favicons?sz=128&domain=x.com",
       "description": "将 Twitter/X（网页版、App、图片视频 CDN、短链服务）相关域名统一走 PROXY 策略。安装后请在插件详情页的「代理指向的策略」中选择用于代理的策略组或节点，未选择时默认使用全局策略的第一个节点。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前，否则规则可能被提前匹配而失效。"
     },
@@ -42,6 +57,11 @@
       "version": "1.0.0",
       "author": "@OliviaR13",
       "category": "功能增强",
+      "tags": [
+        "功能增强"
+      ],
+      "date": "2026-10-04",
+      "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/CoolApk.png",
       "description": "自定义发布动态时显示的来源机型，插件设置中可选 iPhone 11 至 iPhone 18 Pro Max 等共 32 款。通过改写请求头 User-Agent 中的机型字段实现，需在 MITM 中启用 api.coolapk.com。"
     },
@@ -52,6 +72,11 @@
       "version": "1.9.6",
       "author": "@OliviaR13",
       "category": "IP 属地",
+      "tags": [
+        "IP 属地"
+      ],
+      "date": "2026-09-24",
+      "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/TikTok_1.png",
       "description": "仅代理抖音 App 中承载 IP 属地/风控判定信号的接口，Feed、图片、直播与点播视频等媒体 CDN 直连，不占用代理流量。规则仅涉及抖音相关域名，不影响其他 App。安装后请在插件详情页的「代理指向的策略」中选择用于代理的策略组或节点，未选择时默认使用全局策略的第一个节点。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前，否则规则可能被提前匹配而失效。同时请确认本插件排在其他同类规则集之前加载，避免被未设置直连例外的同名规则先行匹配。"
     },
@@ -62,6 +87,11 @@
       "version": "1.0.0",
       "author": "OliviaR13",
       "category": "登录修复",
+      "tags": [
+        "登录修复"
+      ],
+      "date": null,
+      "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Microsoft.png",
       "description": "对 Microsoft / Outlook 认证相关域名直连，并跳过 MITM 解密，用于处理登录窗口反复弹出的问题。"
     },
@@ -72,6 +102,11 @@
       "version": "1.0.0",
       "author": "@OliviaR13",
       "category": "IP 属地",
+      "tags": [
+        "IP 属地"
+      ],
+      "date": "2026-09-25",
+      "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/luestr/IconResource/main/App_icon/120px/RedPaper.png",
       "description": "仅代理小红书 App 中承载 IP 属地/风控判定信号的接口（含经纬度参数的推荐接口、设备指纹注册接口、打点上报接口），Feed、图片、头像、视频等媒体 CDN 直连，不占用代理流量。安装后请在插件详情页的「代理指向的策略」中选择用于代理的策略组或节点，未选择时默认使用全局策略的第一个节点。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前，否则规则可能被提前匹配而失效。"
     },
@@ -82,6 +117,12 @@
       "version": "2.4.1",
       "author": "@OliviaR13",
       "category": "IP 属地",
+      "tags": [
+        "IP 属地",
+        "功能增强"
+      ],
+      "date": "2026-10-03",
+      "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png",
       "description": "① 属地分流：仅 api.weibo.cn（微博 IP 属地判定域名）走代理，其余流量不受影响。② 来源机型：自定义发博、评论、转发时显示的来源机型，插件设置中可选 iPhone 11 至 iPhone 18 Pro Max 等共 32 款。切换机型后，请到微博「微博来源」中重新选择一次。"
     }
