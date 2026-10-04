@@ -71,6 +71,18 @@ function el(tag, cls, text) {
   return n;
 }
 
+/* 按语义拆分描述：在带圈序号（①②…）前、句末标点（。！？；）后断开，每段单独成行。
+   只影响显示，不修改插件文件里的 #!desc，搜索仍使用原文。 */
+function splitDescription(text) {
+  return String(text)
+    .replace(/\s+/g, " ")
+    .replace(/([。！？；])(?=[^\s」』）)”’])/g, "$1\n")
+    .replace(/\s*([①-⑳])/g, "\n$1")
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 /* ---------- 数据 ---------- */
 
 function normalize(raw) {
@@ -113,6 +125,21 @@ function openInLoon(p) {
   }, 2000);
 }
 
+/* 展开 / 收起：用 max-height 过渡，高度从当前值平滑变化 */
+function expand(desc) {
+  desc.style.maxHeight = desc.scrollHeight + "px"; // 从折叠高度过渡到完整高度
+  desc.dataset.open = "true";
+  const settle = () => { if (desc.dataset.open === "true") desc.style.maxHeight = ""; }; // 结束后恢复自适应
+  desc.addEventListener("transitionend", settle, { once: true });
+  setTimeout(settle, 450); // 减少动态效果时没有 transitionend，兜底处理
+}
+function collapse(desc) {
+  desc.style.maxHeight = desc.scrollHeight + "px"; // 先固定为当前高度
+  void desc.offsetHeight;                          // 强制回流，让过渡生效
+  desc.style.maxHeight = "";                       // 回到 CSS 中的折叠高度
+  desc.dataset.open = "false";
+}
+
 function buildCard(p) {
   const card = els.tpl.content.firstElementChild.cloneNode(true);
   const icon = card.querySelector(".card-icon");
@@ -123,7 +150,7 @@ function buildCard(p) {
   if (p.version) ver.textContent = p.version; else ver.remove();
 
   const desc = card.querySelector(".card-desc");
-  desc.textContent = p.description;
+  desc.replaceChildren(...splitDescription(p.description).map((s) => el("span", "seg", s)));
 
   const tags = card.querySelector(".tags");
   tags.append(el("span", "chip chip-cat", p.category));
@@ -132,10 +159,10 @@ function buildCard(p) {
 
   const more = card.querySelector(".more");
   more.addEventListener("click", () => {
-    const open = more.getAttribute("aria-expanded") === "true";
+    const open = desc.dataset.open === "true";
     more.setAttribute("aria-expanded", String(!open));
-    desc.dataset.clamp = String(open);
     more.textContent = open ? "展开" : "收起";
+    open ? collapse(desc) : expand(desc);
   });
 
   card.querySelector(".act-install").addEventListener("click", () => openInLoon(p));
@@ -157,7 +184,7 @@ function notice(title, body, label, onClick) {
   return box;
 }
 
-function render() {
+function render({ animate = false } = {}) {
   const visible = state.plugins.filter(matches);
   const total = state.plugins.length;
   els.count.textContent = visible.length === total ? `共 ${total} 个插件` : `${visible.length} / ${total} 个插件`;
@@ -173,12 +200,21 @@ function render() {
     );
     return;
   }
-  els.list.replaceChildren(...visible.map(buildCard));
-  // 描述没有被截断时，隐藏「展开」按钮
+  els.list.classList.toggle("enter", animate);
+  els.list.replaceChildren(
+    ...visible.map((p, i) => {
+      const card = buildCard(p);
+      card.style.setProperty("--i", Math.min(i, 8)); // 入场动画错开，最多延迟 8 档
+      return card;
+    })
+  );
+  // 描述没有被截断时，隐藏「展开」按钮，并去掉底部渐隐
   requestAnimationFrame(() =>
     els.list.querySelectorAll(".card").forEach((c) => {
       const d = c.querySelector(".card-desc");
-      c.querySelector(".more").hidden = d.scrollHeight <= d.clientHeight + 2;
+      const overflow = d.scrollHeight > d.clientHeight + 2;
+      d.dataset.overflow = String(overflow);
+      c.querySelector(".more").hidden = !overflow;
     })
   );
 }
@@ -192,8 +228,14 @@ function renderFilters() {
       const b = el("button", "chip-filter", name);
       b.type = "button";
       b.append(el("small", "", String(n)));
+      b.dataset.name = name;
       b.setAttribute("aria-pressed", String(state.category === name));
-      b.addEventListener("click", () => { state.category = name; renderFilters(); render(); });
+      b.addEventListener("click", () => {
+        state.category = name;
+        // 只更新选中状态，不重建按钮，颜色过渡才能播放
+        els.filters.querySelectorAll(".chip-filter").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.name === name)));
+        render({ animate: true });
+      });
       return b;
     })
   );
@@ -203,7 +245,7 @@ function resetFilters() {
   state.category = CONFIG.all;
   state.query = els.search.value = "";
   renderFilters();
-  render();
+  render({ animate: true });
 }
 
 function renderSkeleton() {
@@ -282,7 +324,7 @@ async function load(announce = false) {
     state.plugins = (data.plugins || []).map(normalize);
     state.category = CONFIG.all;
     renderFilters();
-    render();
+    render({ animate: true });
     if (data.generatedAt) {
       els.updated.textContent = "清单更新于 " + new Date(data.generatedAt).toLocaleDateString("zh-CN");
     }
