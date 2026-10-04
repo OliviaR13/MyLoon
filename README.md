@@ -4,7 +4,7 @@
 
 **个人编写的 [Loon](https://www.nsloon.com/) 插件合集，附带可一键安装的网页插件盒子。**
 
-[![MyLoon Box](https://img.shields.io/badge/MyLoon-Box-2f6f5e?style=for-the-badge)](https://oliviar13.github.io/MyLoon/)
+[![MyLoon Box](https://img.shields.io/badge/MyLoon-Box-2f6f5e?style=for-the-badge)](https://olivia-loon-box.pages.dev)
 [![License](https://img.shields.io/github/license/OliviaR13/MyLoon?style=for-the-badge)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/OliviaR13/MyLoon?style=for-the-badge)](https://github.com/OliviaR13/MyLoon/stargazers)
 [![Last commit](https://img.shields.io/github/last-commit/OliviaR13/MyLoon?style=for-the-badge)](https://github.com/OliviaR13/MyLoon/commits/main)
