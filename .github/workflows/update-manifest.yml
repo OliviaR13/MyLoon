@@ -86,8 +86,9 @@ jobs:
               # 优先读取插件头部的 #!tag（Loon 官方字段，可用英文逗号写多个）
               # 盒子分类取第一个标签；没有 #!tag 时使用内置映射
               tag = meta(text, "tag")
+              tags = [x.strip() for x in tag.split(",") if x.strip()] if tag else []
               category = (
-                  tag.split(",")[0].strip() if tag else None
+                  tags[0] if tags else None
               ) or categories.get(path.stem, "其他")
 
               plugins.append({
@@ -108,6 +109,12 @@ jobs:
                   ),
 
                   "category": category,
+
+                  "tags": tags,
+
+                  "date": meta(text, "date"),
+
+                  "homepage": meta(text, "homepage"),
 
                   "icon": meta(text, "icon"),
 
