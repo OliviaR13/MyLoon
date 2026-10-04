@@ -220,7 +220,8 @@ function whenTurnstileReady() {
   return new Promise((resolve, reject) => {
     const start = Date.now();
     (function check() {
-      if (window.turnstile) return resolve();
+      // 脚本刚加载时 window.turnstile 可能已存在但接口还没就绪，需要确认 render 可用
+      if (window.turnstile && typeof window.turnstile.render === "function") return resolve();
       if (Date.now() - start > CONFIG.turnstile.loadTimeout) return reject(new Error("script"));
       setTimeout(check, 100);
     })();
@@ -228,7 +229,7 @@ function whenTurnstileReady() {
 }
 
 function removeTurnstile() {
-  if (tsWidget !== null && window.turnstile) turnstile.remove(tsWidget);
+  if (tsWidget !== null && window.turnstile && typeof turnstile.remove === "function") turnstile.remove(tsWidget);
   tsWidget = null;
   els.turnstile.classList.remove("show");
 }
