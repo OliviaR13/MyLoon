@@ -1,6 +1,6 @@
 <div align="center">
 
-   # MyLoon
+# MyLoon
 
 **一份 [Loon](https://www.nsloon.com/) 插件合集，外加一个能一键安装的网页插件盒子。**
 
@@ -17,7 +17,7 @@
 
 **方式一：插件盒子**
 
-打开 [MyLoon Box](https://oliviar13.github.io/MyLoon/)，选择插件后点击「安装」，页面会通过 `loon://install?url=...` 唤起 Loon。
+打开 [MyLoon Box](https://oliviar13.github.io/MyLoon/)，选择插件后点击「安装」，页面会通过 `loon://import?plugin=...` 唤起 Loon。
 
 **方式二：手动添加**
 
@@ -99,6 +99,25 @@ App 发出请求
 
 `plugin/*.plugin`、`box/**` 或工作流文件变更后，GitHub Actions 会重新生成 `manifest.json` 并部署到 GitHub Pages。没有 `#!tag` 的插件，按工作流中的文件名映射表归类；映射表中也没有的，归入「其他」。
 
+## 📊 统计
+
+<p align="center">
+  <a href="https://github.com/OliviaR13/MyLoon">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://github-stats-extended.vercel.app/api/pin/?username=OliviaR13&repo=MyLoon&hide_border=true&locale=cn&theme=dark">
+      <img alt="MyLoon" src="https://github-stats-extended.vercel.app/api/pin/?username=OliviaR13&repo=MyLoon&hide_border=true&locale=cn">
+    </picture>
+  </a>
+  <a href="https://github.com/OliviaR13">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://github-stats-extended.vercel.app/api?username=OliviaR13&show_icons=true&hide_border=true&locale=cn&theme=dark">
+      <img alt="OliviaR13 的 GitHub 统计" src="https://github-stats-extended.vercel.app/api?username=OliviaR13&show_icons=true&hide_border=true&locale=cn">
+    </picture>
+  </a>
+</p>
+
+> 卡片由 [GitHub Stats Extended](https://github.com/stats-organization/github-stats-extended) 动态生成，它是已停止维护的 github-readme-stats 的后继项目。
+
 ## ⚠️ 免责声明
 
 本仓库内容基于个人使用场景整理，不保证适用于所有网络环境和账号状态。仅供个人学习交流，请遵守相关 App 的用户协议。因使用本仓库内容导致的账号或网络问题，作者不承担责任。
@@ -108,6 +127,7 @@ App 发出请求
 - [Loon 插件文档](https://nsloon.app/docs/Plugin/)
 - [SunsetMkt/anti-ip-attribution](https://github.com/SunsetMkt/anti-ip-attribution)
 - [Koolson/Qure](https://github.com/Koolson/Qure)：插件图标
+- [stats-organization/github-stats-extended](https://github.com/stats-organization/github-stats-extended)：统计卡片（基于 [anuraghazra/github-readme-stats](https://github.com/anuraghazra/github-readme-stats)）
 
 ## 📄 许可
 
