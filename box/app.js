@@ -3,13 +3,14 @@
    所有插件字段都用 textContent 写入，不当作 HTML 解析。 */
 
 const CONFIG = {
-  manifest: "manifest.json",
+  manifest: "api/manifest",        // 服务端校验令牌后返回清单（Pages Function）
+  staticManifest: "manifest.json", // 不启用人机验证时直接读取的静态清单
   rawBase: "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
   all: "全部",
   turnstile: {
     siteKey: "0x4AAAAAAFM6TQJfkewCeO_g", // 留空则不启用人机验证
-    ttl: 30 * 60 * 1000,                  // 通过验证后，同一标签页内的免验证时长
-    loadTimeout: 8000,                    // 验证组件加载超时
+    action: "load_manifest",             // 需与 functions/api/manifest.js 中的 ACTION 一致
+    loadTimeout: 8000,                   // 验证组件加载超时
   },
 };
 
@@ -20,7 +21,7 @@ const els = {
   turnstile: $("#turnstile"),
 };
 // 页面里没有 Turnstile 容器时，不做人机验证
-const state = { plugins: [], category: CONFIG.all, query: "", unlocked: !CONFIG.turnstile.siteKey || recentlyVerified() };
+const state = { plugins: [], category: CONFIG.all, query: "" };
 
 /* ---------- 工具 ---------- */
 
@@ -209,19 +210,69 @@ function renderSkeleton() {
   els.list.replaceChildren(...[0, 1, 2].map(() => el("div", "sk")));
 }
 
+/* ---------- Turnstile ----------
+   每次加载清单都获取一个新令牌（令牌只能使用一次），交给 /api/manifest 在服务端校验。
+   interaction-only：通常无感通过，需要交互时才显示组件。 */
+
+let tsWidget = null;
+
+function whenTurnstileReady() {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    (function check() {
+      if (window.turnstile) return resolve();
+      if (Date.now() - start > CONFIG.turnstile.loadTimeout) return reject(new Error("script"));
+      setTimeout(check, 100);
+    })();
+  });
+}
+
+function removeTurnstile() {
+  if (tsWidget !== null && window.turnstile) turnstile.remove(tsWidget);
+  tsWidget = null;
+  els.turnstile.classList.remove("show");
+}
+
+async function getToken() {
+  await whenTurnstileReady();
+  removeTurnstile();
+  return new Promise((resolve, reject) => {
+    tsWidget = turnstile.render("#tsBox", {
+      sitekey: CONFIG.turnstile.siteKey,
+      action: CONFIG.turnstile.action,
+      theme: "auto",
+      language: "zh-cn",
+      appearance: "interaction-only",
+      callback: (token) => { removeTurnstile(); resolve(token); },
+      "before-interactive-callback": () => els.turnstile.classList.add("show"),
+      "after-interactive-callback": () => els.turnstile.classList.remove("show"),
+      "expired-callback": () => turnstile.reset(tsWidget),
+      "timeout-callback": () => turnstile.reset(tsWidget),
+      "error-callback": (code) => { removeTurnstile(); reject(new Error("turnstile " + code)); return true; },
+    });
+  });
+}
+
 /* ---------- 加载 ---------- */
 
 async function load(announce = false) {
-  if (!state.unlocked) return toast("请先完成人机验证");
   els.list.setAttribute("aria-busy", "true");
   els.refresh.disabled = true;
-  els.count.textContent = "正在加载清单";
+  els.count.textContent = CONFIG.turnstile.siteKey ? "正在进行人机验证…" : "正在加载清单";
   els.updated.textContent = "";
   renderSkeleton();
 
   try {
-    const res = await fetch(`${CONFIG.manifest}?t=${Date.now()}`, { cache: "no-store" });
-    if (!res.ok) throw new Error("HTTP " + res.status);
+    let url = CONFIG.staticManifest;
+    let init = { cache: "no-store" };
+    if (CONFIG.turnstile.siteKey) {
+      const token = await getToken();
+      els.count.textContent = "正在加载清单";
+      url = CONFIG.manifest;
+      init = { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }), cache: "no-store" };
+    }
+    const res = await fetch(url, init);
+    if (!res.ok) throw new Error(res.status === 403 ? "verify" : "HTTP " + res.status);
     const data = await res.json();
     state.plugins = (data.plugins || []).map(normalize);
     state.category = CONFIG.all;
@@ -233,80 +284,24 @@ async function load(announce = false) {
     if (announce) toast("清单已刷新");
   } catch (err) {
     console.error(err);
-    els.count.textContent = "清单加载失败";
+    const msg = String(err.message);
+    const verify = msg === "verify" || msg === "script" || msg.startsWith("turnstile");
+    els.count.textContent = verify ? "人机验证未通过" : "清单加载失败";
     els.list.replaceChildren(
-      notice("暂时拿不到插件清单", "可能是网络问题，或 manifest.json 尚未生成。可以重试，也可以到 GitHub 的 plugin 目录手动获取。", "重试", () => load(true))
+      notice(
+        verify ? "人机验证未通过" : "暂时拿不到插件清单",
+        verify
+          ? "请检查网络后重试。如果当前网络访问不到 Cloudflare，验证组件无法加载。"
+          : "可能是网络问题，或清单尚未生成。可以重试，也可以到 GitHub 的 plugin 目录手动获取。",
+        "重试",
+        () => load(true)
+      )
     );
   } finally {
+    removeTurnstile();
     els.refresh.disabled = false;
     els.list.setAttribute("aria-busy", "false");
   }
-}
-
-/* ---------- Turnstile ----------
-   显式渲染 + interaction-only：通常无感通过，需要交互时才显示组件。
-   通过后在本标签页内 ttl 时间内免验证。注意：这是页面层面的验证，不会保护 manifest.json 本身。 */
-
-const TS_KEY = "myloon_box_verified";
-let tsWidget = null;
-let tsLoadTimer = 0;
-
-function recentlyVerified() {
-  try { return Date.now() - Number(sessionStorage.getItem(TS_KEY)) < CONFIG.turnstile.ttl; } catch { return false; }
-}
-function markVerified() {
-  try { sessionStorage.setItem(TS_KEY, String(Date.now())); } catch {}
-}
-
-function startTurnstile() {
-  els.count.textContent = "正在进行人机验证…";
-  clearTimeout(tsLoadTimer);
-  tsLoadTimer = setTimeout(() => {
-    if (!window.turnstile) tsFailed("无法加载验证组件，可能是当前网络访问不到 Cloudflare");
-  }, CONFIG.turnstile.loadTimeout);
-  if (window.turnstile) renderTurnstile(); // 组件先于 app.js 加载完成时直接渲染
-}
-
-window.onTurnstileLoad = () => { clearTimeout(tsLoadTimer); renderTurnstile(); };
-
-function renderTurnstile() {
-  if (tsWidget !== null) return;
-  tsWidget = turnstile.render("#tsBox", {
-    sitekey: CONFIG.turnstile.siteKey,
-    theme: "auto",
-    language: "zh-cn",
-    appearance: "interaction-only",
-    callback: unlock,
-    "before-interactive-callback": () => els.turnstile.classList.add("show"),
-    "after-interactive-callback": () => els.turnstile.classList.remove("show"),
-    "expired-callback": () => turnstile.reset(tsWidget),
-    "timeout-callback": () => turnstile.reset(tsWidget),
-    "error-callback": (code) => { tsFailed("人机验证未完成（" + code + "）"); return true; },
-  });
-}
-
-function removeTurnstile() {
-  if (tsWidget !== null && window.turnstile) turnstile.remove(tsWidget);
-  tsWidget = null;
-  els.turnstile.classList.remove("show");
-}
-
-function unlock() {
-  state.unlocked = true;
-  markVerified();
-  removeTurnstile();
-  load();
-}
-
-function tsFailed(message) {
-  state.unlocked = false;
-  removeTurnstile();
-  els.count.textContent = message;
-  els.list.replaceChildren(
-    notice("人机验证未完成", "请检查网络后重试，或直接到 GitHub 的 plugin 目录手动获取插件。", "重试", () => {
-      if (window.turnstile) { startTurnstile(); renderTurnstile(); } else location.reload();
-    })
-  );
 }
 
 /* ---------- 事件 ---------- */
@@ -314,8 +309,8 @@ function tsFailed(message) {
 let timer = 0;
 els.search.addEventListener("input", (e) => {
   clearTimeout(timer);
-  timer = setTimeout(() => { state.query = e.target.value; if (state.unlocked && state.plugins.length) render(); }, 120);
+  timer = setTimeout(() => { state.query = e.target.value; if (state.plugins.length) render(); }, 120);
 });
 els.refresh.addEventListener("click", () => load(true));
 
-if (state.unlocked) load(); else startTurnstile();
+load();
