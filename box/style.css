@@ -1,10 +1,18 @@
+@font-face{
+  font-family:"Geist Sans";
+  src:url("./fonts/Geist-Variable.woff2") format("woff2");
+  font-style:normal;
+  font-weight:100 900;
+  font-display:swap;
+}
+
 /* OliviaR13's Loon Box
    设计取向：克制的工具型列表（低变化、低密度动效、中等信息密度）。
    中性底色 + 单一强调色；行与行之间用细线分隔，不做一张张独立卡片。 */
 :root{
   /* 暖调纸张色中性色 + 单一强调色；不用纯白纯黑 */
   --bg:#f6f4ef;--card:#fdfcf9;--hover:#faf8f3;--text:#1d1b17;--muted:#6a655a;--line:#e6e2d8;--chip:#efece4;
-  --accent:#0f7f69;--accent-text:#0a6250;--accent-ink:#f7fbf9;--shadow:40 30 10; /* 阴影色取自背景色相 */
+  --accent:#0f7f69;--accent-text:#0a6250;--accent-ink:#f7fbf9;--shadow:40 30 10;
   --glow:color-mix(in srgb,var(--accent) 16%,transparent);
   /* 圆角体系：容器 / 控件 / 标签 */
   --r-lg:16px;--r-md:10px;--r-sm:6px;
@@ -12,7 +20,7 @@
   --spring:cubic-bezier(.34,1.4,.64,1);--ease:cubic-bezier(.2,.8,.2,1);
   /* z-index 层级 */
   --z-grain:1;--z-toast:10;
-  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Noto Sans SC","Segoe UI",sans-serif;
+  --font:"Geist Sans",-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Noto Sans SC","Segoe UI",sans-serif;
   --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
 }
 /* 深色：跟随系统（除非用户强制浅色），或用户强制深色 */
@@ -20,7 +28,7 @@
   :root:not([data-theme="light"]){--bg:#12110f;--card:#191815;--hover:#1e1d19;--text:#efece5;--muted:#a39e92;--line:#2b2924;--chip:#23211d;--accent:#3fcfa6;--accent-text:#3fcfa6;--accent-ink:#04140e;--shadow:0 0 0;
     --glow:color-mix(in srgb,var(--accent) 14%,transparent)}
 }
-:root[data-theme="dark"]{--bg:#12110f;--card:#191815;--hover:#1e1d19;--text:#efece5;--muted:#a39e92;--line:#2b2924;--chip:#23211d;--accent:#3fcfa6;--accent-text:#3fcfa6;--accent-ink:#04140e;--shadow:0 0 0;
+:root[data-theme="dark"]{--bg:#12110f;--card:#191815;--hover:#1e1d19;--text:#efece5;--line:#2b2924;--chip:#23211d;--accent:#3fcfa6;--accent-text:#3fcfa6;--accent-ink:#04140e;--shadow:0 0 0;
     --glow:color-mix(in srgb,var(--accent) 14%,transparent)}
 :root[data-theme="light"]{color-scheme:light}
 :root[data-theme="dark"]{color-scheme:dark}
@@ -181,7 +189,6 @@ a{color:var(--accent-text)}
   .chip-filter:hover:not([aria-pressed="true"]){border-color:var(--accent)}
   .card:hover{--row:var(--hover)}
 }
-/* 系统开启「减少动态效果」时，关闭所有动画和过渡 */
 @media (prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}
   *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
@@ -205,6 +212,7 @@ html[data-hide-cat] .chip-cat{display:none}
 .sheet.open{transform:none}
 .sheet::backdrop{background:rgb(var(--shadow) / .45);opacity:0;transition:opacity .3s}
 .sheet.open::backdrop{opacity:1}
+.sheet.open::backdrop{opacity:1}
 .sheet-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px}
 .sheet-head h2{font-size:17px;font-weight:650;letter-spacing:-.01em}
 .sheet-body{overflow-y:auto;overscroll-behavior:contain;max-height:calc(88dvh - 60px);padding:0 16px calc(24px + env(safe-area-inset-bottom))}
@@ -218,8 +226,6 @@ html[data-hide-cat] .chip-cat{display:none}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .row-danger{color:#ff8a7a}}
 :root[data-theme="dark"] .row-danger{color:#ff8a7a}
 .row-confirm{flex-wrap:wrap}
-/* 必须 align-items:center：默认 stretch 会把里面的 .muted 拉成和按钮一样高，
-   文字贴在拉伸后盒子的顶部，看上去比旁边的按钮高二三像素 */
 .row-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
 .muted{color:var(--muted);font-size:13.5px}
 .group .sort{padding:2px}
