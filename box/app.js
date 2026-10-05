@@ -401,6 +401,7 @@ async function load(announce = false) {
     }
     const data = await res.json();
     state.plugins = (data.plugins || []).map(normalize);
+    state.generatedAt = data.generatedAt || "";
     state.category = CONFIG.all;
     renderFilters();
     render({ animate: true });
