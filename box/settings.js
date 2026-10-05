@@ -46,7 +46,6 @@
   function close() {
     sheet.classList.remove("open");
     setTimeout(() => sheet.open && sheet.close(), 400);
-    $("settingsBtn").focus();
   }
   $("settingsBtn").addEventListener("click", open);
   $("settingsClose").addEventListener("click", close);
