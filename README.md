@@ -4,7 +4,7 @@
 
 **个人编写的 [Loon](https://www.nsloon.com/) 插件合集，附带可一键安装的网页插件盒子。**
 
-[![Loon Box](https://img.shields.io/badge/Loon-Box-2f6f5e?style=for-the-badge)](https://myloon.pages.dev/)
+[![Loon Box](https://img.shields.io/badge/Loon-Box-2f6f5e?style=for-the-badge)](https://olivia-loon-box.pages.dev/)
 [![License](https://img.shields.io/badge/License-All%20Rights%20Reserved-8a8a85?style=for-the-badge)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/OliviaR13/MyLoon?style=for-the-badge)](https://github.com/OliviaR13/MyLoon/stargazers)
 [![Last commit](https://img.shields.io/github/last-commit/OliviaR13/MyLoon?style=for-the-badge)](https://github.com/OliviaR13/MyLoon/commits/main)
@@ -17,7 +17,7 @@
 
 **方式一：插件盒子**
 
-打开 [Loon Box](https://myloon.pages.dev/)，选择插件后点击「安装」，页面会通过 `loon://import?plugin=...` 唤起 Loon。
+打开 [Loon Box](https://olivia-loon-box.pages.dev/)，选择插件后点击「安装」，页面会通过 `loon://import?plugin=...` 唤起 Loon。
 
 **方式二：手动添加**
 
