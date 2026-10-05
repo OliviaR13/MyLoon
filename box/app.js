@@ -18,7 +18,7 @@ const $ = (sel) => document.querySelector(sel);
 const els = {
   list: $("#results"), count: $("#countText"), updated: $("#updatedText"), filters: $("#filters"),
   search: $("#searchInput"), refresh: $("#refreshBtn"), tpl: $("#rowTpl"), toast: $("#toast"),
-  turnstile: $("#turnstile"), sort: $("#sortBox"),
+  sort: $("#sortBox"),
 };
 /* ---------- 排序 ----------
    每种排序有默认方向：时间默认「新到旧」，名称默认「A 到 Z」。
@@ -291,6 +291,12 @@ function renderLoading(text) {
   const status = el("div", "status");
   status.setAttribute("role", "status");
   status.append(el("span", "spinner"), el("span", "status-text", text));
+  // 验证面板：状态行 + 验证组件的容器；需要用户交互时才展开组件
+  const slot = el("div", "verify-box");
+  slot.id = "tsBox";
+  const verify = el("div", "verify");
+  verify.dataset.interactive = "false";
+  verify.append(status, slot);
   const cards = [0, 1, 2].map((i) => {
     const c = el("div", "sk-card");
     c.style.setProperty("--i", i);
@@ -303,7 +309,7 @@ function renderLoading(text) {
     return c;
   });
   els.list.classList.remove("enter");
-  els.list.replaceChildren(status, ...cards);
+  els.list.replaceChildren(verify, ...cards);
 }
 
 // 更新状态行文字；done = true 时转圈变成对勾
@@ -333,10 +339,16 @@ function whenTurnstileReady() {
   });
 }
 
+const verifyPanel = () => els.list.querySelector(".verify");
+function setInteractive(on) {
+  const p = verifyPanel();
+  if (p) p.dataset.interactive = String(on);
+}
+
 function removeTurnstile() {
   if (tsWidget !== null && window.turnstile && typeof turnstile.remove === "function") turnstile.remove(tsWidget);
   tsWidget = null;
-  els.turnstile.classList.remove("show");
+  setInteractive(false);
 }
 
 async function getToken() {
@@ -349,9 +361,10 @@ async function getToken() {
       theme: "auto",
       language: "zh-cn",
       appearance: "interaction-only",
+      size: "flexible", // 组件宽度跟随容器，手机上不会溢出
       callback: (token) => { removeTurnstile(); resolve(token); },
-      "before-interactive-callback": () => { els.turnstile.classList.add("show"); setPhase("请先完成上方的验证"); },
-      "after-interactive-callback": () => { els.turnstile.classList.remove("show"); setPhase("正在验证…"); },
+      "before-interactive-callback": () => { setInteractive(true); setPhase("请点击下方的复选框完成验证"); },
+      "after-interactive-callback": () => { setInteractive(false); setPhase("正在验证…"); },
       "expired-callback": () => turnstile.reset(tsWidget),
       "timeout-callback": () => turnstile.reset(tsWidget),
       "error-callback": (code) => { removeTurnstile(); reject(new Error("turnstile " + code)); return true; },

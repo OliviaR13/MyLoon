@@ -71,15 +71,13 @@ a{color:var(--accent-text)}
 .chip-filter[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 14%,transparent);border-color:color-mix(in srgb,var(--accent) 55%,transparent);color:var(--accent-text);font-weight:600}
 .chip-filter small{opacity:.6;margin-left:4px;font-family:var(--mono);font-size:11px}
 
-.turnstile{display:flex;justify-content:center}
-.turnstile.show{margin:12px 0 0}
 .meta{display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-size:12.5px;margin:14px 2px 8px}
 
 /* 列表：一个带细线的容器，行与行之间用分隔线 */
 .list{border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card);overflow:hidden}
 .list:empty{display:none}
 .card{--row:var(--card);display:grid;grid-template-columns:40px 1fr;gap:12px 14px;padding:16px;background:var(--row);transition:background-color .2s}
-.card + .card,.card + .sk-card,.status + .sk-card,.sk-card + .sk-card{border-top:1px solid var(--line)}
+.card + .card,.card + .sk-card,.verify + .sk-card,.sk-card + .sk-card{border-top:1px solid var(--line)}
 .list.enter .card{animation:rise .34s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 45ms)}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .card-icon{width:40px;height:40px;border-radius:var(--r-md);background:var(--chip);object-fit:cover;box-shadow:0 0 0 1px var(--line)}
@@ -114,7 +112,14 @@ a{color:var(--accent-text)}
 }
 
 /* 加载状态：状态行 + 骨架行 */
-.status{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--muted);font-size:13.5px;padding:14px 0 12px;animation:fade .3s both}
+/* 验证面板：平时只有一行状态；需要交互时，下方平滑展开验证组件，并让骨架行变淡 */
+.verify{display:grid;justify-items:center;padding:16px 16px 14px;animation:fade .3s both}
+.verify-box{width:100%;max-width:360px;display:grid;justify-items:center;overflow:hidden;max-height:0;opacity:0;transform:translateY(-6px);
+  transition:max-height .35s var(--ease),opacity .25s,transform .35s var(--ease),margin .35s var(--ease)}
+.verify[data-interactive="true"] .verify-box{max-height:110px;opacity:1;transform:none;margin-top:14px}
+.verify ~ .sk-card{transition:filter .3s}
+.verify[data-interactive="true"] ~ .sk-card{filter:opacity(.4)}
+.status{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--muted);font-size:13.5px}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 .spinner{position:relative;flex:none;width:16px;height:16px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);
   animation:spin .8s linear infinite;transition:background-color .25s,border-color .25s}
@@ -122,7 +127,6 @@ a{color:var(--accent-text)}
 .status[data-state="ok"] .spinner{animation:none;background:var(--accent);border-color:var(--accent)}
 .status[data-state="ok"] .spinner::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;
   border:solid var(--accent-ink);border-width:0 2px 2px 0;transform:rotate(45deg)}
-.status + .sk-card{border-top:1px solid var(--line)}
 .sk-card{display:grid;grid-template-columns:40px 1fr;gap:12px 14px;padding:16px;
   animation:rise .4s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 90ms)}
 .sk-icon,.sk-line,.sk-chip,.sk-btn{border-radius:var(--r-sm);background:linear-gradient(90deg,var(--chip) 30%,color-mix(in srgb,var(--chip) 50%,var(--card)) 50%,var(--chip) 70%);
