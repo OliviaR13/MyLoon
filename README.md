@@ -4,8 +4,8 @@
 
 **个人编写的 [Loon](https://www.nsloon.com/) 插件合集，附带可一键安装的网页插件盒子。**
 
-[![MyLoon Box](https://img.shields.io/badge/MyLoon-Box-2f6f5e?style=for-the-badge)](https://olivia-loon-box.pages.dev)
-[![License](https://img.shields.io/github/license/OliviaR13/MyLoon?style=for-the-badge)](LICENSE)
+[![MyLoon Box](https://img.shields.io/badge/MyLoon-Box-2f6f5e?style=for-the-badge)](https://oliviar13.github.io/MyLoon/)
+[![License](https://img.shields.io/badge/License-All%20Rights%20Reserved-8a8a85?style=for-the-badge)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/OliviaR13/MyLoon?style=for-the-badge)](https://github.com/OliviaR13/MyLoon/stargazers)
 [![Last commit](https://img.shields.io/github/last-commit/OliviaR13/MyLoon?style=for-the-badge)](https://github.com/OliviaR13/MyLoon/commits/main)
 
@@ -133,4 +133,4 @@ App 发出请求
 
 ## 📄 许可
 
-[MIT](LICENSE)
+版权所有 © 2026 soobsessed，保留所有权利。详见 [LICENSE](LICENSE)。
