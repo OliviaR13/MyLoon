@@ -1,4 +1,7 @@
 export async function onRequest(context) {
+  // 字体文件必须原样放行，否则微信里拿到的是下面的 403 页面，字体加载不出来
+  if (new URL(context.request.url).pathname.startsWith("/fonts/")) return context.next();
+
   const userAgent = context.request.headers.get("user-agent") || "";
 
   // 微信内置浏览器无法直接唤起 Loon 的 URL Scheme
@@ -23,7 +26,7 @@ export async function onRequest(context) {
   <style>
     @font-face {
       font-family: "Geist Sans";
-      src: url("https://raw.githubusercontent.com/vercel/geist-font/main/fonts/Geist/webfonts/Geist%5Bwght%5D.woff2") format("woff2");
+      src: url("/fonts/Geist-Variable.woff2") format("woff2");
       font-style: normal;
       font-weight: 100 900;
       font-display: swap;
