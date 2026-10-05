@@ -4,7 +4,7 @@
 
 **个人编写的 [Loon](https://www.nsloon.com/) 插件合集，附带可一键安装的网页插件盒子。**
 
-[![MyLoon Box](https://img.shields.io/badge/MyLoon-Box-2f6f5e?style=for-the-badge)](https://oliviar13.github.io/MyLoon/)
+[![Loon Box](https://img.shields.io/badge/Loon-Box-2f6f5e?style=for-the-badge)](https://myloon.pages.dev/)
 [![License](https://img.shields.io/badge/License-All%20Rights%20Reserved-8a8a85?style=for-the-badge)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/OliviaR13/MyLoon?style=for-the-badge)](https://github.com/OliviaR13/MyLoon/stargazers)
 [![Last commit](https://img.shields.io/github/last-commit/OliviaR13/MyLoon?style=for-the-badge)](https://github.com/OliviaR13/MyLoon/commits/main)
@@ -17,7 +17,7 @@
 
 **方式一：插件盒子**
 
-打开 [MyLoon Box](https://oliviar13.github.io/MyLoon/)，选择插件后点击「安装」，页面会通过 `loon://import?plugin=...` 唤起 Loon。
+打开 [Loon Box](https://myloon.pages.dev/)，选择插件后点击「安装」，页面会通过 `loon://import?plugin=...` 唤起 Loon。
 
 **方式二：手动添加**
 
@@ -80,7 +80,8 @@ App 发出请求
 | `box/` | 插件盒子网页源码 |
 | `icon/` | 图标资源 |
 | `manifest.json` | 插件清单，由 GitHub Actions 自动生成 |
-| `.github/workflows/` | 清单生成与网页部署流程 |
+| `functions/` | 盒子的清单接口（Cloudflare Pages Functions，校验人机验证后返回清单） |
+| `.github/workflows/` | 清单生成流程 |
 | `BOX_SETUP.md` | 插件盒子的部署说明 |
 
 ## 🛠️ 添加插件
@@ -99,7 +100,7 @@ App 发出请求
 
 3. 提交到 `main` 分支。
 
-`plugin/*.plugin`、`box/**` 或工作流文件变更后，GitHub Actions 会重新生成 `manifest.json` 并部署网页。没有 `#!tag` 的插件，按工作流中的文件名映射表归类；映射表中也没有的，归入「其他」。
+`plugin/*.plugin`、`box/**` 或工作流文件变更后，GitHub Actions 会重新生成 `manifest.json`，Cloudflare Pages 随后自动重新部署网页。没有 `#!tag` 的插件，按工作流中的文件名映射表归类；映射表中也没有的，归入「其他」。
 
 ## 📊 统计
 
@@ -124,12 +125,17 @@ App 发出请求
 
 本仓库内容基于个人使用场景编写，主要由 AI 辅助生成，不保证适用于所有网络环境和账号状态。仅供个人学习交流，请遵守相关 App 的用户协议。因使用本仓库内容导致的账号或网络问题，作者不承担责任。
 
-## 🙏 参考
+## 🙏 参考与致谢
 
-- [Loon 插件文档](https://nsloon.app/docs/Plugin/)
-- [SunsetMkt/anti-ip-attribution](https://github.com/SunsetMkt/anti-ip-attribution)
-- [Koolson/Qure](https://github.com/Koolson/Qure)：插件图标
-- [stats-organization/github-stats-extended](https://github.com/stats-organization/github-stats-extended)：统计卡片（基于 [anuraghazra/github-readme-stats](https://github.com/anuraghazra/github-readme-stats)）
+| 类别 | 项目 | 用途 |
+|---|---|---|
+| 📖 文档 | [Loon 插件文档](https://nsloon.app/docs/Plugin/) | 插件头部字段、`[Argument]` 和 `#!tag` 的写法 |
+| 📖 文档 | [SunsetMkt/anti-ip-attribution](https://github.com/SunsetMkt/anti-ip-attribution) | 规则思路参考 |
+| 🎨 素材 | [Koolson/Qure](https://github.com/Koolson/Qure) | 插件图标 |
+| 🧩 服务 | [Cloudflare Pages](https://developers.cloudflare.com/pages/) | 插件盒子的托管与接口 |
+| 🧩 服务 | [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/) | 插件盒子的人机验证 |
+| 🧩 服务 | [GitHub Stats Extended](https://github.com/stats-organization/github-stats-extended) | 统计卡片，基于 [github-readme-stats](https://github.com/anuraghazra/github-readme-stats) |
+| 🧩 服务 | [Shields.io](https://shields.io/) | 顶部徽章 |
 
 ## 📄 许可
 
