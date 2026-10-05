@@ -1,32 +1,24 @@
-name: Update MyLoon Box
+name: Update manifest
 
 on:
   push:
     branches: [main]
     paths:
       - "plugin/*.plugin"
-      - "box/**"
-      - "manifest.json"
       - ".github/workflows/update-manifest.yml"
   workflow_dispatch:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
-  group: myloon-pages
-  # 部署流程不做抢占取消：连续提交时掐掉进行中的 deploy
-  # 只会让 Pages 的上线顺序变得不可预测，排队等它跑完更安全
+  group: update-manifest
+  # 不取消进行中的运行：连续提交时让它们排队，避免两次运行同时提交 manifest.json
   cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       # ========================================
@@ -34,8 +26,6 @@ jobs:
       # ========================================
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       # ========================================
       # 2. 自动生成 manifest.json
@@ -189,37 +179,6 @@ jobs:
             # 必须用默认的 GITHUB_TOKEN：它推送产生的事件不会触发新的 workflow run。
             # 一旦换成 PAT，上面 generatedAt 每次都是新时间戳 → manifest 永远有 diff
             # → 提交 → 触发新一轮 → 无限循环，几分钟就能烧完 Actions 额度。
+            git pull --rebase
             git push
           fi
-
-      # ========================================
-      # 4. 配置 GitHub Pages
-      # ========================================
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-
-      # ========================================
-      # 5. 准备 Pages 网站
-      # ========================================
-      - name: Prepare Pages site
-        run: |
-          rm -rf _site
-          mkdir -p _site
-
-          cp -R box/. _site/
-          cp manifest.json _site/manifest.json
-
-      # ========================================
-      # 6. 上传 Pages Artifact
-      # ========================================
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
-      # ========================================
-      # 7. 部署 GitHub Pages
-      # ========================================
-      - name: Deploy GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
