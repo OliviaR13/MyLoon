@@ -9,12 +9,16 @@
   <meta name="description" content="OliviaR13's Loon Box：浏览、搜索 Loon 插件，并一键安装到 Loon。">
   <link rel="icon" href="./icon.png" type="image/png">
   <link rel="apple-touch-icon" href="./icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="OliviaR13's Loon Box">
+  <meta property="og:description" content="浏览、搜索 Loon 插件，并一键安装到 Loon。">
   <title>OliviaR13's Loon Box</title>
   <link rel="stylesheet" href="./style.css">
   <!-- 不需要人机验证：把 app.js 里 CONFIG.turnstile.siteKey 设为空字符串，并删除下面这行 -->
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 </head>
 <body>
+  <a class="skip" href="#results">跳到插件列表</a>
   <main class="shell">
     <header class="head">
       <img class="logo" src="./icon.png" alt="" width="44" height="44">
@@ -44,7 +48,7 @@
         <a href="https://github.com/OliviaR13/MyLoon/tree/main/plugin">GitHub 的 plugin 目录</a>复制 raw 链接到 Loon。</p>
     </noscript>
 
-    <footer class="foot">OliviaR13's Loon Box · 开源 Loon 插件合集</footer>
+    <footer class="foot">OliviaR13's Loon Box · <a href="https://github.com/OliviaR13/MyLoon">源码</a> · <a href="https://github.com/OliviaR13/MyLoon/blob/main/LICENSE">MIT 许可</a></footer>
   </main>
 
   <div class="toast" id="toast" role="status" aria-live="polite"><span class="toast-msg"></span><button class="toast-act" type="button" hidden></button></div>
