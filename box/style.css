@@ -1,6 +1,6 @@
 /* OliviaR13's Loon Box
    设计取向：克制的工具型列表（低变化、低密度动效、中等信息密度）。
-   轻盈、现代的天蓝色系（Sky/Slate），带来通透的视觉体验。 */
+   轻盈极简色系：中性透明背景 + 低饱和度雾霾灰蓝（Dusty Blue），减少视觉负担。 */
 
 @font-face{
   font-family:"Geist Sans";
@@ -18,10 +18,10 @@
 }
 
 :root{
-  /* 轻盈色系：冷净背景 + 亮青/天蓝色强调 */
-  --bg:#f8fafc;--card:#ffffff;--hover:#f1f5f9;--text:#334155;--muted:#94a3b8;--line:#e2e8f0;--chip:#f1f5f9;
-  --accent:#0ea5e9;--accent-text:#0284c7;--accent-ink:#ffffff;--shadow:14 165 233; /* 对应强调色的阴影 */
-  --glow:color-mix(in srgb,var(--accent) 8%,transparent);
+  /* 极简雾霾灰蓝，大幅降低饱和度 */
+  --bg:#fafafa;--card:#ffffff;--hover:#f5f5f5;--text:#171717;--muted:#737373;--line:#e5e5e5;--chip:#f5f5f5;
+  --accent:#8a9fc2;--accent-text:#6379a1;--accent-ink:#ffffff;--shadow:138 159 194;
+  --glow:color-mix(in srgb,var(--accent) 4%,transparent);
   --r-lg:16px;--r-md:10px;--r-sm:6px;
   --spring:cubic-bezier(.34,1.4,.64,1);--ease:cubic-bezier(.2,.8,.2,1);
   --z-grain:1;--z-toast:10;
@@ -30,15 +30,15 @@
 }
 @media (prefers-color-scheme:dark){
   :root{
-    --bg:#0f172a;--card:#1e293b;--hover:#334155;--text:#f8fafc;--muted:#94a3b8;--line:#334155;--chip:#0f172a;
-    --accent:#38bdf8;--accent-text:#38bdf8;--accent-ink:#0f172a;--shadow:0 0 0;
-    --glow:color-mix(in srgb,var(--accent) 12%,transparent);
+    --bg:#0a0a0a;--card:#171717;--hover:#1f1f1f;--text:#ededed;--muted:#a3a3a3;--line:#262626;--chip:#1f1f1f;
+    --accent:#788dae;--accent-text:#94a8c9;--accent-ink:#0a0a0a;--shadow:0 0 0;
+    --glow:color-mix(in srgb,var(--accent) 6%,transparent);
   }
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
 body{margin:0;background:radial-gradient(70% 380px at 50% -60px,var(--glow),transparent) no-repeat,var(--bg);color:var(--text);font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
-body::before{content:"";position:fixed;inset:0;z-index:var(--z-grain);pointer-events:none;opacity:.03;
+body::before{content:"";position:fixed;inset:0;z-index:var(--z-grain);pointer-events:none;opacity:.02;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
 .shell{position:relative;z-index:2;max-width:720px;margin:0 auto;padding:calc(24px + env(safe-area-inset-top)) 16px calc(36px + env(safe-area-inset-bottom))}
 h1,h2,p{margin:0}
@@ -127,9 +127,9 @@ a{color:var(--accent-text)}
   .card-actions{grid-column:auto;grid-template-columns:1fr;align-content:start;min-width:92px}
 }
 
-/* 优化后的人机验证 UI：光晕背景、居中、更柔和的动画 */
-.verify{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 16px;background:linear-gradient(to bottom, var(--hover), var(--card));border-bottom:1px solid var(--line);animation:fade .3s both;position:relative;overflow:hidden}
-.verify::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at top, var(--glow), transparent 70%);opacity:0.6;pointer-events:none}
+/* 优化后的人机验证 UI：去除渐变，采用极简背景和微弱光晕 */
+.verify{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 16px;background:var(--card);border-bottom:1px solid var(--line);animation:fade .3s both;position:relative;overflow:hidden}
+.verify::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at top, var(--glow), transparent 60%);opacity:0.4;pointer-events:none}
 .verify-box{width:100%;max-width:360px;display:grid;justify-items:center;overflow:hidden;max-height:0;opacity:0;transform:translateY(-10px) scale(0.96);transition:max-height .45s var(--ease),opacity .35s,transform .45s var(--ease),margin .45s var(--ease);z-index:1}
 .verify[data-interactive="true"] .verify-box{max-height:120px;opacity:1;transform:translateY(0) scale(1);margin-top:16px}
 .verify ~ .sk-card{transition:filter .3s}
