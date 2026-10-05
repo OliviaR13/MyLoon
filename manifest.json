@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-10-05T02:02:16.378573+00:00",
+  "generatedAt": "2026-10-05T02:02:53.327312+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -90,7 +90,7 @@
       "tags": [
         "登录修复"
       ],
-      "date": null,
+      "date": "2026-09-10",
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Microsoft.png",
       "description": "对 Microsoft / Outlook 认证相关域名直连，并跳过 MITM 解密，用于处理登录窗口反复弹出的问题。"
