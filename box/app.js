@@ -20,12 +20,8 @@ const els = {
   search: $("#searchInput"), refresh: $("#refreshBtn"), tpl: $("#rowTpl"), toast: $("#toast"),
   sort: $("#sortBox"),
 };
-/* ---------- 排序 ----------
-   每种排序有默认方向：时间默认「新到旧」，名称默认「A 到 Z」。
-   点击未选中的项：切换排序并使用它的默认方向；点击已选中的项：反转方向。
-   没有日期的插件在「时间」排序里始终排最后，不随方向翻转。 */
+
 const collator = new Intl.Collator("zh-Hans-CN", { numeric: true, sensitivity: "base" });
-// 手动解析日期，不依赖 Date.parse（Safari 对 2026-9-5 这类非补零格式会返回无效）
 const dateValue = (p) => {
   const m = p.date.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
   return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) : NaN;
@@ -34,7 +30,7 @@ const SORTS = {
   date: { label: "时间", defaultDir: "desc", hint: { desc: "新到旧", asc: "旧到新" }, compare: (a, b) => dateValue(a) - dateValue(b) },
   name: { label: "名称", defaultDir: "asc", hint: { asc: "A 到 Z", desc: "Z 到 A" }, compare: (a, b) => collator.compare(a.name, b.name) },
 };
-const SORT_KEY = "myloon_box_sort"; // 存储格式：date:desc
+const SORT_KEY = "myloon_box_sort"; 
 
 function readSort() {
   try {
@@ -48,7 +44,6 @@ const state = { plugins: [], category: CONFIG.all, query: "", sort: readSort() }
 
 /* ---------- 工具 ---------- */
 
-/* 提示条：同一时间只显示一条，新提示直接替换旧的；可带一个操作按钮 */
 let toastTimer = 0;
 function toast(msg, action) {
   const box = els.toast;
@@ -65,7 +60,6 @@ function hideToast() {
   clearTimeout(toastTimer);
   els.toast.classList.remove("show");
 }
-// 离开页面（例如已跳转到 Loon）时收起提示，避免返回后还看到过期的提示
 document.addEventListener("visibilitychange", () => { if (document.hidden) hideToast(); });
 
 function safeIcon(value) {
@@ -94,8 +88,6 @@ function el(tag, cls, text) {
   return n;
 }
 
-/* 按语义拆分描述：在带圈序号（①②…）前、句末标点（。！？；）后断开，每段单独成行。
-   只影响显示，不修改插件文件里的 #!desc，搜索仍使用原文。 */
 function splitDescription(text) {
   return String(text)
     .replace(/\s+/g, " ")
@@ -118,7 +110,6 @@ function normalize(raw) {
     version: raw.version ? String(raw.version) : "",
     author: String(raw.author || ""),
     category,
-    // 分类之外的其余标签
     tags: tags.filter((t) => t && t !== category),
     icon: safeIcon(raw.icon || ""),
     description: String(raw.description || ""),
@@ -135,7 +126,7 @@ function sortPlugins(list) {
       if (missA !== missB) return missA ? 1 : -1;
     }
     const d = SORTS[key].compare(a, b);
-    return (Number.isNaN(d) ? 0 : sign * d) || collator.compare(a.name, b.name); // 相同则按名称，顺序稳定
+    return (Number.isNaN(d) ? 0 : sign * d) || collator.compare(a.name, b.name); 
   });
 }
 
@@ -147,9 +138,6 @@ function matches(p) {
 
 /* ---------- 渲染 ---------- */
 
-/* 唤起 Loon：成功时页面会被切走，不弹任何提示；
-   2 秒后页面仍在前台并保持焦点，才认为没有唤起成功，给出备用方案。
-   这是根据页面状态做的判断，可能受系统弹窗影响。 */
 function openInLoon(p) {
   window.location.href = installUrl(p);
   setTimeout(() => {
@@ -162,18 +150,17 @@ function openInLoon(p) {
   }, 2000);
 }
 
-/* 展开 / 收起：用 max-height 过渡，高度从当前值平滑变化 */
 function expand(desc) {
-  desc.style.maxHeight = desc.scrollHeight + "px"; // 从折叠高度过渡到完整高度
+  desc.style.maxHeight = desc.scrollHeight + "px"; 
   desc.dataset.open = "true";
-  const settle = () => { if (desc.dataset.open === "true") desc.style.maxHeight = ""; }; // 结束后恢复自适应
+  const settle = () => { if (desc.dataset.open === "true") desc.style.maxHeight = ""; }; 
   desc.addEventListener("transitionend", settle, { once: true });
-  setTimeout(settle, 450); // 减少动态效果时没有 transitionend，兜底处理
+  setTimeout(settle, 450); 
 }
 function collapse(desc) {
-  desc.style.maxHeight = desc.scrollHeight + "px"; // 先固定为当前高度
-  void desc.offsetHeight;                          // 强制回流，让过渡生效
-  desc.style.maxHeight = "";                       // 回到 CSS 中的折叠高度
+  desc.style.maxHeight = desc.scrollHeight + "px"; 
+  void desc.offsetHeight;                          
+  desc.style.maxHeight = "";                       
   desc.dataset.open = "false";
 }
 
@@ -242,11 +229,10 @@ function render({ animate = false } = {}) {
   els.list.replaceChildren(
     ...visible.map((p, i) => {
       const card = buildCard(p);
-      card.style.setProperty("--i", Math.min(i, 8)); // 入场动画错开，最多延迟 8 档
+      card.style.setProperty("--i", Math.min(i, 8)); 
       return card;
     })
   );
-  // 描述没有被截断时，隐藏「展开」按钮，并去掉底部渐隐
   requestAnimationFrame(() =>
     els.list.querySelectorAll(".card").forEach((c) => {
       const d = c.querySelector(".card-desc");
@@ -270,7 +256,6 @@ function renderFilters() {
       b.setAttribute("aria-pressed", String(state.category === name));
       b.addEventListener("click", () => {
         state.category = name;
-        // 只更新选中状态，不重建按钮，颜色过渡才能播放
         els.filters.querySelectorAll(".chip-filter").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.name === name)));
         render({ animate: true });
       });
@@ -286,12 +271,10 @@ function resetFilters() {
   render({ animate: true });
 }
 
-/* 加载占位：顶部状态行（转圈 / 对勾 + 当前阶段文字）+ 与真实卡片结构一致的骨架卡片 */
 function renderLoading(text) {
   const status = el("div", "status");
   status.setAttribute("role", "status");
   status.append(el("span", "spinner"), el("span", "status-text", text));
-  // 验证面板：状态行 + 验证组件的容器；需要用户交互时才展开组件
   const slot = el("div", "verify-box");
   slot.id = "tsBox";
   const verify = el("div", "verify");
@@ -312,7 +295,6 @@ function renderLoading(text) {
   els.list.replaceChildren(verify, ...cards);
 }
 
-// 更新状态行文字；done = true 时转圈变成对勾
 function setPhase(text, done = false) {
   const status = els.list.querySelector(".status");
   if (!status) return;
@@ -320,10 +302,7 @@ function setPhase(text, done = false) {
   status.querySelector(".status-text").textContent = text;
 }
 
-
-/* ---------- Turnstile ----------
-   每次加载清单都获取一个新令牌（令牌只能使用一次），交给 /api/manifest 在服务端校验。
-   interaction-only：通常无感通过，需要交互时才显示组件。 */
+/* ---------- Turnstile ---------- */
 
 let tsWidget = null;
 
@@ -331,7 +310,6 @@ function whenTurnstileReady() {
   return new Promise((resolve, reject) => {
     const start = Date.now();
     (function check() {
-      // 脚本刚加载时 window.turnstile 可能已存在但接口还没就绪，需要确认 render 可用
       if (window.turnstile && typeof window.turnstile.render === "function") return resolve();
       if (Date.now() - start > CONFIG.turnstile.loadTimeout) return reject(new Error("script"));
       setTimeout(check, 100);
@@ -361,10 +339,10 @@ async function getToken() {
       theme: "auto",
       language: "zh-cn",
       appearance: "interaction-only",
-      size: "flexible", // 组件宽度跟随容器，手机上不会溢出
+      size: "flexible", 
       callback: (token) => { removeTurnstile(); resolve(token); },
-      "before-interactive-callback": () => { setInteractive(true); setPhase("请点击下方的复选框完成验证"); },
-      "after-interactive-callback": () => { setInteractive(false); setPhase("正在验证…"); },
+      "before-interactive-callback": () => { setInteractive(true); setPhase("请点击下方模块完成验证"); },
+      "after-interactive-callback": () => { setInteractive(false); setPhase("正在进行安全验证…"); },
       "expired-callback": () => turnstile.reset(tsWidget),
       "timeout-callback": () => turnstile.reset(tsWidget),
       "error-callback": (code) => { removeTurnstile(); reject(new Error("turnstile " + code)); return true; },
@@ -379,8 +357,8 @@ async function load(announce = false) {
   els.refresh.disabled = true;
   els.count.textContent = "加载中";
   els.updated.textContent = "";
-  renderLoading(CONFIG.turnstile.siteKey ? "正在进行人机验证…" : "正在加载清单…");
-  // 验证超过 4 秒还没完成时，提示一下
+  renderLoading(CONFIG.turnstile.siteKey ? "正在进行安全人机验证…" : "正在加载清单…");
+  
   const slowTimer = setTimeout(() => setPhase("验证时间较长，请稍候…"), 4000);
 
   try {
@@ -389,7 +367,7 @@ async function load(announce = false) {
     if (CONFIG.turnstile.siteKey) {
       const token = await getToken();
       clearTimeout(slowTimer);
-      setPhase("验证通过，正在加载清单…", true);
+      setPhase("验证成功，正在加载清单…", true);
       url = CONFIG.manifest;
       init = { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }), cache: "no-store" };
     }
@@ -452,7 +430,7 @@ function buildSort() {
   );
   syncSort();
 }
-// 只更新状态，不重建按钮，箭头旋转和颜色过渡才能播放
+
 function syncSort() {
   const { key, dir } = state.sort;
   els.sort.querySelectorAll("button").forEach((b) => {
