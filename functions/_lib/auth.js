@@ -40,6 +40,12 @@ export const cookie = (name, value, { maxAge, path = "/" } = {}) => {
   return cookieStr;
 };
 
+// 删除 Cookie。除了 Max-Age=0，再补一个过去的 Expires：
+// 只写 Max-Age=0 在部分 WebKit 版本上不会真正删掉 Cookie，而 Expires 是所有
+// 实现都认的兜底写法。删 Cookie 必须双写，别嫌啰嗦。
+export const clearCookie = (name, path = "/") =>
+  `${name}=; Path=${path}; HttpOnly; Secure; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+
 export const json = (body, status = 200, headers = {}) =>
   new Response(JSON.stringify(body), {
     status,

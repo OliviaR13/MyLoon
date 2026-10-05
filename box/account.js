@@ -3,8 +3,16 @@
    依赖：app.js（state、SORTS、SORT_KEY、setFavorites、syncSort、toast）、settings.js（MLB_settings）。 */
 (() => {
   const $ = (id) => document.getElementById(id);
+  // 显式声明要 JSON：服务端靠 Accept 判断是不是接口调用，不带就会被当成页面请求
+  // 而回 302 重定向，登出就废了。
   const api = (method, url, body) =>
-    fetch(url, { method, headers: body ? { "content-type": "application/json" } : {}, body: body && JSON.stringify(body), cache: "no-store", credentials: "same-origin" });
+    fetch(url, {
+      method,
+      headers: { accept: "application/json", ...(body ? { "content-type": "application/json" } : {}) },
+      body: body && JSON.stringify(body),
+      cache: "no-store",
+      credentials: "same-origin",
+    });
   let user = null, timer = 0, merging = false;
 
   const setHint = (on) => { try { on ? localStorage.setItem("myloon_box_login", "1") : localStorage.removeItem("myloon_box_login"); } catch {} };
@@ -67,7 +75,16 @@
   }
 
   $("logoutBtn").addEventListener("click", async () => {
-    try { await api("POST", "/api/logout"); } catch {} // <-- 已修复为 /api/logout
+    // 先取消待发的云端同步：退出之后那次 PUT 必定 401，没必要再发一次
+    clearTimeout(timer);
+    try {
+      const res = await api("POST", "/api/logout");
+      if (!res.ok) throw new Error("HTTP " + res.status);
+    } catch {
+      // 请求失败时会话还在，界面保持原样，不谎报「已退出」
+      toast("退出失败，请检查网络后重试");
+      return;
+    }
     user = null;
     setHint(false);
     renderAccount();
