@@ -12,6 +12,7 @@ export async function seal(payload, secret) {
   const sig = b64(await crypto.subtle.sign("HMAC", await hmacKey(secret), enc.encode(body)));
   return `${body}.${sig}`;
 }
+
 // 校验签名和过期时间，失败返回 null
 export async function unseal(token, secret) {
   const [body, sig] = String(token || "").split(".");
@@ -29,8 +30,15 @@ export const getCookie = (req, name) => {
   const m = (req.headers.get("Cookie") || "").match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
   return m ? m[1] : "";
 };
-export const cookie = (name, value, { maxAge, path = "/api" }) =>
-  `${name}=${value}; Max-Age=${maxAge}; Path=${path}; HttpOnly; Secure; SameSite=Lax`;
+
+// 修复：默认 Path 统一为 "/"，并处理 Max-Age
+export const cookie = (name, value, { maxAge, path = "/" } = {}) => {
+  let cookieStr = `${name}=${value}; Path=${path}; HttpOnly; Secure; SameSite=Lax`;
+  if (typeof maxAge === "number") {
+    cookieStr += `; Max-Age=${maxAge}`;
+  }
+  return cookieStr;
+};
 
 export const json = (body, status = 200, headers = {}) =>
   new Response(JSON.stringify(body), {
