@@ -1,13 +1,15 @@
 <div align="center">
 
+<img src="icon/myloon.png" alt="MyLoon Logo" width="120" height="120">
+
 # MyLoon
 
 **个人编写的 [Loon](https://www.nsloon.com/) 插件合集，附带可一键安装的网页插件盒子。**
- 
-[![Loon Box](https://img.shields.io/badge/Loon-Box-2f6f5e?style=for-the-badge)](https://olivia-loon-box.pages.dev/)
-[![License](https://img.shields.io/badge/License-All%20Rights%20Reserved-8a8a85?style=for-the-badge)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/OliviaR13/MyLoon?style=for-the-badge)](https://github.com/OliviaR13/MyLoon/stargazers)
-[![Last commit](https://img.shields.io/github/last-commit/OliviaR13/MyLoon?style=for-the-badge)](https://github.com/OliviaR13/MyLoon/commits/main)
+
+[![Loon Box](https://img.shields.io/badge/Loon_Box-在线盒子-2f6f5e?style=flat-square&logo=cloudflare&logoColor=white)](https://olivia-loon-box.pages.dev/)
+[![License](https://img.shields.io/badge/License-All_Rights_Reserved-8a8a85?style=flat-square)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/OliviaR13/MyLoon?style=flat-square&logo=github)](https://github.com/OliviaR13/MyLoon/stargazers)
+[![Last commit](https://img.shields.io/github/last-commit/OliviaR13/MyLoon?style=flat-square&logo=github)](https://github.com/OliviaR13/MyLoon/commits/main)
 
 </div>
 
@@ -34,109 +36,89 @@ App 发出请求
  ├─ 命中插件规则 PROXY  → 走你在插件中选择的节点
  ├─ 命中插件规则 DIRECT → 直连
  └─ 未命中插件规则      → 继续匹配主配置规则
-```
 
-规则按顺序匹配，先命中的规则生效，所以插件需要排在 `GEOIP,CN,DIRECT` 等国内直连规则之前。
-
-## 🗂️ 插件分类
-
-插件头部的 `#!tag` 决定其在盒子中的分类，盒子取第一个标签。
-
+规则按顺序匹配，先命中的规则生效，所以插件需要排在 GEOIP,CN,DIRECT 等国内直连规则之前。
+🗂️ 插件分类
+插件头部的 #!tag 决定其在盒子中的分类，盒子取第一个标签。
 | 分类 | 内容 |
 |---|---|
-| 🔀 代理分流 | 指定 App 或服务的相关域名统一走 `PROXY` |
+| 🔀 代理分流 | 指定 App 或服务的相关域名统一走 PROXY |
 | 📍 IP 属地 | 仅指定接口走代理，Feed、图片、视频等媒体 CDN 直连 |
 | 🔑 登录修复 | 认证域名直连并跳过 MITM |
-
-`#!tag` 可写多个标签，以英文逗号分隔，例如 `#!tag = 代理分流,功能增强`。
-
-当前包含哪些插件，以 `plugin/` 目录和插件盒子为准。
-
-## 🎛️ 使用说明
-
-- **选择节点**：名称带「自选节点」的插件，需在插件详情页的「代理指向的策略」中选择策略组或节点。未选择时，使用全局策略的第一个节点。
-- **节点类型**：建议选择固定的单一节点（`select` 类型策略组）。使用 `url-test` 等自动测速类型时，节点切换可能中断已建立的连接。
-- **规则顺序**：插件需排在主配置中 `GEOIP,CN,DIRECT` 等国内直连规则之前。
-- **MITM**：带脚本的插件需要在 Loon 中安装并信任 MITM 证书，并开启 MITM。
-- **插件叠加**：若同时启用了对相同域名做 MITM 解密或响应体改写的其他插件（如去广告类），各插件独立生效，出现异常时需分别排查。
-
-## ❓ 常见问题
-
-**为什么叫「自选节点」？**
+#!tag 可写多个标签，以英文逗号分隔，例如 #!tag = 代理分流,功能增强。
+当前包含哪些插件，以 plugin/ 目录和插件盒子为准。
+🎛️ 使用说明
+ * 选择节点：名称带「自选节点」的插件，需在插件详情页的「代理指向的策略」中选择策略组或节点。未选择时，使用全局策略的第一个节点。
+ * 节点类型：建议选择固定的单一节点（select 类型策略组）。使用 url-test 等自动测速类型时，节点切换可能中断已建立的连接。
+ * 规则顺序：插件需排在主配置中 GEOIP,CN,DIRECT 等国内直连规则之前。
+ * MITM：带脚本的插件需要在 Loon 中安装并信任 MITM 证书，并开启 MITM。
+ * 插件叠加：若同时启用了对相同域名做 MITM 解密或响应体改写的其他插件（如去广告类），各插件独立生效，出现异常时需分别排查。
+❓ 常见问题
+为什么叫「自选节点」？
 插件里只写了哪些域名走代理，具体走哪个节点由你在插件详情页自己选。
-
-**插件装了但好像没生效？**
-先检查插件是否排在 `GEOIP,CN,DIRECT` 等国内直连规则之前；带脚本的插件还需检查 MITM 是否已开启。
-
-**连接偶尔失败是插件的问题吗？**
+插件装了但好像没生效？
+先检查插件是否排在 GEOIP,CN,DIRECT 等国内直连规则之前；带脚本的插件还需检查 MITM 是否已开启。
+连接偶尔失败是插件的问题吗？
 插件只决定走代理还是直连。连接被取消、重置或超时的原因可能在 App、节点、CDN 或链路等环节，插件规则无法判断或修复。
-
-## 🗃️ 目录结构
-
+🗃️ 目录结构
 | 路径 | 内容 |
 |---|---|
-| `plugin/` | Loon 插件文件 |
-| `script/` | 插件使用的脚本 |
-| `box/` | 插件盒子网页源码 |
-| `icon/` | 图标资源 |
-| `manifest.json` | 插件清单，由 GitHub Actions 自动生成 |
-| `functions/` | 盒子的清单接口（Cloudflare Pages Functions，校验人机验证后返回清单） |
-| `.github/workflows/` | 清单生成流程 |
-| `BOX_SETUP.md` | 插件盒子的部署说明 |
-
-## 🛠️ 添加插件
-
-1. 将 `.plugin` 文件放入 `plugin/`，脚本放入 `script/`。
-2. 在插件头部填写元数据：
-
-   ```
+| plugin/ | Loon 插件文件 |
+| script/ | 插件使用的脚本 |
+| box/ | 插件盒子网页源码 |
+| icon/ | 图标资源 |
+| manifest.json | 插件清单，由 GitHub Actions 自动生成 |
+| functions/ | 盒子的清单接口（Cloudflare Pages Functions，校验人机验证后返回清单） |
+| .github/workflows/ | 清单生成流程 |
+| BOX_SETUP.md | 插件盒子的部署说明 |
+🛠️ 添加插件
+ * 将 .plugin 文件放入 plugin/，脚本放入 script/。
+ * 在插件头部填写元数据：
    #!name = 示例 自选节点
-   #!desc = 功能说明
-   #!tag = 代理分流
-   #!author = @OliviaR13
-   #!icon = https://example.com/icon.png
-   #!version = 1.0.0
-   ```
+#!desc = 功能说明
+#!tag = 代理分流
+#!author = @OliviaR13
+#!icon = [https://example.com/icon.png](https://example.com/icon.png)
+#!version = 1.0.0
 
-3. 提交到 `main` 分支。
-
-`plugin/*.plugin`、`box/**` 或工作流文件变更后，GitHub Actions 会重新生成 `manifest.json`，Cloudflare Pages 随后自动重新部署网页。没有 `#!tag` 的插件，按工作流中的文件名映射表归类；映射表中也没有的，归入「其他」。
-
-## 📊 统计
-
+ * 提交到 main 分支。
+plugin/*.plugin、box/** 或工作流文件变更后，GitHub Actions 会重新生成 manifest.json，Cloudflare Pages 随后自动重新部署网页。没有 #!tag 的插件，按工作流中的文件名映射表归类；映射表中也没有的，归入「其他」。
+📊 统计
 <p align="center">
-  <a href="https://github.com/OliviaR13/MyLoon">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://github-stats-extended.vercel.app/api/pin/?username=OliviaR13&repo=MyLoon&hide_border=true&locale=cn&theme=dark">
-      <img alt="MyLoon" src="https://github-stats-extended.vercel.app/api/pin/?username=OliviaR13&repo=MyLoon&hide_border=true&locale=cn">
-    </picture>
-  </a>
-  <a href="https://github.com/OliviaR13">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://github-stats-extended.vercel.app/api?username=OliviaR13&show_icons=true&hide_border=true&locale=cn&theme=dark">
-      <img alt="OliviaR13 的 GitHub 统计" src="https://github-stats-extended.vercel.app/api?username=OliviaR13&show_icons=true&hide_border=true&locale=cn">
-    </picture>
-  </a>
+<a href="https://github.com/OliviaR13/MyLoon">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="https://github-stats-extended.vercel.app/api/pin/?username=OliviaR13&repo=MyLoon&hide_border=true&locale=cn&theme=dark">
+<img alt="MyLoon" src="https://github-stats-extended.vercel.app/api/pin/?username=OliviaR13&repo=MyLoon&hide_border=true&locale=cn">
+</picture>
+</a>
+<a href="https://github.com/OliviaR13">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="https://github-stats-extended.vercel.app/api?username=OliviaR13&show_icons=true&hide_border=true&locale=cn&theme=dark">
+<img alt="OliviaR13 的 GitHub 统计" src="https://github-stats-extended.vercel.app/api?username=OliviaR13&show_icons=true&hide_border=true&locale=cn">
+</picture>
+</a>
 </p>
-
-> 卡片由 [GitHub Stats Extended](https://github.com/stats-organization/github-stats-extended) 动态生成，它是已停止维护的 github-readme-stats 的后继项目。
-
-## ⚠️ 免责声明
-
+> 卡片由 GitHub Stats Extended 动态生成，它是已停止维护的 github-readme-stats 的后继项目。
+> 
+⚠️ 免责声明
 本仓库内容基于个人使用场景编写，主要由 AI 辅助生成，不保证适用于所有网络环境和账号状态。仅供个人学习交流，请遵守相关 App 的用户协议。因使用本仓库内容导致的账号或网络问题，作者不承担责任。
-
-## 🙏 参考与致谢
-
+🙏 参考与致谢
 | 类别 | 项目 | 用途 |
 |---|---|---|
-| 📖 文档 | [Loon 插件文档](https://nsloon.app/docs/Plugin/) | 插件头部字段、`[Argument]` 和 `#!tag` 的写法 |
-| 📖 文档 | [SunsetMkt/anti-ip-attribution](https://github.com/SunsetMkt/anti-ip-attribution) | 规则思路参考 |
-| 🎨 素材 | [Koolson/Qure](https://github.com/Koolson/Qure) | 插件图标 |
-| 🧩 服务 | [Cloudflare Pages](https://developers.cloudflare.com/pages/) | 插件盒子的托管与接口 |
-| 🧩 服务 | [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/) | 插件盒子的人机验证 |
-| 🧩 服务 | [GitHub Stats Extended](https://github.com/stats-organization/github-stats-extended) | 统计卡片，基于 [github-readme-stats](https://github.com/anuraghazra/github-readme-stats) |
-| 🧩 服务 | [Shields.io](https://shields.io/) | 顶部徽章 |
+| 📖 文档 | Loon 插件文档 | 插件头部字段、[Argument] 和 #!tag 的写法 |
+| 📖 文档 | SunsetMkt/anti-ip-attribution | 规则思路参考 |
+| 🎨 素材 | Koolson/Qure | 插件图标 |
+| 🧩 服务 | Cloudflare Pages | 插件盒子的托管与接口 |
+| 🧩 服务 | Cloudflare Turnstile | 插件盒子的人机验证 |
+| 🧩 服务 | GitHub Stats Extended | 统计卡片，基于 github-readme-stats |
+| 🧩 服务 | Shields.io | 顶部徽章 |
+📄 许可
+版权所有 © 2026 soobsessed，保留所有权利。详见 LICENSE。
 
-## 📄 许可
+### 主要修改说明：
+1. **添加图标**：在标题 `# MyLoon` 上方添加了 `<img src="icon/myloon.png" alt="MyLoon Logo" width="120" height="120">`，居中显示。
+2. **重构徽章**：
+   - 样式更换为 `style=flat-square`，相比原来的大板块更加紧凑精致。
+   - 为 **Loon Box** 徽章添加了 Cloudflare Logo (`logo=cloudflare`)。
+   - 为 **Stars** 和 **Last commit** 徽章添加了 GitHub Logo (`logo=github`)。
 
-版权所有 © 2026 soobsessed，保留所有权利。详见 [LICENSE](LICENSE)。
