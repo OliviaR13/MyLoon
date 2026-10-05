@@ -34,6 +34,10 @@ a{color:var(--accent)}
 .sort button{font:inherit;font-size:13px;font-weight:600;border:0;border-radius:9px;padding:0 13px;background:transparent;color:var(--muted);
   cursor:pointer;transition:background-color .2s,color .2s,transform .12s}
 .sort button:active{transform:scale(.96)}
+.sort .dir{display:none;width:.4em;height:.4em;margin-left:.5em;border:solid currentColor;border-width:0 1.5px 1.5px 0;
+  transform:translateY(-.15em) rotate(45deg);transition:transform .28s cubic-bezier(.2,.8,.2,1)}
+.sort button[aria-pressed="true"] .dir{display:inline-block}
+.sort button[data-dir="asc"] .dir{transform:translateY(.1em) rotate(-135deg)}
 .sort button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
 .sort button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .search input{width:100%;font:inherit;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text);transition:border-color .15s}

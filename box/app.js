@@ -20,14 +20,31 @@ const els = {
   search: $("#searchInput"), refresh: $("#refreshBtn"), tpl: $("#rowTpl"), toast: $("#toast"),
   turnstile: $("#turnstile"), sort: $("#sortBox"),
 };
-// 页面里没有 Turnstile 容器时，不做人机验证
-const SORT_KEY = "myloon_box_sort";
-const state = { plugins: [], category: CONFIG.all, query: "", sort: readSort() };
+/* ---------- 排序 ----------
+   每种排序有默认方向：时间默认「新到旧」，名称默认「A 到 Z」。
+   点击未选中的项：切换排序并使用它的默认方向；点击已选中的项：反转方向。
+   没有日期的插件在「时间」排序里始终排最后，不随方向翻转。 */
+const collator = new Intl.Collator("zh-Hans-CN", { numeric: true, sensitivity: "base" });
+// 手动解析日期，不依赖 Date.parse（Safari 对 2026-9-5 这类非补零格式会返回无效）
+const dateValue = (p) => {
+  const m = p.date.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+  return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) : NaN;
+};
+const SORTS = {
+  date: { label: "时间", defaultDir: "desc", hint: { desc: "新到旧", asc: "旧到新" }, compare: (a, b) => dateValue(a) - dateValue(b) },
+  name: { label: "名称", defaultDir: "asc", hint: { asc: "A 到 Z", desc: "Z 到 A" }, compare: (a, b) => collator.compare(a.name, b.name) },
+};
+const SORT_KEY = "myloon_box_sort"; // 存储格式：date:desc
 
-// 排序方式记在浏览器里；存储不可用时使用默认值「时间」
 function readSort() {
-  try { return localStorage.getItem(SORT_KEY) === "name" ? "name" : "date"; } catch { return "date"; }
+  try {
+    const [key, dir] = (localStorage.getItem(SORT_KEY) || "").split(":");
+    if (SORTS[key] && (dir === "asc" || dir === "desc")) return { key, dir };
+  } catch {}
+  return { key: "date", dir: SORTS.date.defaultDir };
 }
+
+const state = { plugins: [], category: CONFIG.all, query: "", sort: readSort() };
 
 /* ---------- 工具 ---------- */
 
@@ -109,17 +126,17 @@ function normalize(raw) {
   };
 }
 
-/* 排序：时间 = 插件头部 #!date 由新到旧（没有日期的排最后）；名称 = 按拼音 / 字母顺序。
-   两种方式在相同时都回退到名称，保证顺序稳定。 */
-const collator = new Intl.Collator("zh-Hans-CN", { numeric: true, sensitivity: "base" });
-// 手动解析日期，不依赖 Date.parse（Safari 对 2026-9-5 这类非补零格式会返回无效）
-const dateValue = (p) => {
-  const m = p.date.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
-  return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) : -Infinity;
-};
 function sortPlugins(list) {
-  const byName = (a, b) => collator.compare(a.name, b.name);
-  return [...list].sort(state.sort === "name" ? byName : (a, b) => dateValue(b) - dateValue(a) || byName(a, b));
+  const { key, dir } = state.sort;
+  const sign = dir === "asc" ? 1 : -1;
+  return [...list].sort((a, b) => {
+    if (key === "date") {
+      const missA = Number.isNaN(dateValue(a)), missB = Number.isNaN(dateValue(b));
+      if (missA !== missB) return missA ? 1 : -1;
+    }
+    const d = SORTS[key].compare(a, b);
+    return (Number.isNaN(d) ? 0 : sign * d) || collator.compare(a.name, b.name); // 相同则按名称，顺序稳定
+  });
 }
 
 function matches(p) {
@@ -410,17 +427,41 @@ els.search.addEventListener("input", (e) => {
 });
 els.refresh.addEventListener("click", () => load(true));
 
+function buildSort() {
+  els.sort.replaceChildren(
+    ...Object.entries(SORTS).map(([key, s]) => {
+      const b = el("button", "", s.label);
+      b.type = "button";
+      b.dataset.sort = key;
+      b.append(el("i", "dir"));
+      return b;
+    })
+  );
+  syncSort();
+}
+// 只更新状态，不重建按钮，箭头旋转和颜色过渡才能播放
 function syncSort() {
-  els.sort.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.sort === state.sort)));
+  const { key, dir } = state.sort;
+  els.sort.querySelectorAll("button").forEach((b) => {
+    const s = SORTS[b.dataset.sort];
+    const active = b.dataset.sort === key;
+    b.setAttribute("aria-pressed", String(active));
+    b.dataset.dir = active ? dir : "";
+    b.setAttribute("aria-label", active ? `${s.label}，${s.hint[dir]}，点击反转` : `按${s.label}排序`);
+    b.title = active ? s.hint[dir] : "";
+  });
 }
 els.sort.addEventListener("click", (e) => {
   const b = e.target.closest("button[data-sort]");
-  if (!b || b.dataset.sort === state.sort) return;
-  state.sort = b.dataset.sort;
-  try { localStorage.setItem(SORT_KEY, state.sort); } catch {}
+  if (!b) return;
+  const key = b.dataset.sort;
+  state.sort = key === state.sort.key
+    ? { key, dir: state.sort.dir === "asc" ? "desc" : "asc" }
+    : { key, dir: SORTS[key].defaultDir };
+  try { localStorage.setItem(SORT_KEY, key + ":" + state.sort.dir); } catch {}
   syncSort();
   if (state.plugins.length) render({ animate: true });
 });
-syncSort();
+buildSort();
 
 load();
