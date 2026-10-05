@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-10-05T02:02:53.327312+00:00",
+  "generatedAt": "2026-10-05T02:03:21.804862+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -30,7 +30,7 @@
       "tags": [
         "代理分流"
       ],
-      "date": null,
+      "date": "2026-09-20",
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Spotify.png",
       "description": "将 Spotify 相关域名（官方站点与 API、音频/图片 CDN、短链）统一走 PROXY 策略。安装后请在插件详情页的「代理指向的策略」中选择用于代理的策略组或节点，未选择时默认使用全局策略的第一个节点。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前，否则规则可能被提前匹配而失效。"
