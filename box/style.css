@@ -1,6 +1,23 @@
 /* OliviaR13's Loon Box
    设计取向：克制的工具型列表（低变化、低密度动效、中等信息密度）。
    中性底色 + 单一强调色；行与行之间用细线分隔，不做一张张独立卡片。 */
+
+/* Geist Sans / Geist Mono — Vercel 官方 Geist 字体 */
+@font-face{
+  font-family:"Geist Sans";
+  src:url("https://cdn.jsdelivr.net/gh/vercel/geist-font@v1.7.2/packages/next/dist/fonts/geist-sans/Geist-Variable.woff2") format("woff2");
+  font-style:normal;
+  font-weight:100 900;
+  font-display:swap;
+}
+@font-face{
+  font-family:"Geist Mono";
+  src:url("https://cdn.jsdelivr.net/gh/vercel/geist-font@v1.7.2/packages/next/dist/fonts/geist-mono/GeistMono-Variable.woff2") format("woff2");
+  font-style:normal;
+  font-weight:100 900;
+  font-display:swap;
+}
+
 :root{
   /* 暖调纸张色中性色 + 单一强调色；不用纯白纯黑 */
   --bg:#f6f4ef;--card:#fdfcf9;--hover:#faf8f3;--text:#1d1b17;--muted:#6a655a;--line:#e6e2d8;--chip:#efece4;
@@ -12,8 +29,8 @@
   --spring:cubic-bezier(.34,1.4,.64,1);--ease:cubic-bezier(.2,.8,.2,1);
   /* z-index 层级 */
   --z-grain:1;--z-toast:10;
-  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Noto Sans SC","Segoe UI",sans-serif;
-  --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  --font:"Geist Sans",-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC","Segoe UI",sans-serif;
+  --mono:"Geist Mono",ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
 }
 @media (prefers-color-scheme:dark){
   :root{--bg:#12110f;--card:#191815;--hover:#1e1d19;--text:#efece5;--muted:#a39e92;--line:#2b2924;--chip:#23211d;--accent:#3fcfa6;--accent-text:#3fcfa6;--accent-ink:#04140e;--shadow:0 0 0;
