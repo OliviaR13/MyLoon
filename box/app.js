@@ -11,6 +11,8 @@ const CONFIG = {
     siteKey: "0x4AAAAAAFM6TQJfkewCeO_g", // 留空则不启用人机验证
     action: "load_manifest",             // 需与 functions/api/manifest.js 中的 ACTION 一致
     loadTimeout: 8000,                   // 验证组件加载超时
+    totalTimeout: 30000,                 // 无需交互时，整个验证的总时限
+    interactiveTimeout: 90000,           // 需要用户点击时，给更长的时限
   },
 };
 
@@ -44,7 +46,43 @@ function readSort() {
   return { key: "date", dir: SORTS.date.defaultDir };
 }
 
-const state = { plugins: [], category: CONFIG.all, query: "", sort: readSort() };
+/* ---------- 收藏 ----------
+   收藏的是插件 id，先存在本机；登录 GitHub 后由 account.js 同步到云端。 */
+const FAV_KEY = "myloon_box_favs";
+const FAV = "收藏"; // 筛选栏里的特殊分类
+function readFavs() {
+  try { const a = JSON.parse(localStorage.getItem(FAV_KEY) || "[]"); return new Set(Array.isArray(a) ? a.filter((x) => typeof x === "string") : []); } catch { return new Set(); }
+}
+// 登录提示：account.js 在已登录时写入，用于让清单请求先走登录 Cookie，跳过人机验证
+const loggedHint = () => { try { return localStorage.getItem("myloon_box_login") === "1"; } catch { return false; } };
+
+const state = { plugins: [], category: CONFIG.all, query: "", sort: readSort(), favorites: readFavs() };
+
+function saveFavs() {
+  try { localStorage.setItem(FAV_KEY, JSON.stringify([...state.favorites])); } catch {}
+  document.dispatchEvent(new Event("favs:change"));
+}
+function setFavorites(ids) { // 供 account.js 合并云端数据时调用
+  state.favorites = new Set(ids);
+  try { localStorage.setItem(FAV_KEY, JSON.stringify([...state.favorites])); } catch {}
+  if (state.plugins.length) { renderFilters(); render(); }
+}
+function toggleFav(id, btn) {
+  state.favorites.has(id) ? state.favorites.delete(id) : state.favorites.add(id);
+  saveFavs();
+  btn.setAttribute("aria-pressed", String(state.favorites.has(id)));
+  renderFilters();
+  if (state.category === FAV) render(); // 在「收藏」里取消收藏时，该行立即消失
+}
+function starIcon() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", "M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9L3.5 9.7l5.9-.8z");
+  svg.append(path);
+  return svg;
+}
 
 /* ---------- 工具 ---------- */
 
@@ -140,7 +178,8 @@ function sortPlugins(list) {
 }
 
 function matches(p) {
-  if (state.category !== CONFIG.all && p.category !== state.category) return false;
+  if (state.category === FAV) { if (!state.favorites.has(p.id)) return false; }
+  else if (state.category !== CONFIG.all && p.category !== state.category) return false;
   const q = state.query.trim().toLowerCase();
   return !q || (p.name + " " + p.description).toLowerCase().includes(q);
 }
@@ -183,6 +222,13 @@ function buildCard(p) {
   if (p.icon) icon.src = p.icon; else icon.remove();
 
   card.querySelector("h2").textContent = p.name;
+  const star = el("button", "star");
+  star.type = "button";
+  star.append(starIcon());
+  star.setAttribute("aria-label", "收藏 " + p.name);
+  star.setAttribute("aria-pressed", String(state.favorites.has(p.id)));
+  star.addEventListener("click", () => toggleFav(p.id, star));
+  card.querySelector(".card-title").append(star);
   const ver = card.querySelector(".chip-ver");
   if (p.version) ver.textContent = p.version; else ver.remove();
 
@@ -230,8 +276,8 @@ function render({ animate = false } = {}) {
   if (!visible.length) {
     els.list.replaceChildren(
       notice(
-        total ? "没有匹配的插件" : "清单里还没有插件",
-        total ? "换个关键词，或把分类切回「全部」。" : "manifest.json 中没有插件条目。",
+        total ? (state.category === FAV && !state.favorites.size ? "还没有收藏" : "没有匹配的插件") : "清单里还没有插件",
+        total ? (state.category === FAV && !state.favorites.size ? "点击插件右上角的星标，就能把它加入收藏。" : "换个关键词，或把分类切回「全部」。") : "manifest.json 中没有插件条目。",
         total ? "清除筛选" : "",
         resetFilters
       )
@@ -260,7 +306,7 @@ function render({ animate = false } = {}) {
 function renderFilters() {
   const counts = new Map();
   state.plugins.forEach((p) => counts.set(p.category, (counts.get(p.category) || 0) + 1));
-  const items = [[CONFIG.all, state.plugins.length], ...counts];
+  const items = [[CONFIG.all, state.plugins.length], [FAV, state.favorites.size], ...counts];
   els.filters.replaceChildren(
     ...items.map(([name, n]) => {
       const b = el("button", "chip-filter", name);
@@ -351,10 +397,17 @@ function removeTurnstile() {
   setInteractive(false);
 }
 
+let tsTimer = 0;
+function armTimer(ms, reject) {
+  clearTimeout(tsTimer);
+  tsTimer = setTimeout(() => { removeTurnstile(); reject(new Error("turnstile timeout")); }, ms);
+}
+
 async function getToken() {
   await whenTurnstileReady();
   removeTurnstile();
   return new Promise((resolve, reject) => {
+    armTimer(CONFIG.turnstile.totalTimeout, reject); // 不会一直卡在「请稍候」
     tsWidget = turnstile.render("#tsBox", {
       sitekey: CONFIG.turnstile.siteKey,
       action: CONFIG.turnstile.action,
@@ -362,12 +415,13 @@ async function getToken() {
       language: "zh-cn",
       appearance: "interaction-only",
       size: "flexible", // 组件宽度跟随容器，手机上不会溢出
-      callback: (token) => { removeTurnstile(); resolve(token); },
-      "before-interactive-callback": () => { setInteractive(true); setPhase("请点击下方的复选框完成验证"); },
-      "after-interactive-callback": () => { setInteractive(false); setPhase("正在验证…"); },
+      retry: "never",   // 出错时立即报告，不在后台反复静默重试
+      callback: (token) => { clearTimeout(tsTimer); removeTurnstile(); resolve(token); },
+      "before-interactive-callback": () => { armTimer(CONFIG.turnstile.interactiveTimeout, reject); setInteractive(true); setPhase("请点击下方的复选框完成验证"); },
+      "after-interactive-callback": () => { armTimer(CONFIG.turnstile.totalTimeout, reject); setInteractive(false); setPhase("正在验证…"); },
       "expired-callback": () => turnstile.reset(tsWidget),
       "timeout-callback": () => turnstile.reset(tsWidget),
-      "error-callback": (code) => { removeTurnstile(); reject(new Error("turnstile " + code)); return true; },
+      "error-callback": (code) => { clearTimeout(tsTimer); removeTurnstile(); reject(new Error("turnstile " + code)); return true; },
     });
   });
 }
@@ -392,7 +446,7 @@ async function load(announce = false) {
   els.refresh.disabled = true;
   els.count.textContent = "加载中";
   els.updated.textContent = "";
-  const needVerify = CONFIG.turnstile.siteKey && !recentlyVerified();
+  const needVerify = CONFIG.turnstile.siteKey && !recentlyVerified() && !loggedHint();
   renderLoading(needVerify ? "正在进行人机验证…" : "正在加载清单…");
   // 验证超过 4 秒还没完成时，提示一下
   let waitingToken = false;
@@ -404,7 +458,7 @@ async function load(announce = false) {
       res = await fetch(CONFIG.staticManifest, { cache: "no-store" });
     } else {
       // 先尝试只带 Cookie（免验证期内直接成功）；失败再走 Turnstile
-      if (recentlyVerified()) {
+      if (recentlyVerified() || loggedHint()) {
         res = await postJson(CONFIG.manifest, {});
         if (!res.ok) res = null;
       }
@@ -497,6 +551,7 @@ els.sort.addEventListener("click", (e) => {
     ? { key, dir: state.sort.dir === "asc" ? "desc" : "asc" }
     : { key, dir: SORTS[key].defaultDir };
   try { localStorage.setItem(SORT_KEY, key + ":" + state.sort.dir); } catch {}
+  document.dispatchEvent(new Event("settings:change"));
   syncSort();
   if (state.plugins.length) render({ animate: true });
 });

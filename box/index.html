@@ -59,6 +59,15 @@
       <button class="btn btn-ghost" id="settingsClose" type="button">完成</button>
     </div>
     <div class="sheet-body">
+      <h3 class="group-title">账号</h3>
+      <div class="group">
+        <a class="row row-btn" id="loginBtn" href="/api/auth/login"><span>用 GitHub 登录</span><span class="muted">同步收藏和设置</span></a>
+        <div class="row" id="accountRow" hidden>
+          <span class="acct"><img id="acctAvatar" alt="" width="26" height="26"><span id="acctName"></span></span>
+          <button class="btn btn-ghost" id="logoutBtn" type="button">退出登录</button>
+        </div>
+      </div>
+
       <h3 class="group-title">外观</h3>
       <div class="group">
         <div class="row"><span>主题</span>
@@ -116,5 +125,6 @@
 
   <script src="./app.js"></script>
   <script src="./settings.js"></script>
+  <script src="./account.js"></script>
 </body>
 </html>

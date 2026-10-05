@@ -220,3 +220,18 @@ html[data-hide-cat] .chip-cat{display:none}
   .sheet.open{transform:none}
   .sheet-body{max-height:calc(100dvh - 60px)}
 }
+
+/* 收藏星标 */
+.star{margin-left:auto;flex:none;width:32px;height:32px;display:grid;place-items:center;border:0;background:none;color:var(--muted);
+  border-radius:var(--r-md);cursor:pointer;transition:color .2s,transform .4s var(--spring),background-color .2s}
+.star svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round;transition:fill .2s}
+.star:active{transform:scale(.85)}
+.star[aria-pressed="true"]{color:var(--accent-text)}
+.star[aria-pressed="true"] svg{fill:currentColor}
+.star:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+@media (hover:hover){.star:hover{background:var(--chip)}}
+
+/* 账号行 */
+.acct{display:flex;align-items:center;gap:10px;min-width:0}
+.acct img{border-radius:50%;box-shadow:0 0 0 1px var(--line);background:var(--chip)}
+.acct span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

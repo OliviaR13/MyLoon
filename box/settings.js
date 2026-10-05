@@ -17,7 +17,10 @@
     return out;
   }
   let settings = load();
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch {} };
+  const save = () => {
+    try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch {}
+    document.dispatchEvent(new Event("settings:change")); // account.js 据此同步到云端
+  };
 
   function apply() {
     if (settings.theme === "system") delete root.dataset.theme; else root.dataset.theme = settings.theme;
@@ -77,6 +80,18 @@
     $("clearBtn").hidden = false;
     toast("已恢复默认设置");
   });
+
+  // 供 account.js 读写（登录后合并云端设置）
+  window.MLB_settings = {
+    get: () => ({ ...settings }),
+    set(next) {
+      const prev = settings.showDesc;
+      settings = { ...settings, ...next };
+      try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch {}
+      apply();
+      if (prev !== settings.showDesc && state.plugins.length) render();
+    },
+  };
 
   apply();
 })();
