@@ -44,9 +44,14 @@
     refreshSync();
   }
 
+  // 设置的「最后修改时间」，同步时用它判断本机和云端谁更新
+  const AT_KEY = "myloon_box_settings_at";
+  const getAt = () => { try { return Number(localStorage.getItem(AT_KEY)) || 0; } catch { return 0; } };
+  const setAt = (t) => { try { localStorage.setItem(AT_KEY, String(t)); } catch {} };
+
   const snapshot = () => {
     const s = window.MLB_settings.get();
-    return { favorites: [...state.favorites], settings: { theme: s.theme, showDesc: s.showDesc, showVer: s.showVer, showCat: s.showCat, sort: state.sort.key + ":" + state.sort.dir } };
+    return { favorites: [...state.favorites], favMeta: state.favMeta, settingsAt: getAt(), settings: { theme: s.theme, showDesc: s.showDesc, showVer: s.showVer, showCat: s.showCat, sort: state.sort.key + ":" + state.sort.dir } };
   };
 
   // 同一类错误只提示一次，否则每次改动都弹一条很烦
@@ -123,7 +128,7 @@
   };
 
   document.addEventListener("favs:change", push);
-  document.addEventListener("settings:change", () => { settingsDirty = true; push(); });
+  document.addEventListener("settings:change", () => { settingsDirty = true; setAt(Date.now()); push(); });
 
   // 页面要走了立刻补发，不等防抖。
   // iOS Safari 切后台会冻结页面，setTimeout 根本不会再执行，普通 fetch 也会被掐断；
@@ -136,14 +141,35 @@
     else if (dirty && user && !merging) { clearTimeout(timer); flush(); }
   });
 
-  // 首次登录合并：收藏取并集（天然无冲突）；设置谁后改谁赢
+  // 收藏：每个插件各记一条「最后一次操作的时间 + 是否收藏」，谁后操作听谁的。
+  // 取消收藏会留下一条「已取消」记录，另一台设备才知道要删掉它，而不是再把它加回来。
+  // 没有时间戳的旧数据按「最早的已收藏」处理。太旧（90 天）的取消记录会被清掉。
+  const TOMBSTONE_TTL = 90 * 24 * 3600 * 1000;
+  function mergeFavs(localMeta, localSet, remote, now) {
+    const remoteMeta = { ...(remote?.favMeta || {}) };
+    for (const id of remote?.favorites || []) if (!remoteMeta[id]) remoteMeta[id] = [0, 1];
+    const merged = {};
+    for (const id of new Set([...Object.keys(localMeta), ...localSet, ...Object.keys(remoteMeta)])) {
+      const a = localMeta[id] || (localSet.has(id) ? [0, 1] : null);
+      const b = remoteMeta[id] || null;
+      const pick = !a ? b : !b ? a : b[0] > a[0] ? b : a; // 时间相同保留本地
+      if (pick[1] === 0 && now - pick[0] > TOMBSTONE_TTL) continue;
+      merged[id] = pick;
+    }
+    return { ids: Object.keys(merged).filter((id) => merged[id][1] === 1), meta: merged };
+  }
+
+  // 合并：收藏逐项比时间；设置整体比「最后修改时间」，更新的一边赢
   function merge(remote) {
     merging = true;
-    setFavorites([...new Set([...state.favorites, ...(remote?.favorites || [])])]);
-    // 握手期间本地已经改过设置，就别再拿云端旧值覆盖了，改完直接把本地推上去
-    if (!settingsDirty) {
-      const r = remote?.settings || {};
-      const { sort, ...rest } = r;
+    const { ids, meta } = mergeFavs(state.favMeta, state.favorites, remote, Date.now());
+    setFavorites(ids, meta);
+    const remoteAt = Number(remote?.settingsAt) || 0;
+    const localAt = getAt();
+    // 旧数据没有时间戳：两边都没记录时，沿用「本次会话没改过就听云端的」
+    const useRemote = remoteAt > localAt || (remoteAt === 0 && localAt === 0 && !settingsDirty);
+    if (useRemote && remote?.settings) {
+      const { sort, ...rest } = remote.settings;
       window.MLB_settings.set(rest);
       const [key, dir] = String(sort || "").split(":");
       if (SORTS[key] && (dir === "asc" || dir === "desc")) {
@@ -152,6 +178,7 @@
         syncSort();
         if (state.plugins.length) render();
       }
+      if (remoteAt) setAt(remoteAt);
     }
     merging = false;
     push(); // 合并结果写回云端，顺便确认这次同步是通的

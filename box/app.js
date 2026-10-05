@@ -56,19 +56,35 @@ function readFavs() {
 // 登录提示：account.js 在已登录时写入，用于让清单请求先走登录 Cookie，跳过人机验证
 const loggedHint = () => { try { return localStorage.getItem("myloon_box_login") === "1"; } catch { return false; } };
 
-const state = { plugins: [], category: CONFIG.all, query: "", sort: readSort(), favorites: readFavs() };
+// 每个插件的收藏记录：{ id: [最后一次操作的时间戳, 1 已收藏 / 0 已取消] }
+// 云端同步靠它判断「谁后操作听谁的」，这样取消收藏也能传到其他设备
+const FAV_META_KEY = "myloon_box_favs_meta";
+function readFavMeta() {
+  try {
+    const o = JSON.parse(localStorage.getItem(FAV_META_KEY) || "{}");
+    const out = {};
+    for (const [id, v] of Object.entries(o || {})) if (Array.isArray(v) && Number.isFinite(v[0]) && (v[1] === 0 || v[1] === 1)) out[id] = [v[0], v[1]];
+    return out;
+  } catch { return {}; }
+}
+const saveFavMeta = () => { try { localStorage.setItem(FAV_META_KEY, JSON.stringify(state.favMeta)); } catch {} };
+
+const state = { plugins: [], category: CONFIG.all, query: "", sort: readSort(), favorites: readFavs(), favMeta: readFavMeta() };
 
 function saveFavs() {
   try { localStorage.setItem(FAV_KEY, JSON.stringify([...state.favorites])); } catch {}
   document.dispatchEvent(new Event("favs:change"));
 }
-function setFavorites(ids) { // 供 account.js 合并云端数据时调用
+function setFavorites(ids, meta) { // 供 account.js 合并云端数据时调用
   state.favorites = new Set(ids);
+  if (meta) { state.favMeta = meta; saveFavMeta(); }
   try { localStorage.setItem(FAV_KEY, JSON.stringify([...state.favorites])); } catch {}
   if (state.plugins.length) { renderFilters(); render(); }
 }
 function toggleFav(id, btn) {
   state.favorites.has(id) ? state.favorites.delete(id) : state.favorites.add(id);
+  state.favMeta[id] = [Date.now(), state.favorites.has(id) ? 1 : 0]; // 取消收藏也要留一条记录
+  saveFavMeta();
   saveFavs();
   btn.setAttribute("aria-pressed", String(state.favorites.has(id)));
   renderFilters();
