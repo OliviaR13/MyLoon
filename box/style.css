@@ -1,6 +1,6 @@
 /* OliviaR13's Loon Box
    设计取向：克制的工具型列表（低变化、低密度动效、中等信息密度）。
-   轻盈极简色系：中性透明背景 + 低饱和度雾霾灰蓝（Dusty Blue），减少视觉负担。 */
+   极浅纯净蓝（Pure Light Blue）：彻底拒绝灰色，使用通透清澈的水蓝和海军蓝搭配。 */
 
 @font-face{
   font-family:"Geist Sans";
@@ -18,10 +18,19 @@
 }
 
 :root{
-  /* 极简雾霾灰蓝，大幅降低饱和度 */
-  --bg:#fafafa;--card:#ffffff;--hover:#f5f5f5;--text:#171717;--muted:#737373;--line:#e5e5e5;--chip:#f5f5f5;
-  --accent:#8a9fc2;--accent-text:#6379a1;--accent-ink:#ffffff;--shadow:138 159 194;
-  --glow:color-mix(in srgb,var(--accent) 4%,transparent);
+  /* 纯净极浅蓝 (Very Light Blue)，完全无灰调 */
+  --bg:#f0f8ff; /* AliceBlue，通透极浅蓝底色 */
+  --card:#ffffff;
+  --hover:#e1f0fc;
+  --text:#0b2e4f; /* 深海军蓝，替代沉闷的纯黑/深灰 */
+  --muted:#5787b3; /* 柔和水蓝，替代灰色次要文本 */
+  --line:#cde4f7; /* 极浅蓝边框 */
+  --chip:#e1f0fc;
+  --accent:#33aaff; /* 明快的天蓝色 */
+  --accent-text:#0077cc;
+  --accent-ink:#ffffff;
+  --shadow:51 170 255; /* 蓝调阴影 */
+  --glow:color-mix(in srgb,var(--accent) 12%,transparent);
   --r-lg:16px;--r-md:10px;--r-sm:6px;
   --spring:cubic-bezier(.34,1.4,.64,1);--ease:cubic-bezier(.2,.8,.2,1);
   --z-grain:1;--z-toast:10;
@@ -30,9 +39,19 @@
 }
 @media (prefers-color-scheme:dark){
   :root{
-    --bg:#0a0a0a;--card:#171717;--hover:#1f1f1f;--text:#ededed;--muted:#a3a3a3;--line:#262626;--chip:#1f1f1f;
-    --accent:#788dae;--accent-text:#94a8c9;--accent-ink:#0a0a0a;--shadow:0 0 0;
-    --glow:color-mix(in srgb,var(--accent) 6%,transparent);
+    /* 纯粹深海蓝，不带浑浊的灰黑 */
+    --bg:#071424; 
+    --card:#0e223d;
+    --hover:#153257;
+    --text:#e6f4ff; /* 冰蓝白色文本 */
+    --muted:#8bb3d9;
+    --line:#1c3d66;
+    --chip:#153257;
+    --accent:#66c2ff;
+    --accent-text:#99d6ff;
+    --accent-ink:#071424;
+    --shadow:0 0 0;
+    --glow:color-mix(in srgb,var(--accent) 15%,transparent);
   }
 }
 *{box-sizing:border-box}
@@ -90,7 +109,7 @@ a{color:var(--accent-text)}
 .meta{display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-size:12.5px;margin:14px 2px 8px}
 
 /* 列表 */
-.list{border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card);overflow:hidden;box-shadow:0 8px 30px rgb(var(--shadow) / .03)}
+.list{border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card);overflow:hidden;box-shadow:0 8px 30px rgb(var(--shadow) / .04)}
 .list:empty{display:none}
 .card{--row:var(--card);display:grid;grid-template-columns:40px 1fr;gap:12px 14px;padding:16px;background:var(--row);transition:background-color .2s}
 .card + .card,.card + .sk-card,.verify + .sk-card,.sk-card + .sk-card{border-top:1px solid var(--line)}
@@ -127,9 +146,9 @@ a{color:var(--accent-text)}
   .card-actions{grid-column:auto;grid-template-columns:1fr;align-content:start;min-width:92px}
 }
 
-/* 优化后的人机验证 UI：去除渐变，采用极简背景和微弱光晕 */
+/* 纯净背景的验证模块 */
 .verify{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 16px;background:var(--card);border-bottom:1px solid var(--line);animation:fade .3s both;position:relative;overflow:hidden}
-.verify::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at top, var(--glow), transparent 60%);opacity:0.4;pointer-events:none}
+.verify::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at top, var(--glow), transparent 60%);opacity:0.6;pointer-events:none}
 .verify-box{width:100%;max-width:360px;display:grid;justify-items:center;overflow:hidden;max-height:0;opacity:0;transform:translateY(-10px) scale(0.96);transition:max-height .45s var(--ease),opacity .35s,transform .45s var(--ease),margin .45s var(--ease);z-index:1}
 .verify[data-interactive="true"] .verify-box{max-height:120px;opacity:1;transform:translateY(0) scale(1);margin-top:16px}
 .verify ~ .sk-card{transition:filter .3s}
