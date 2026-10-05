@@ -374,26 +374,50 @@ async function getToken() {
 
 /* ---------- 加载 ---------- */
 
+/* 通过验证后，服务端会下发 30 分钟有效的签名 Cookie（HttpOnly，页面读不到）。
+   这里只在 sessionStorage 里记一个时间，用来判断「可能还在免验证期」，真正的校验仍在服务端。 */
+const VERIFIED_KEY = "myloon_box_verified_at";
+const VERIFIED_TTL = 25 * 60 * 1000; // 比服务端的 30 分钟略短，避免临界时请求失败
+function recentlyVerified() {
+  try { return Date.now() - Number(sessionStorage.getItem(VERIFIED_KEY)) < VERIFIED_TTL; } catch { return false; }
+}
+function markVerified() {
+  try { sessionStorage.setItem(VERIFIED_KEY, String(Date.now())); } catch {}
+}
+const postJson = (url, payload) =>
+  fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload), cache: "no-store" });
+
 async function load(announce = false) {
   els.list.setAttribute("aria-busy", "true");
   els.refresh.disabled = true;
   els.count.textContent = "加载中";
   els.updated.textContent = "";
-  renderLoading(CONFIG.turnstile.siteKey ? "正在进行人机验证…" : "正在加载清单…");
+  const needVerify = CONFIG.turnstile.siteKey && !recentlyVerified();
+  renderLoading(needVerify ? "正在进行人机验证…" : "正在加载清单…");
   // 验证超过 4 秒还没完成时，提示一下
-  const slowTimer = setTimeout(() => setPhase("验证时间较长，请稍候…"), 4000);
+  let waitingToken = false;
+  const slowTimer = setTimeout(() => { if (waitingToken) setPhase("验证时间较长，请稍候…"); }, 4000);
 
   try {
-    let url = CONFIG.staticManifest;
-    let init = { cache: "no-store" };
-    if (CONFIG.turnstile.siteKey) {
-      const token = await getToken();
-      clearTimeout(slowTimer);
-      setPhase("验证通过，正在加载清单…", true);
-      url = CONFIG.manifest;
-      init = { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }), cache: "no-store" };
+    let res;
+    if (!CONFIG.turnstile.siteKey) {
+      res = await fetch(CONFIG.staticManifest, { cache: "no-store" });
+    } else {
+      // 先尝试只带 Cookie（免验证期内直接成功）；失败再走 Turnstile
+      if (recentlyVerified()) {
+        res = await postJson(CONFIG.manifest, {});
+        if (!res.ok) res = null;
+      }
+      if (!res) {
+        waitingToken = true;
+        const token = await getToken();
+        waitingToken = false;
+        clearTimeout(slowTimer);
+        setPhase("验证通过，正在加载清单…", true);
+        res = await postJson(CONFIG.manifest, { token });
+        if (res.ok) markVerified();
+      }
     }
-    const res = await fetch(url, init);
     if (!res.ok) {
       let reason = "";
       try { reason = (await res.json()).reason || ""; } catch {}
