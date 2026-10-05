@@ -30,10 +30,24 @@
     const s = window.MLB_settings.get();
     return { favorites: [...state.favorites], settings: { theme: s.theme, showDesc: s.showDesc, showVer: s.showVer, showCat: s.showCat, sort: state.sort.key + ":" + state.sort.dir } };
   };
+  // 连续操作合并成一次保存。失败要说话，以前 .catch(() => {}) 把一切都吞掉，
+  // 云端没配好 KV 时界面上完全看不出来，只会被误认为「收藏不同步」。
+  let pushWarned = false;
   const push = () => {
     if (!user || merging) return;
     clearTimeout(timer);
-    timer = setTimeout(() => api("PUT", "/api/me", snapshot()).catch(() => {}), 800); // 连续操作合并成一次保存
+    timer = setTimeout(async () => {
+      try {
+        const res = await api("PUT", "/api/me", snapshot());
+        if (res.ok) return;
+        const detail = await res.json().catch(() => ({}));
+        if (detail.error === "storage_not_configured") {
+          if (!pushWarned) { pushWarned = true; toast("云端存储未绑定，收藏和设置只保存在本机"); }
+        } else if (res.status === 401) {
+          if (!pushWarned) { pushWarned = true; toast("登录已过期，请重新登录后再同步"); }
+        }
+      } catch {}
+    }, 800);
   };
   document.addEventListener("favs:change", push);
   document.addEventListener("settings:change", push);

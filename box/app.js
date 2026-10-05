@@ -20,7 +20,7 @@ const $ = (sel) => document.querySelector(sel);
 const els = {
   list: $("#results"), count: $("#countText"), updated: $("#updatedText"), filters: $("#filters"),
   search: $("#searchInput"), refresh: $("#refreshBtn"), tpl: $("#rowTpl"), toast: $("#toast"),
-  sort: $("#sortBox"),
+  sort: $("#sortBox"), tabs: $("#tabs"),
 };
 /* ---------- 排序 ----------
    每种排序有默认方向：时间默认「新到旧」，名称默认「A 到 Z」。
@@ -306,7 +306,8 @@ function render({ animate = false } = {}) {
 function renderFilters() {
   const counts = new Map();
   state.plugins.forEach((p) => counts.set(p.category, (counts.get(p.category) || 0) + 1));
-  const items = [[CONFIG.all, state.plugins.length], [FAV, state.favorites.size], ...counts];
+  // 「收藏」不再作为分类 chip，顶层已经有「我的收藏」页签，一个功能只留一个入口
+  const items = [[CONFIG.all, state.plugins.length], ...counts];
   els.filters.replaceChildren(
     ...items.map(([name, n]) => {
       const b = el("button", "chip-filter", name);
@@ -318,12 +319,36 @@ function renderFilters() {
         state.category = name;
         // 只更新选中状态，不重建按钮，颜色过渡才能播放
         els.filters.querySelectorAll(".chip-filter").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.name === name)));
+        syncTabs(); // 点分类就等于离开收藏页签，页签要跟着回退到「全部插件」
         render({ animate: true });
       });
       return b;
     })
   );
+  syncTabs();
 }
+
+/* ---------- 顶层页签：全部插件 / 我的收藏 ----------
+   页签和分类 chip 是两套东西：页签管「看哪一批插件」，chip 管「哪个分类」。
+   切到「我的收藏」时所有 chip 都不选中，因为此刻生效的是页签。 */
+function syncTabs() {
+  const onFav = state.category === FAV;
+  els.tabs.querySelectorAll(".tab").forEach((b) => {
+    b.setAttribute("aria-pressed", String((b.dataset.view === "fav") === onFav));
+  });
+  const fc = document.getElementById("favCount");
+  if (fc) fc.textContent = String(state.favorites.size);
+}
+els.tabs.addEventListener("click", (e) => {
+  const b = e.target.closest(".tab");
+  if (!b) return;
+  state.category = b.dataset.view === "fav" ? FAV : CONFIG.all;
+  syncTabs();
+  els.filters.querySelectorAll(".chip-filter").forEach((x) =>
+    x.setAttribute("aria-pressed", String(x.dataset.name === state.category))
+  );
+  render({ animate: true });
+});
 
 function resetFilters() {
   state.category = CONFIG.all;

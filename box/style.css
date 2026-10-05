@@ -50,6 +50,20 @@ a{color:var(--accent-text)}
 .btn-primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .btn-ghost{background:transparent}
 
+/* 顶层页签：全部插件 / 我的收藏
+   用下划线标记选中页，和下方分类 chip 的填充样式区分开，两套控件不会看起来一样 */
+.tabs{display:flex;gap:20px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.tab{font:inherit;font-size:15px;font-weight:600;color:var(--muted);background:none;border:0;
+  border-bottom:2px solid transparent;margin-bottom:-1px;padding:8px 2px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;
+  transition:color .2s,border-color .2s}
+.tab[aria-pressed="true"]{color:var(--text);border-bottom-color:var(--accent)}
+.tab small{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--muted);
+  background:var(--chip);border-radius:999px;padding:1px 7px;line-height:1.5}
+.tab[aria-pressed="true"] small{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent-text)}
+.tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (hover:hover){.tab:hover{color:var(--text)}}
+
 /* 工具栏：搜索 + 排序 */
 .toolbar{display:flex;gap:8px}
 .search{flex:1;min-width:0}

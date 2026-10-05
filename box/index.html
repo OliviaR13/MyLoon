@@ -33,6 +33,11 @@
       </button>
     </header>
 
+    <div class="tabs" id="tabs" role="group" aria-label="切换视图">
+      <button class="tab" type="button" data-view="all" aria-pressed="true">全部插件</button>
+      <button class="tab" type="button" data-view="fav" aria-pressed="false">我的收藏<small id="favCount">0</small></button>
+    </div>
+
     <div class="toolbar">
       <div class="search">
         <input id="searchInput" type="search" autocomplete="off" placeholder="搜索插件名称或描述" aria-label="搜索插件">
