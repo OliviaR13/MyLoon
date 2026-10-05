@@ -1,10 +1,11 @@
 // Cloudflare Pages Function：POST /api/manifest
 // 1. 带令牌：调用 Turnstile siteverify 校验，通过后返回清单，并下发一个 30 分钟有效的签名 Cookie。
-// 2. 不带令牌：只要 Cookie 有效（签名正确且未过期）就直接返回清单，刷新不必重新验证。
+// 2. 不带令牌：只要验证 Cookie 或 GitHub 登录 Cookie 有效（签名正确且未过期）就直接返回清单。
 // 需要的环境变量（Pages 项目 → Settings → Variables and Secrets）：
 //   TURNSTILE_SECRET     Turnstile 小组件的 Secret key（设为 Secret；同时用作 Cookie 的签名密钥）
-//   TURNSTILE_HOSTNAMES  允许的前端域名，逗号分隔，例如 myloon.pages.dev
+//   TURNSTILE_HOSTNAMES  允许的前端域名，逗号分隔，例如 olivia-loon-box.pages.dev
 import manifest from "../../manifest.json";
+import { getSession } from "../_lib/auth.js";
 
 const SITEVERIFY = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 const ACTION = "load_manifest"; // 需与 app.js 中 CONFIG.turnstile.action 一致
@@ -49,7 +50,8 @@ export async function onRequestPost({ request, env }) {
 
   // 没有令牌：只接受仍在有效期内的签名 Cookie
   if (!token) {
-    return (await hasValidCookie(request, env.TURNSTILE_SECRET)) ? json(manifest) : forbidden("no_token");
+    const ok = (await hasValidCookie(request, env.TURNSTILE_SECRET)) || (await getSession(request, env));
+    return ok ? json(manifest) : forbidden("no_token");
   }
   if (typeof token !== "string" || token.length > 2048) return forbidden("no_token");
 
