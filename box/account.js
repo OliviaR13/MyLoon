@@ -33,7 +33,7 @@
   }
 
   function renderAccount() {
-    $("loginBtn").hidden = !!user;
+    $("loginRow").hidden = !!user; // 整行一起藏，只藏按钮会剩一个孤零零的「GitHub」
     $("accountRow").hidden = !user;
     const b = $("syncNowBtn");
     if (b) b.hidden = !user; // 没登录就没有可同步的东西
