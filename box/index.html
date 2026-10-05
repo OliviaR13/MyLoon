@@ -71,7 +71,12 @@
           <span class="acct"><img id="acctAvatar" alt="" width="26" height="26"><span id="acctName"></span></span>
           <button class="btn btn-ghost" id="logoutBtn" type="button">退出登录</button>
         </div>
-        <div class="row"><span>云端同步</span><span class="muted" id="syncState">未登录</span></div>
+        <div class="row"><span>云端同步</span>
+          <span class="row-actions">
+            <span class="muted" id="syncState">未登录</span>
+            <button class="btn btn-ghost" id="syncNowBtn" type="button" hidden>立即同步</button>
+          </span>
+        </div>
       </div>
 
       <h3 class="group-title">外观</h3>

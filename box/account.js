@@ -18,7 +18,7 @@
   let user = null, timer = 0, merging = false;
   // dirty：有改动还没被云端确认。登录握手没完成、正在合并、断网——都不许丢，排队等下一次机会。
   // settingsDirty：本次会话本地改过设置，merge 时据此决定谁听谁的。
-  let dirty = false, settingsDirty = false, inflight = null, lastSyncAt = 0, pushWarned = false;
+  let dirty = false, settingsDirty = false, inflight = null, lastSyncAt = 0, pushWarned = false, syncing = false;
 
   const setHint = (on) => { try { on ? localStorage.setItem("myloon_box_login", "1") : localStorage.removeItem("myloon_box_login"); } catch {} };
 
@@ -27,7 +27,7 @@
     const n = $("syncState");
     if (!n) return;
     if (!user) { n.textContent = "未登录"; return; }
-    if (inflight) { n.textContent = "同步中"; return; }
+    if (inflight || syncing) { n.textContent = "同步中"; return; }
     if (dirty) { n.textContent = "待同步"; return; }
     n.textContent = lastSyncAt ? "已同步 " + hhmm(lastSyncAt) : "已同步";
   }
@@ -35,6 +35,8 @@
   function renderAccount() {
     $("loginBtn").hidden = !!user;
     $("accountRow").hidden = !user;
+    const b = $("syncNowBtn");
+    if (b) b.hidden = !user; // 没登录就没有可同步的东西
     if (user) {
       $("acctName").textContent = user.login;
       $("acctAvatar").src = "https://github.com/" + encodeURIComponent(user.login) + ".png?size=48";
@@ -72,7 +74,44 @@
         refreshSync();
       }
     })();
+    return inflight;
   }
+
+  // 「立即同步」：一次完整的来回——先把云端拉下来合并，再把合并结果推回去，
+  // 不等防抖、不等下次打开页面。只推不拉不算同步，另一台设备上的改动就永远进不来。
+  async function syncNow() {
+    if (!user || syncing) return;
+    syncing = true;
+    clearTimeout(timer);
+    const b = $("syncNowBtn");
+    if (b) b.disabled = true;
+    refreshSync();
+    try {
+      const res = await api("GET", "/api/me");
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      if (!data.user) { // 会话过期了，说清楚，别让人对着一个没反应的按钮点
+        user = null;
+        setHint(false);
+        renderAccount();
+        toast("登录已过期，请重新登录");
+        return;
+      }
+      // 手动点的这一次一定要有反馈，别被「同一类错误只提示一次」吞掉
+      pushWarned = false;
+      merge(data.data);
+      await flush();
+      if (!dirty) toast("已同步");
+      else if (!pushWarned) toast("还没同步上去，稍后会自动重试"); // pushWarned 为真说明 flush 已经把原因说清楚了
+    } catch {
+      toast("同步失败，请检查网络后重试");
+    } finally {
+      syncing = false;
+      if (b) b.disabled = false;
+      refreshSync();
+    }
+  }
+  $("syncNowBtn").addEventListener("click", syncNow);
 
   // 连续操作合并成一次保存。改了就置 dirty——即使此刻还没登录成功也不丢，
   // 只是先不排定时器，等 user 就绪再补发。
