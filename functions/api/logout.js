@@ -1,5 +1,5 @@
 // POST /api/auth/logout：清除登录 Cookie
-import { cookie, json, sameOrigin } from "../../_lib/auth.js";
+import { cookie, json, sameOrigin } from "../_lib/auth.js";
 
 export async function onRequestPost({ request }) {
   if (!sameOrigin(request)) return json({ error: "forbidden" }, 403);
