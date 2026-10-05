@@ -70,8 +70,9 @@
   $("clearBtn").addEventListener("click", () => { $("clearBtn").hidden = true; $("clearConfirm").hidden = false; });
   $("clearCancel").addEventListener("click", () => { $("clearConfirm").hidden = true; $("clearBtn").hidden = false; });
   $("clearOk").addEventListener("click", () => {
-    try { localStorage.removeItem(KEY); localStorage.removeItem(SORT_KEY); } catch {}
+    try { localStorage.removeItem(SORT_KEY); } catch {}
     settings = { ...DEFAULTS };
+    save(); // 走 save 才会派发 settings:change，云端跟着一起恢复默认
     apply();
     state.sort = readSort(); // 排序也回到默认
     syncSort();
