@@ -67,7 +67,7 @@
   }
 
   $("logoutBtn").addEventListener("click", async () => {
-    try { await api("POST", "/api/auth/logout"); } catch {}
+    try { await api("POST", "/api/logout"); } catch {} // <-- 已修复为 /api/logout
     user = null;
     setHint(false);
     renderAccount();
