@@ -444,14 +444,11 @@ html[data-reduce-motion],html[data-reduce-motion] *,html[data-reduce-motion] *::
 .toast.pulling .toast-pull{opacity:1;transform:none;filter:none;transition-duration:.22s;transition-delay:.06s}
 .toast-pull svg{flex:none;display:block}
 .toast-pull circle{fill:currentColor}
-.pull-ring{transform-origin:14px 14px}
-/* 刷新中：水滴环淡出，换成 Windows 11 风格的五点转圈 */
-.pull-goo{transition:opacity .15s}
-.toast.working .pull-goo{opacity:0}
-.pull-orbit{opacity:0;transition:opacity .15s}
-.toast.working .pull-orbit{opacity:1}
-.orb{transform-origin:14px 14px;opacity:0}
-.toast.working .orb{animation:win-orbit 2.6s infinite;animation-delay:calc(var(--i) * .17s)}
+/* 圆点：拉动时由 pull.js 逐个摆位；松手进入刷新后，改由下面的动画接手，播放 Windows 11 风格的转圈 */
+.orb{transform-origin:14px 14px}
+.toast.working .pull-orbit{animation:orbit-in .18s ease-out}
+@keyframes orbit-in{from{opacity:0}}
+.toast.working .orb{animation:win-orbit 2.6s infinite backwards;animation-delay:calc(var(--i) * .17s)}
 /* 每个点：一圈里先快后慢、中段加速、尾段再减速，最后收在顶部淡出，随后下一轮开始。
    五个点用相同曲线、错开起步时间，于是出现「散开 → 拉成一串 → 聚拢」的节奏 */
 @keyframes win-orbit{
@@ -464,8 +461,9 @@ html[data-reduce-motion],html[data-reduce-motion] *,html[data-reduce-motion] *::
   76%,100%{transform:rotate(945deg);opacity:0}
 }
 /* 减少动画：不转，五个点均匀排成一圈 */
-@media (prefers-reduced-motion:reduce){.toast.working .orb{animation:none;opacity:1;transform:rotate(calc(var(--i) * 72deg))}}
+@media (prefers-reduced-motion:reduce){.toast.working .orb{animation:none;opacity:1;transform:rotate(calc(var(--i) * 72deg))}.toast.working .pull-orbit{animation:none}}
 html[data-reduce-motion] .toast.working .orb{animation:none;opacity:1;transform:rotate(calc(var(--i) * 72deg))}
+html[data-reduce-motion] .toast.working .pull-orbit{animation:none}
 /* 标签随拉动展开：药丸还窄的时候不占位，免得圈偏离中心 */
 .toast-pull-label{font-size:13.5px;font-weight:600;overflow:hidden;
   opacity:var(--lt,0);max-width:calc(58px * var(--lt,0));margin-left:calc(8px * var(--lt,0))}

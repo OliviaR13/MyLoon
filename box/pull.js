@@ -1,10 +1,10 @@
 /* 下拉刷新 × 灵动岛（思路借自 Bencho 的 Pull to refresh · Balance 和 Dynamic Island，已改写为原生 JS + CSS）
    不再单独画一个圆形指示器，而是接管 app.js 里的提示条药丸（#toast），让「下拉 → 刷新 → 结果」是同一个对象：
    - 手指在页面顶部往下拉：页面内容跟着往下走，药丸悬在露出的空隙里，宽、高、圆角随拉动一起长大；
-   - 药丸里是一圈水滴（SVG goo），从中心向外散开成环；拉过阈值，环完整、药丸变强调色，同时轻震一下；
+   - 药丸里是五个独立的圆点，从中心向外散开成环；拉过阈值，环完整、药丸变强调色，同时轻震一下；
    - 决定发生在「距离」上而不是松手时：药丸变色就是「已就绪」，此时手还没松，你就知道松手会刷新；
    - 橡皮筋：位移曲线是饱和的，越往后越费劲；手指在时尺寸跟手（无过渡），弹簧只用于回家的路；
-   - 松手后水滴环淡出，换成 Windows 11 风格的五点转圈；load() 结束时会调用 toast("清单已刷新")，药丸就地变形成消息，不用先消失再出现；
+   - 松手后同一组圆点接着转成 Windows 11 风格的五点转圈；load() 结束时会调用 toast("清单已刷新")，药丸就地变形成消息，不用先消失再出现；
      消息读完，药丸和页面一起收回去。
    刷新中 / 「清单已刷新」还在显示的这段时间里，再往下拉不会开始新一轮，但手势也不会交还给系统：
    否则 Safari 自己的回弹 / 下拉刷新会趁机接管，页面和药丸一起抖。这段时间的下拉直接吞掉（swallow）。
@@ -13,10 +13,9 @@
 (() => {
   const NS = "http://www.w3.org/2000/svg";
   const SIZE = 28, C = SIZE / 2;
-  const DROPS = 8, RING = 7.5;          // 水滴数量、圆环半径
-  const R_HEAD = 3, R_STEP = 0.2;       // 头部水滴半径，以及每往后一颗缩小多少（渐细的尾巴）
-  const ORBS = 5, ORB_R = 1.9;          // 刷新中转圈的点数与半径
-  const R_START = 1.7;                  // 刚开始拉时每颗水滴的半径
+  const ORBS = 5, ORB_R = 1.9;          // 圆点数量与半径（拉动和刷新中用同一组点）
+  const RING = 8;                       // 圆环半径
+  const R_START = 0.9;                  // 刚开始拉时圆点的半径
   const THRESHOLD = 64;                 // 位移（经过橡皮筋曲线后）达到这个值就算「就绪」，大约要真实拉 80px
   const RESISTANCE = 340;               // 橡皮筋的软硬：位移的上限，越大越接近跟手
   const MAX_SHIFT = 80;                 // 页面内容最多被拉下去多少
@@ -41,26 +40,16 @@
   layer.className = "toast-pull";
   layer.setAttribute("aria-hidden", "true");
   const svg = mk("svg", { viewBox: `0 0 ${SIZE} ${SIZE}`, width: SIZE, height: SIZE });
-  const filter = mk("filter", { id: "pull-goo", x: "-50%", y: "-50%", width: "200%", height: "200%", "color-interpolation-filters": "sRGB" });
-  filter.append(
-    mk("feGaussianBlur", { in: "SourceGraphic", stdDeviation: "1.3", result: "smear" }),
-    mk("feColorMatrix", { in: "smear", type: "matrix", values: "1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -9" })
-  );
-  const defs = mk("defs");
-  defs.append(filter);
-  const goo = mk("g", { filter: "url(#pull-goo)", class: "pull-goo" });
-  const ring = mk("g", { class: "pull-ring" });
-  const drops = Array.from({ length: DROPS }, () => ring.appendChild(mk("circle", { r: R_START })));
-  goo.append(ring);
-  // 刷新中的转圈：Windows 11 风格。5 个点依次起步，在圆环上加速、聚拢、减速，再依次离场；
-  // 动画只写在 CSS 里（.toast.working .orb），松手进入刷新时才开始播放
+  // 五个独立的圆点（不再套「黏稠」滤镜，点与点之间始终是分开的）。
+  // 拉动时由 draw() 逐个摆位；松手进入刷新后，由 CSS 的 .toast.working .orb 接手，播放 Windows 11 风格的转圈
   const orbit = mk("g", { class: "pull-orbit" });
-  for (let i = 0; i < ORBS; i++) {
+  const orbs = Array.from({ length: ORBS }, (_, i) => {
     const o = mk("g", { class: "orb", style: `--i:${i}` });
-    o.append(mk("circle", { cx: C, cy: C - RING, r: ORB_R }));
+    const c = o.appendChild(mk("circle", { cx: C, cy: C, r: R_START }));
     orbit.append(o);
-  }
-  svg.append(defs, goo, orbit);
+    return { o, c };
+  });
+  svg.append(orbit);
   const label = document.createElement("span");
   label.className = "toast-pull-label";
   label.textContent = TEXT.idle;
@@ -70,15 +59,13 @@
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   const lerp = (a, b, t) => a + (b - a) * t;
 
-  // p：0..1，水滴散开成圆环的程度；turn：整圈的旋转角度（拉的时候随距离转一点，让它有生命）
+  // p：0..1，圆点从中心散开成圆环的程度；turn：整圈的旋转角度（拉的时候随距离转一点，让它有生命）
   function draw(p, turn = 0) {
     const out = 1 - (1 - p) * (1 - p); // 先快后慢地散开
-    drops.forEach((d, i) => {
-      const a = (turn - 90 - i * (360 / DROPS)) * (Math.PI / 180); // 尾巴排在行进方向的后面
-      const dist = RING * out;
-      d.setAttribute("cx", (C + Math.cos(a) * dist).toFixed(2));
-      d.setAttribute("cy", (C + Math.sin(a) * dist).toFixed(2));
-      d.setAttribute("r", lerp(R_START, R_HEAD - i * R_STEP, out).toFixed(2));
+    orbs.forEach(({ o, c }, i) => {
+      o.style.transform = `rotate(${(turn + i * (360 / ORBS)).toFixed(1)}deg)`;
+      c.setAttribute("cy", (C - RING * out).toFixed(2));
+      c.setAttribute("r", lerp(R_START, ORB_R, out).toFixed(2));
     });
   }
 
