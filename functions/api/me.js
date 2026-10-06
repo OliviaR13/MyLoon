@@ -25,12 +25,18 @@ function clean(d) {
       ? [...new Set(d.favorites.filter((x) => typeof x === "string" && x.length > 0 && x.length <= 80))].slice(0, 300)
       : [];
   const settingsAt = Number.isFinite(d?.settingsAt) ? Math.floor(d.settingsAt) : 0;
+  // 外观 / 插件卡片设置各有各的「最后修改时间」。只有旧客户端（两个都没带）才用统一的 settingsAt 顶替；
+  // 新客户端只带它开着同步的那一组，没带的那组 null，由 PUT 里保留云端原值。
+  const hasGroupAt = Number.isFinite(d?.lookAt) || Number.isFinite(d?.cardsAt);
+  const legacyAt = !hasGroupAt && Number.isFinite(d?.settingsAt) ? settingsAt : null;
+  const lookAt = Number.isFinite(d?.lookAt) ? Math.floor(d.lookAt) : legacyAt;
+  const cardsAt = Number.isFinite(d?.cardsAt) ? Math.floor(d.cardsAt) : legacyAt;
   const s = d?.settings || {};
   const settings = {};
   if (["system", "light", "dark"].includes(s.theme)) settings.theme = s.theme;
-  for (const k of ["showDesc", "showVer", "showCat", "pinFavs", "compact", "reduceMotion"]) if (typeof s[k] === "boolean") settings[k] = s[k];
+  for (const k of ["showDesc", "showVer", "showCat", "pinFavs", "compact", "reduceMotion", "collapseSearch"]) if (typeof s[k] === "boolean") settings[k] = s[k];
   if (typeof s.sort === "string" && /^(date|name):(asc|desc)$/.test(s.sort)) settings.sort = s.sort;
-  return { favorites, favMeta, settings, settingsAt, updatedAt: Date.now() };
+  return { favorites, favMeta, settings, settingsAt, lookAt, cardsAt, updatedAt: Date.now() };
 }
 
 export async function onRequestGet({ request, env }) {
@@ -50,12 +56,14 @@ export async function onRequestPut({ request, env }) {
   let body;
   try { body = JSON.parse(text); } catch { return json({ error: "bad_json" }, 400); }
   const data = clean(body);
-  // 没带 settings（这台设备关闭了「同步外观与显示」）：保留云端原有的设置，不被覆盖
-  if (!body || typeof body.settings !== "object" || body.settings === null) {
-    const prev = await env.MLB_KV.get(`u:${user.id}`, "json");
-    data.settings = prev?.settings || {};
-    data.settingsAt = prev?.settingsAt || 0;
-  }
+  // 客户端可能只带其中一组设置（另一组关闭了同步）：没带的部分保留云端原有的，不被覆盖。
+  // 没带 settings 时（总开关关闭不会发请求，这里只是兜底）整份保留。
+  const prev = await env.MLB_KV.get(`u:${user.id}`, "json");
+  data.settings = { ...(prev?.settings || {}), ...data.settings };
+  const prevAt = Number(prev?.settingsAt) || 0;
+  data.lookAt = data.lookAt ?? Number(prev?.lookAt ?? prevAt) ?? 0;
+  data.cardsAt = data.cardsAt ?? Number(prev?.cardsAt ?? prevAt) ?? 0;
+  data.settingsAt = Math.max(data.settingsAt, data.lookAt || 0, data.cardsAt || 0);
   await env.MLB_KV.put(`u:${user.id}`, JSON.stringify(data));
   return json({ ok: true, updatedAt: data.updatedAt });
 }
