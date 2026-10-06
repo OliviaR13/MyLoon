@@ -28,7 +28,7 @@ function clean(d) {
   const s = d?.settings || {};
   const settings = {};
   if (["system", "light", "dark"].includes(s.theme)) settings.theme = s.theme;
-  for (const k of ["showDesc", "showVer", "showCat", "pinFavs"]) if (typeof s[k] === "boolean") settings[k] = s[k];
+  for (const k of ["showDesc", "showVer", "showCat", "pinFavs", "compact", "reduceMotion"]) if (typeof s[k] === "boolean") settings[k] = s[k];
   if (typeof s.sort === "string" && /^(date|name):(asc|desc)$/.test(s.sort)) settings.sort = s.sort;
   return { favorites, favMeta, settings, settingsAt, updatedAt: Date.now() };
 }
@@ -50,6 +50,12 @@ export async function onRequestPut({ request, env }) {
   let body;
   try { body = JSON.parse(text); } catch { return json({ error: "bad_json" }, 400); }
   const data = clean(body);
+  // 没带 settings（这台设备关闭了「同步外观与显示」）：保留云端原有的设置，不被覆盖
+  if (!body || typeof body.settings !== "object" || body.settings === null) {
+    const prev = await env.MLB_KV.get(`u:${user.id}`, "json");
+    data.settings = prev?.settings || {};
+    data.settingsAt = prev?.settingsAt || 0;
+  }
   await env.MLB_KV.put(`u:${user.id}`, JSON.stringify(data));
   return json({ ok: true, updatedAt: data.updatedAt });
 }
