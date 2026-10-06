@@ -178,7 +178,7 @@ a{color:var(--accent-text)}
    一组弹簧过渡一起长大；内容单独带模糊淡入，药丸先动、字后到 */
 .toast{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top));right:auto;bottom:auto;margin:0;padding:0;border:0;display:block;
   transform:translateX(-50%);width:var(--tw,96px);height:var(--th,32px);border-radius:var(--tr,16px);overflow:hidden;
-  opacity:0;visibility:hidden;z-index:var(--z-toast);
+  opacity:0;visibility:hidden;z-index:var(--z-toast);pointer-events:none; /* 药丸只是显示，手势穿过它落到页面上，下拉刷新才不会被它截住 */
   background:var(--text);color:var(--bg);font-size:13.5px;line-height:1.4;box-shadow:0 8px 24px rgb(var(--shadow) / .22);
   transition:width .5s var(--spring),height .5s var(--spring),border-radius .5s var(--spring),opacity .2s,visibility .2s,background-color .25s,color .25s}
 .toast.show{opacity:1;visibility:visible}
@@ -186,7 +186,7 @@ a{color:var(--accent-text)}
   display:flex;align-items:center;gap:12px;padding:10px 16px;
   opacity:0;transform:scale(.92);filter:blur(6px);transition:opacity .16s,transform .16s,filter .16s}
 .toast.open .toast-in{opacity:1;transform:none;filter:none;transition-duration:.22s;transition-delay:.06s}
-.toast-act{flex:none;font:inherit;font-weight:600;color:inherit;background:none;border:0;padding:2px 0;cursor:pointer;text-decoration:underline}
+.toast-act{pointer-events:auto;flex:none;font:inherit;font-weight:600;color:inherit;background:none;border:0;padding:2px 0;cursor:pointer;text-decoration:underline}
 .toast-act[hidden]{display:none}
 
 @media (hover:hover){
@@ -213,19 +213,26 @@ html[data-hide-cat] .chip-cat{display:none}
 #refreshBtn{height:40px;padding:0 14px;flex:none} /* 与右边的设置按钮等高 */
 #refreshBtn:disabled{opacity:.6}
 
-/* 设置面板：手机为底部弹层，桌面为右侧弹层 */
-.sheet{border:0;padding:0;background:var(--bg);color:var(--text);width:100%;max-width:none;max-height:88dvh;margin:auto 0 0;
-  border-radius:var(--r-lg) var(--r-lg) 0 0;overflow:hidden;transform:translateY(100%);
-  transition:transform .4s var(--ease);box-shadow:0 -8px 40px rgb(var(--shadow) / .25)}
+/* 设置面板：手机为底部悬浮卡片，桌面为右侧抽屉。
+   iOS 26 的 Safari 工具栏是悬浮的，页面一直铺到屏幕底；贴底的面板会和它叠在一起，退场时还会从它下面「钻」出去。
+   所以手机上面板四周留出边距、四角全圆，和悬浮的 dock 是同一种语汇；
+   进场用先快后慢，退场用先慢后快（ease-in），遮罩和面板同一时长同一曲线，一起离开，不会出现「遮罩先没了，面板还在滑」。 */
+.sheet{--sheet-in:cubic-bezier(.32,.72,0,1);--sheet-out:cubic-bezier(.5,0,.75,0);
+  border:0;padding:0;background:var(--bg);color:var(--text);width:calc(100% - 16px);max-width:none;max-height:calc(88dvh - 16px);
+  margin:auto 8px max(10px,env(safe-area-inset-bottom));
+  border-radius:28px;overflow:hidden;transform:translateY(calc(100% + 32px));
+  transition:transform .46s var(--sheet-in);box-shadow:0 10px 44px rgb(var(--shadow) / .28),0 0 0 1px var(--line)}
 .sheet.open{transform:none}
-.sheet::backdrop{background:rgb(var(--shadow) / .45);opacity:0;transition:opacity .3s}
+.sheet.closing{transition-duration:.32s;transition-timing-function:var(--sheet-out)}
+/* ::backdrop 在较旧的 Safari 里不继承自定义属性，曲线直接写字面量 */
+.sheet::backdrop{background:rgb(var(--shadow) / .45);opacity:0;transition:opacity .46s cubic-bezier(.32,.72,0,1)}
 .sheet.open::backdrop{opacity:1}
-.sheet.open::backdrop{opacity:1}
+.sheet.closing::backdrop{transition-duration:.32s;transition-timing-function:cubic-bezier(.5,0,.75,0)}
 .sheet-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px}
 .sheet-head h2{font-size:17px;font-weight:650;letter-spacing:-.01em}
 /* 打开时焦点落在标题上（不可见），避免第一个按钮「完成」被聚焦框包住 */
 .sheet-head h2:focus,.sheet:focus{outline:none}
-.sheet-body{overflow-y:auto;overscroll-behavior:contain;max-height:calc(88dvh - 60px);padding:0 16px calc(24px + env(safe-area-inset-bottom))}
+.sheet-body{overflow-y:auto;overscroll-behavior:contain;max-height:calc(88dvh - 76px);padding:0 16px 20px}
 .group-title{margin:18px 4px 6px;font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em}
 .group{border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card);overflow:hidden}
 .row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:50px;padding:10px 14px;font-size:15px}
@@ -404,14 +411,24 @@ html{overscroll-behavior-y:contain}
 .tab-ind.no-anim{transition:none}
 
 /* 搜索框收起（借自 Bencho Search）：一个盒子，宽度就是状态。
-   放大镜离左边缘固定 13px：收起（43px）时恰好居中，展开后正好是输入框的左内边距。 */
+   放大镜离左边缘固定 13px：收起（43px）时恰好居中，展开后正好是输入框的左内边距。
+   注意：input 是 border-box，左右 padding + 边框加起来超过盒子宽度时，盒子会被「撑」出来。
+   以前收起时 padding 是 38 + 14，再加边框就是 54px，比 43px 的盒子宽，
+   于是搜索框压到排序按钮上，放大镜也偏离中心。现在收起时右 padding 归零（40px < 43px），展开时再长回来。 */
 .search{position:relative}
 .search-lens{display:none}
 html[data-search-collapse] .search{flex:none;margin-left:auto;width:var(--sw,43px);transition:width .5s var(--spring)}
-html[data-search-collapse] .search input{padding-left:38px}
+html[data-search-collapse] .search input{padding-left:38px;padding-right:0;min-width:0;cursor:pointer;caret-color:transparent;
+  text-overflow:clip;transition:border-color .15s,padding-right .5s var(--spring)}
+html[data-search-collapse] .search[data-open] input{padding-right:14px;cursor:text;caret-color:auto;text-overflow:ellipsis}
 html[data-search-collapse] .search input::placeholder{opacity:0;transition:opacity .15s}
 html[data-search-collapse] .search[data-open] input::placeholder{opacity:1;transition-delay:.15s}
-html[data-search-collapse] .search-lens{display:block;position:absolute;left:13px;top:50%;margin-top:-8.5px;color:var(--muted);pointer-events:none}
+/* 收起时不显示输入框里的清除按钮，避免它从 1 像素宽的内容区里漏出来 */
+html[data-search-collapse] .search:not([data-open]) input::-webkit-search-cancel-button{display:none}
+html[data-search-collapse] .search-lens{display:block;position:absolute;left:13px;top:50%;margin-top:-8.5px;color:var(--muted);pointer-events:none;
+  transition:color .2s}
+html[data-search-collapse] .search[data-open] .search-lens{color:var(--text)}
+@media (hover:hover){html[data-search-collapse] .search:not([data-open]) input:hover{border-color:var(--muted)}}
 
 /* 同步总开关关闭时，两个子开关变灰 */
 .row[data-off="true"]{opacity:.5}

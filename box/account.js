@@ -28,26 +28,32 @@
     const n = $("syncState");
     if (!n) return;
     if (!user) { n.textContent = "未登录"; return; }
-    if (!ownMaster()) { n.textContent = "已关闭，收藏和设置只保存在本机"; return; }
-    if (inflight || syncing) { n.textContent = "同步中"; return; }
-    if (dirty) { n.textContent = "待同步"; return; }
-    n.textContent = lastSyncAt ? "已同步 " + hhmm(lastSyncAt) : "已同步";
+    if (!ownMaster()) { n.textContent = "已关闭，只保存在这台设备"; return; }
+    if (inflight || syncing) { n.textContent = "正在同步…"; return; }
+    if (dirty) { n.textContent = "有改动，稍后自动同步"; return; }
+    n.textContent = lastSyncAt ? "已同步 · " + hhmm(lastSyncAt) : "已同步";
   }
 
   function renderAccount() {
     const m = ownMaster();
     $("loginRow").hidden = !!user; // 整行一起藏，只藏按钮会剩一个孤零零的「GitHub」
     $("accountRow").hidden = !user;
-    $("syncMasterSwitch").hidden = !user; // 没登录就没有「同步」可言，只留一行状态
+    $("syncSection").hidden = !user; // 没登录就没有「同步」可言，整块收起来，不留一行「未登录」
+    if (user) $("loginSub").textContent = "登录后，收藏和设置可以在多台设备间同步";
     $("syncMasterSwitch").setAttribute("aria-checked", String(m));
     $("syncNowRow").hidden = !user || !m;
+    // 收藏不挂在任何子开关上：只要总开关开着就一直同步；总开关关了才暂停
+    $("syncFavsRow").dataset.off = String(!m);
+    $("syncFavsState").textContent = m ? "始终同步" : "已暂停";
     for (const [g, id] of [["look", "syncLook"], ["cards", "syncCards"]]) {
-      $(id + "Row").hidden = !user;
       $(id + "Row").dataset.off = String(!m); // 总开关关了，两个子开关变灰
       const sw = $(id + "Switch");
       sw.setAttribute("aria-checked", String(own(g)));
       sw.disabled = !m;
     }
+    $("syncFoot").textContent = m
+      ? "收藏始终同步。外观和插件卡片可以分别关闭，关闭后这台设备单独保存。多台设备改了同一项时，以后改的为准。"
+      : "云端同步已关闭：收藏和设置都只保存在这台设备上，不上传，也不采用云端的。";
     if (user) {
       $("acctName").textContent = user.login;
       $("acctAvatar").src = "https://github.com/" + encodeURIComponent(user.login) + ".png?size=48";
@@ -118,7 +124,7 @@
         const res = await api("PUT", "/api/me", snapshot());
         if (res.ok) { dirty = false; lastSyncAt = Date.now(); pushWarned = false; return; }
         const detail = await res.json().catch(() => ({}));
-        if (detail.error === "storage_not_configured") warn("云端存储未绑定，收藏和设置只保存在本机");
+        if (detail.error === "storage_not_configured") warn("云端存储还没配置好，收藏和设置先保存在这台设备");
         else if (res.status === 401) warn("登录已过期，请重新登录后再同步");
         else warn("同步失败（HTTP " + res.status + "），稍后自动重试");
       } catch {
@@ -274,8 +280,7 @@
     } catch {
       // 拿不到会话不等于没登录，可能是网络抖了一下。说清楚，别让人以为是同步坏了。
       renderAccount();
-      const n = $("syncState");
-      if (n) n.textContent = "未连接云端";
+      $("loginSub").textContent = "暂时连不上云端，收藏和设置先保存在这台设备上"; // 登录区是没登录时唯一可见的地方
     }
   }
 
@@ -293,7 +298,7 @@
       clearTimeout(timer);
       dirty = false;
       renderAccount();
-      toast("已关闭云端同步，收藏和设置只保存在本机");
+      toast("已关闭云端同步，收藏和设置只保存在这台设备");
     }
   });
 
@@ -306,8 +311,8 @@
       $(id).setAttribute("aria-checked", String(next));
       liquidThumb($(id), 18, next);
       const label = GROUPS[g].label;
-      if (next) { setAt(g, Date.now()); settingsDirty[g] = true; push(); toast(`已开启${label}同步，本机的${label}已上传`); }
-      else toast(`已关闭${label}同步，这台设备独立保存${label}`);
+      if (next) { setAt(g, Date.now()); settingsDirty[g] = true; push(); toast(`已开启${label}同步，这台设备的${label}已上传`); }
+      else toast(`已关闭${label}同步，这台设备单独保存${label}`);
     });
   }
 
@@ -329,7 +334,7 @@
     pushWarned = false;
     setHint(false);
     renderAccount();
-    toast("已退出登录，本机数据保留");
+    toast("已退出登录，这台设备上的收藏和设置还在");
   });
 
   refreshSeen();

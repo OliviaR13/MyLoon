@@ -6,6 +6,8 @@
    - 橡皮筋：位移曲线是饱和的，越往后越费劲；手指在时尺寸跟手（无过渡），弹簧只用于回家的路；
    - 松手后整圈旋转；load() 结束时会调用 toast("清单已刷新")，药丸就地变形成消息，不用先消失再出现；
      消息读完，药丸和页面一起收回去。
+   刷新中 / 「清单已刷新」还在显示的这段时间里，再往下拉不会开始新一轮，但手势也不会交还给系统：
+   否则 Safari 自己的回弹 / 下拉刷新会趁机接管，页面和药丸一起抖。这段时间的下拉直接吞掉（swallow）。
    只响应触屏；桌面端仍用页头的「刷新」按钮。
    依赖 app.js 中的全局：els、load、toastHold、toastPopover、toastSize、hideToast。 */
 (() => {
@@ -94,11 +96,13 @@
     }
   }
 
-  let startY = 0, tracking = false, dragging = false, armed = false, busy = false, popTimer = 0;
+  let startY = 0, tracking = false, dragging = false, armed = false, busy = false, popTimer = 0, swallow = false;
 
-  const blocked = (e) =>
-    busy || tracking || window.scrollY > 0 || !els.list || els.refresh.disabled ||
-    e.target.closest("dialog, input, textarea, .sort-menu, .filters") || document.querySelector("dialog[open]");
+  // 这些地方的手势不归我们管：输入框、菜单、分类条、对话框
+  const excluded = (e) => e.target.closest("dialog, input, textarea, .sort-menu, .filters") || document.querySelector("dialog[open]");
+  const blocked = (e) => busy || tracking || window.scrollY > 0 || !els.list || els.refresh.disabled || excluded(e);
+  // 正在刷新（含结果还在显示）：不开始新的下拉，但要把「往下拉」这个手势接住，别让系统趁机接管
+  const shouldSwallow = (e) => !tracking && (busy || els.refresh.disabled) && window.scrollY <= 0 && els.list && !excluded(e);
 
   // 第一次真正往下拉时才接管药丸（此前它可能正显示着别的提示）
   function begin() {
@@ -122,12 +126,19 @@
   }
 
   document.addEventListener("touchstart", (e) => {
-    if (e.touches.length !== 1 || blocked(e)) return;
+    swallow = false;
+    if (e.touches.length !== 1) return;
+    if (shouldSwallow(e)) { swallow = true; startY = e.touches[0].clientY; return; }
+    if (blocked(e)) return;
     tracking = true; armed = false; dragging = false;
     startY = e.touches[0].clientY;
   }, { passive: true });
 
   document.addEventListener("touchmove", (e) => {
+    if (swallow) { // 刷新中的下拉：吞掉，不让系统接管；往上推或页面已滚动则照常放行
+      if (e.cancelable && window.scrollY <= 0 && e.touches[0].clientY - startY > 0) e.preventDefault();
+      return;
+    }
     if (!tracking) return;
     const raw = e.touches[0].clientY - startY;
     if (raw <= 0 || window.scrollY > 0) { // 往上推，或者页面已经滚动了：交还给浏览器
@@ -183,7 +194,7 @@
     shiftShell(0, { animate: true }); // 弹簧回家
     setTimeout(() => { if (!tracking && !busy) draw(0); }, 450); // 回到原位后再收拢，下次拉的时候从中心开始
   }
-  document.addEventListener("touchend", () => { if (tracking) release(true); }, { passive: true });
-  document.addEventListener("touchcancel", () => { if (tracking) release(false); }, { passive: true });
+  document.addEventListener("touchend", () => { swallow = false; if (tracking) release(true); }, { passive: true });
+  document.addEventListener("touchcancel", () => { swallow = false; if (tracking) release(false); }, { passive: true });
   draw(0);
 })();

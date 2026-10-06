@@ -52,15 +52,28 @@
     $("aboutAgo").textContent = sub;
     $("aboutAgo").hidden = !sub;
   }
+  // 退场：加上 .closing 换成「先慢后快」的曲线，等面板的 transform 过渡真正结束再 close()，
+  // 不再靠一个写死的 400ms 去猜——猜早了会在最后一帧硬切，猜晚了会留一块看不见却挡手的面板。
+  let endClose = null;
+  function cancelClose() {
+    if (endClose) { sheet.removeEventListener("transitionend", endClose.fn); clearTimeout(endClose.timer); endClose = null; }
+    sheet.classList.remove("closing");
+  }
   function open() {
+    cancelClose(); // 退场动画还没播完就又点开：直接接回来
     renderAbout();
     endClear();
-    sheet.showModal();
+    if (!sheet.open) sheet.showModal();
     requestAnimationFrame(() => sheet.classList.add("open")); // 下一帧再加 class，过渡才会播放
   }
   function close() {
+    if (!sheet.open || endClose) return;
+    sheet.classList.add("closing");
     sheet.classList.remove("open");
-    setTimeout(() => sheet.open && sheet.close(), 400);
+    const finish = () => { cancelClose(); if (sheet.open) sheet.close(); };
+    const fn = (e) => { if (e.target === sheet && e.propertyName === "transform") finish(); };
+    endClose = { fn, timer: setTimeout(finish, 600) }; // 兜底：减少动画 / 过渡被打断时也一定会关
+    sheet.addEventListener("transitionend", fn);
   }
   $("settingsBtn").addEventListener("click", open);
   $("settingsClose").addEventListener("click", close);

@@ -69,29 +69,41 @@
       <h3 class="group-title">账号</h3>
       <div class="group">
         <div class="row" id="loginRow">
-          <span class="row-text"><span>GitHub 账号</span><span class="sub">登录后，收藏和设置可以在多台设备间同步</span></span>
+          <span class="row-text"><span>GitHub 账号</span><span class="sub" id="loginSub">登录后，收藏和设置可以在多台设备间同步</span></span>
           <a class="btn btn-primary" id="loginBtn" href="/api/auth/login">立即登录</a>
         </div>
         <div class="row" id="accountRow" hidden>
           <span class="acct"><img id="acctAvatar" alt="" width="26" height="26"><span id="acctName"></span></span>
           <button class="btn btn-ghost" id="logoutBtn" type="button">退出登录</button>
         </div>
-        <div class="row" id="syncRow">
-          <span class="row-text"><span>云端同步</span><span class="sub" id="syncState">未登录</span></span>
-          <button class="switch" id="syncMasterSwitch" type="button" role="switch" aria-label="云端同步总开关" hidden></button>
+      </div>
+
+      <!-- 登录后才出现：开关在上，同步的内容在中间，手动同步在最后；规则写在分组脚注里 -->
+      <div id="syncSection" hidden>
+        <h3 class="group-title">云端同步</h3>
+        <div class="group">
+          <div class="row" id="syncRow">
+            <span class="row-text"><span>云端同步</span><span class="sub" id="syncState">-</span></span>
+            <button class="switch" id="syncMasterSwitch" type="button" role="switch" aria-label="云端同步总开关"></button>
+          </div>
+          <div class="row" id="syncFavsRow">
+            <span class="row-text"><span>收藏</span><span class="sub">每个插件单独合并，以最近一次操作为准</span></span>
+            <span class="muted" id="syncFavsState">始终同步</span>
+          </div>
+          <div class="row" id="syncLookRow">
+            <span class="row-text"><span>外观</span><span class="sub">主题、减少动画、搜索框样式</span></span>
+            <button class="switch" id="syncLookSwitch" type="button" role="switch" aria-label="同步外观"></button>
+          </div>
+          <div class="row" id="syncCardsRow">
+            <span class="row-text"><span>插件卡片</span><span class="sub">显示项、紧凑模式、收藏置顶、排序</span></span>
+            <button class="switch" id="syncCardsSwitch" type="button" role="switch" aria-label="同步插件卡片设置"></button>
+          </div>
+          <div class="row" id="syncNowRow" hidden>
+            <span class="row-text"><span>立即同步</span><span class="sub">先合并云端的改动，再上传这台设备的</span></span>
+            <button class="btn btn-ghost" id="syncNowBtn" type="button">同步</button>
+          </div>
         </div>
-        <div class="row" id="syncNowRow" hidden>
-          <span class="row-text"><span>立即同步</span><span class="sub">把云端的改动合并进来，再把这台设备的改动传上去</span></span>
-          <button class="btn btn-ghost" id="syncNowBtn" type="button">同步</button>
-        </div>
-        <div class="row" id="syncLookRow" hidden>
-          <span class="row-text"><span>同步外观</span><span class="sub">主题、减少动画和搜索框样式。关闭后这台设备独立保存，不上传也不采用云端的</span></span>
-          <button class="switch" id="syncLookSwitch" type="button" role="switch" aria-label="同步外观"></button>
-        </div>
-        <div class="row" id="syncCardsRow" hidden>
-          <span class="row-text"><span>同步插件卡片设置</span><span class="sub">卡片显示项、紧凑模式、收藏置顶和排序。关闭后这台设备独立保存</span></span>
-          <button class="switch" id="syncCardsSwitch" type="button" role="switch" aria-label="同步插件卡片设置"></button>
-        </div>
+        <p class="group-foot" id="syncFoot"></p>
       </div>
 
       <h3 class="group-title">外观</h3>

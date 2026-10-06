@@ -526,7 +526,11 @@ function syncSearch() {
 els.search.addEventListener("focus", syncSearch);
 els.search.addEventListener("blur", syncSearch);
 els.search.addEventListener("input", syncSearch); // 点输入框里的清除按钮也会触发
-if (window.ResizeObserver) new ResizeObserver(syncSearch).observe(els.search.closest(".toolbar"));
+if (window.ResizeObserver) { // 工具栏宽度、排序按钮宽度（「最新」→「名称 A–Z」）变了，展开的搜索框都要跟着重新量
+  const ro = new ResizeObserver(syncSearch);
+  ro.observe(els.search.closest(".toolbar"));
+  ro.observe(els.sort);
+}
 els.tabs.addEventListener("click", (e) => {
   const b = e.target.closest(".tab");
   if (!b) return;
