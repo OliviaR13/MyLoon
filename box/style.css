@@ -239,7 +239,7 @@ html[data-hide-cat] .chip-cat{display:none}
 .sheet.open::backdrop{opacity:1}
 .sheet.closing::backdrop{transition-duration:.3s;transition-timing-function:cubic-bezier(.4,0,1,1)}
 .sheet-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px 12px;transition:padding-top .4s var(--ease)}
-.sheet-head h2{margin:0;font-size:17px;font-weight:650;letter-spacing:-.01em;text-align:right}
+.sheet-head h2{margin:0;padding-right:12px;font-size:17px;font-weight:650;letter-spacing:-.01em;text-align:right}
 .sheet-nav{display:flex;align-items:center;gap:8px}
 /* 全屏按钮：展开 / 收起两个图标随状态切换 */
 #settingsFull .ico-shrink{display:none}
