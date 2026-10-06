@@ -74,6 +74,7 @@
       const k = sw.dataset.switch;
       settings[k] = !settings[k];
       save(); apply();
+      liquidThumb(sw, 18, settings[k]); // 液体开关动效，见 app.js
       if ((k === "showDesc" || k === "compact") && state.plugins.length) render(); // 描述重新显示后，重新计算「展开」按钮
       if (k === "pinFavs" && state.plugins.length) render({ animate: true }); // 收藏置顶开关改变排序结果
     }

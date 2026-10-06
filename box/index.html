@@ -145,7 +145,7 @@
     </div>
   </dialog>
 
-  <div class="toast" id="toast" role="status" aria-live="polite"><span class="toast-msg"></span><button class="toast-act" type="button" hidden></button></div>
+  <div class="toast" id="toast" role="status" aria-live="polite" popover="manual"><div class="toast-in"><span class="toast-msg"></span><button class="toast-act" type="button" hidden></button></div></div>
 
   <template id="rowTpl">
     <article class="card">
@@ -164,6 +164,7 @@
   </template>
 
   <script src="./app.js"></script>
+  <script src="./pull.js"></script>
   <script src="./settings.js"></script>
   <script src="./account.js"></script>
 </body>

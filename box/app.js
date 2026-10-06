@@ -117,6 +117,27 @@ function burstStar(btn) {
   setTimeout(() => { wrap.remove(); svg.classList.remove("pop"); }, 900);
 }
 
+/* 液体开关（思路借自 Bencho 的 Liquid toggle）：
+   滑块不是平移过去，而是沿行进方向被拉长、同时变薄（面积保持），到位时带一点回弹，
+   像一滴液体穿过轨道。滑块是 ::after 伪元素，所以用 Web Animations API 直接给伪元素写关键帧；
+   位移也写在关键帧里，避免单独的 scale 属性把位移一起缩放而偏离终点。
+   host：.switch 或 .mini-switch；travel：滑块的行程（px）；on：切换后的状态。 */
+function liquidThumb(host, travel, on) {
+  if (!host || !host.animate || motionOff()) return;
+  const [a, b] = on ? [0, travel] : [travel, 0];
+  const at = (x, sx, sy) => `translateX(${x}px) scale(${sx}, ${sy})`;
+  try {
+    host.animate(
+      [
+        { transform: at(a, 1, 1) },
+        { transform: at((a + b) / 2, 1.34, 0.76), offset: 0.42 },
+        { transform: at(b, 1, 1) },
+      ],
+      { duration: 460, easing: "cubic-bezier(.3,1.2,.5,1)", pseudoElement: "::after" }
+    );
+  } catch {}
+}
+
 function toggleFav(id, btn) {
   state.favorites.has(id) ? state.favorites.delete(id) : state.favorites.add(id);
   state.favMeta[id] = [Date.now(), state.favorites.has(id) ? 1 : 0]; // 取消收藏也要留一条记录
@@ -139,22 +160,64 @@ function starIcon() {
 
 /* ---------- 工具 ---------- */
 
-/* 提示条：同一时间只显示一条，新提示直接替换旧的；可带一个操作按钮 */
-let toastTimer = 0;
+/* 提示条（灵动岛式，思路借自 Bencho 的 Dynamic Island）：
+   同一时间只显示一条，可带一个操作按钮。
+   - 形状用一组弹簧过渡：先是一颗小药丸，宽、高、圆角一起长到内容的大小，而不是一个圆角慢半拍的盒子；
+   - 内容不跟着形变，而是带一点模糊和缩放淡入，药丸先动、字后到；
+   - 已经显示时来了新提示，药丸直接变形成新的大小，不先消失再出现；
+   - 用 popover 提升到顶层，设置面板（modal dialog）打开时提示也不会被遮罩盖住。 */
+let toastTimer = 0, toastHideTimer = 0;
+const TOAST_NUB = { w: 96, h: 32, r: 16 };
+function toastPopover(open) {
+  const box = els.toast;
+  try {
+    if (typeof box.showPopover !== "function") return;
+    const isOpen = box.matches(":popover-open");
+    if (open && !isOpen) box.showPopover();
+    if (!open && isOpen) box.hidePopover();
+  } catch {}
+}
+function toastSize(w, h, r) {
+  const s = els.toast.style;
+  s.setProperty("--tw", w + "px"); s.setProperty("--th", h + "px"); s.setProperty("--tr", r + "px");
+}
 function toast(msg, action) {
   const box = els.toast;
+  const inner = box.querySelector(".toast-in");
   const act = box.querySelector(".toast-act");
+  clearTimeout(toastTimer);
+  clearTimeout(toastHideTimer);
+
   box.querySelector(".toast-msg").textContent = msg;
   act.hidden = !action;
   act.onclick = action ? () => { hideToast(); action.run(); } : null;
   if (action) act.textContent = action.label;
+
+  const wasShown = box.classList.contains("show");
+  if (!wasShown) { // 从小药丸起步
+    toastSize(TOAST_NUB.w, TOAST_NUB.h, TOAST_NUB.r);
+    box.classList.remove("open");
+  }
+  toastPopover(true);
   box.classList.add("show");
-  clearTimeout(toastTimer);
+
+  const grow = () => {
+    const w = inner.offsetWidth, h = inner.offsetHeight; // 内容的自然大小
+    toastSize(w, h, Math.min(22, h / 2));
+    box.classList.add("open");
+  };
+  if (wasShown) grow(); // 已经在显示：直接变形
+  else { void box.offsetWidth; requestAnimationFrame(grow); } // 先让小药丸落地，下一帧再长大
+
   toastTimer = setTimeout(hideToast, action ? 5000 : 1800);
 }
 function hideToast() {
+  const box = els.toast;
   clearTimeout(toastTimer);
-  els.toast.classList.remove("show");
+  clearTimeout(toastHideTimer);
+  box.classList.remove("open"); // 内容先淡出
+  toastSize(TOAST_NUB.w, TOAST_NUB.h, TOAST_NUB.r); // 缩回小药丸
+  toastHideTimer = setTimeout(() => { box.classList.remove("show"); toastPopover(false); }, 380);
 }
 // 离开页面（例如已跳转到 Loon）时收起提示，避免返回后还看到过期的提示
 document.addEventListener("visibilitychange", () => { if (document.hidden) hideToast(); });
@@ -696,9 +759,11 @@ sortUI.menu.addEventListener("click", (e) => {
   if (!item) return;
   if (item === sortUI.pin) { // 开关：菜单保持打开
     if (!window.MLB_settings) return;
-    window.MLB_settings.set({ pinFavs: !window.MLB_settings.get().pinFavs });
+    const nextPin = !window.MLB_settings.get().pinFavs;
+    window.MLB_settings.set({ pinFavs: nextPin });
     document.dispatchEvent(new Event("settings:change")); // 通知 account.js 同步
     syncSort();
+    liquidThumb(item.querySelector(".mini-switch"), 14, nextPin);
   } else { // 单选：选完关闭菜单
     state.sort = { key: item.dataset.key, dir: item.dataset.dir };
     try { localStorage.setItem(SORT_KEY, state.sort.key + ":" + state.sort.dir); } catch {}

@@ -174,12 +174,18 @@ a{color:var(--accent-text)}
 .notice .btn{margin-top:12px}
 .foot{text-align:center;color:var(--muted);font-size:12.5px;margin-top:28px}
 
-/* 提示条 */
-.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translate(-50%,12px);opacity:0;visibility:hidden;
-  display:flex;align-items:center;gap:12px;z-index:var(--z-toast);max-width:min(92vw,420px);padding:10px 16px;border-radius:var(--r-md);
+/* 提示条（灵动岛式）：药丸的宽、高、圆角由 JS 量好内容后写进 --tw / --th / --tr，
+   一组弹簧过渡一起长大；内容单独带模糊淡入，药丸先动、字后到 */
+.toast{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top));right:auto;bottom:auto;margin:0;padding:0;border:0;display:block;
+  transform:translateX(-50%);width:var(--tw,96px);height:var(--th,32px);border-radius:var(--tr,16px);overflow:hidden;
+  opacity:0;visibility:hidden;z-index:var(--z-toast);
   background:var(--text);color:var(--bg);font-size:13.5px;line-height:1.4;box-shadow:0 8px 24px rgb(var(--shadow) / .22);
-  transition:opacity .18s,transform .18s,visibility .18s}
-.toast.show{opacity:1;visibility:visible;transform:translate(-50%,0)}
+  transition:width .5s var(--spring),height .5s var(--spring),border-radius .5s var(--spring),opacity .2s,visibility .2s}
+.toast.show{opacity:1;visibility:visible}
+.toast-in{position:absolute;left:0;top:0;width:max-content;max-width:min(92vw,420px);box-sizing:border-box;
+  display:flex;align-items:center;gap:12px;padding:10px 16px;
+  opacity:0;transform:scale(.92);filter:blur(6px);transition:opacity .16s,transform .16s,filter .16s}
+.toast.open .toast-in{opacity:1;transform:none;filter:none;transition-duration:.22s;transition-delay:.06s}
 .toast-act{flex:none;font:inherit;font-weight:600;color:inherit;background:none;border:0;padding:2px 0;cursor:pointer;text-decoration:underline}
 .toast-act[hidden]{display:none}
 
@@ -265,10 +271,10 @@ html[data-hide-cat] .chip-cat{display:none}
   border:13px solid var(--accent-text);opacity:0;animation:star-bloom .5s ease-out forwards}
 @keyframes star-bloom{0%{transform:scale(.2);border-width:13px;opacity:.5}40%{transform:scale(1);border-width:9px;opacity:.35}100%{transform:scale(1.25);border-width:0;opacity:0}}
 .star-spoke{position:absolute;left:50%;top:50%;width:0;height:0;transform:rotate(var(--a))}
-.star-spoke i{position:absolute;left:0;top:0;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:var(--c);opacity:0;
+.star-spoke i{position:absolute;left:0;top:0;width:5px;height:5px;margin:-2.5px 0 0 -2.5px;border-radius:50%;background:var(--c);opacity:0;
   --d:24px;animation:star-fly .6s cubic-bezier(.2,.7,.3,1) forwards}
 .star-spoke i + i{--d:15px;animation-delay:.04s}
-@keyframes star-fly{0%{transform:translateX(7px) scale(.7);opacity:1}100%{transform:translateX(var(--d)) scale(.2);opacity:0}}
+@keyframes star-fly{0%{transform:translateX(7px) scale(.8);opacity:1}55%{opacity:1}100%{transform:translateX(var(--d)) scale(.3);opacity:0}}
 /* 减少动画时不显示粒子（统一的 .01ms 规则会让它们一闪而过） */
 @media (prefers-reduced-motion:reduce){.star-burst{display:none}}
 html[data-reduce-motion] .star-burst{display:none}
@@ -362,3 +368,20 @@ html[data-compact] .tags{margin-top:7px}
 /* 手动开启「减少动画」：效果和系统的「减少动态效果」一致 */
 html[data-reduce-motion],html[data-reduce-motion] *,html[data-reduce-motion] *::before,html[data-reduce-motion] *::after{
   animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}
+
+/* 下拉刷新指示器（借自 Bencho Pull to refresh · Balance）：
+   水滴聚拢、过阈值融成一滴；手指在时跟手，松手后弹簧回家 */
+.pull{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 6px);width:44px;height:44px;margin-left:-22px;border-radius:50%;
+  background:var(--card);box-shadow:0 0 0 1px var(--line),0 6px 18px rgb(var(--shadow) / .18);color:var(--accent);
+  z-index:var(--z-toast);pointer-events:none;opacity:0;
+  transform:translateY(calc(var(--py,0px) - 56px)) scale(.9);
+  transition:transform .5s var(--spring),opacity .25s}
+.pull.dragging{transition:none}
+.pull svg{display:block;border-radius:50%}
+.pull circle{fill:var(--accent)}
+.pull[data-armed="true"]{transform:translateY(calc(var(--py,0px) - 56px)) scale(1)}
+.pull-ring{transform-origin:22px 22px}
+.pull[data-phase="work"] .pull-ring{animation:pull-spin 1.1s linear infinite}
+@keyframes pull-spin{to{transform:rotate(360deg)}}
+/* 让浏览器自带的下拉刷新别和这个抢手势 */
+html{overscroll-behavior-y:contain}
