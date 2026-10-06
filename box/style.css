@@ -108,10 +108,14 @@ a{color:var(--accent-text)}
 .list.enter .card{animation:rise .34s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 45ms)}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .card-icon{width:40px;height:40px;border-radius:var(--r-md);background:var(--chip);object-fit:cover;box-shadow:0 0 0 1px var(--line)}
-.card-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.card-title h2{font-size:15.5px;line-height:1.35;font-weight:620;letter-spacing:-.005em}
+/* 标题行：左边「名称 + 版本」、右边收藏星标，永不换行。
+   名称过长时只在 .card-name 内部折行（版本号像文字一样跟在名称后面），星标始终固定在右上角。
+   .card-name 至少和星标一样高（32px）并垂直居中，单行时外观与原来一致。 */
+.card-title{display:flex;align-items:flex-start;gap:8px}
+.card-name{flex:1;min-width:0;min-height:32px;padding:5.5px 0;box-sizing:border-box;font-size:15.5px;line-height:1.35;word-spacing:.3em}
+.card-title h2{display:inline;font-size:15.5px;line-height:1.35;font-weight:620;letter-spacing:-.005em;word-spacing:normal;overflow-wrap:anywhere}
 .chip{display:inline-block;font-size:11.5px;line-height:1;padding:4px 7px;border-radius:var(--r-sm);background:var(--chip);color:var(--muted)}
-.chip-ver{font-family:var(--mono);font-size:11px}
+.chip-ver{font-family:var(--mono);font-size:11px;vertical-align:.08em;word-spacing:normal}
 
 /* 描述：按语义分段；展开收起用 max-height 过渡 */
 .card-desc{position:relative;color:var(--muted);font-size:13.5px;line-height:1.55;margin-top:5px;overflow:hidden;
@@ -237,7 +241,23 @@ html[data-hide-cat] .chip-cat{display:none}
 .sheet-head h2{font-size:17px;font-weight:650;letter-spacing:-.01em}
 /* 打开时焦点落在标题上（不可见），避免第一个按钮「完成」被聚焦框包住 */
 .sheet-head h2:focus,.sheet:focus{outline:none}
-.sheet-body{overflow-y:auto;overscroll-behavior:contain;max-height:calc(88dvh - 60px);padding:0 16px calc(24px + env(safe-area-inset-bottom))}
+.sheet-body{overflow-y:auto;overscroll-behavior:contain;max-height:calc(88dvh - 60px);padding:0 16px calc(var(--sheet-fade) + env(safe-area-inset-bottom))}
+/* 底部过渡：最底边是纯底色，向上一小段（--sheet-fade）逐渐变清晰，同时由模糊过渡到正常显示。
+   ::before 负责模糊（backdrop-filter + 蒙版，越靠底越糊），::after 负责底色渐变（越靠底越实）。
+   两者都固定在面板底部、不随内容滚动，也不挡点击；高度 = 渐变段 + 底部安全区（安全区那一段是纯色）。
+   body 的底部 padding 同样加上 --sheet-fade，滚到底时最后一行不会被盖住。 */
+.sheet{--sheet-fade:44px}
+.sheet::before,.sheet::after{content:"";position:absolute;left:0;right:0;bottom:0;z-index:2;pointer-events:none;
+  height:calc(var(--sheet-fade) + env(safe-area-inset-bottom))}
+.sheet::before{
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  -webkit-mask-image:linear-gradient(to top,#000 env(safe-area-inset-bottom),rgb(0 0 0 / .6) calc(env(safe-area-inset-bottom) + 14px),transparent 100%);
+  mask-image:linear-gradient(to top,#000 env(safe-area-inset-bottom),rgb(0 0 0 / .6) calc(env(safe-area-inset-bottom) + 14px),transparent 100%)}
+.sheet::after{
+  background:linear-gradient(to top,var(--bg) env(safe-area-inset-bottom),
+    color-mix(in srgb,var(--bg) 80%,transparent) calc(env(safe-area-inset-bottom) + 10px),
+    color-mix(in srgb,var(--bg) 40%,transparent) calc(env(safe-area-inset-bottom) + 24px),
+    transparent 100%)}
 .group-title{margin:18px 4px 6px;font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em}
 .group{border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card);overflow:hidden}
 .row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:50px;padding:10px 14px;font-size:15px}
@@ -268,7 +288,7 @@ html[data-hide-cat] .chip-cat{display:none}
 }
 
 /* 收藏星标 */
-.star{position:relative;margin-left:auto;flex:none;width:32px;height:32px;display:grid;place-items:center;border:0;background:none;color:var(--muted);
+.star{position:relative;margin-left:auto;align-self:flex-start;flex:none;width:32px;height:32px;display:grid;place-items:center;border:0;background:none;color:var(--muted);
   border-radius:var(--r-md);cursor:pointer;transition:color .2s,transform .4s var(--spring),background-color .2s}
 .star svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round;transition:fill .2s}
 .star:active{transform:scale(.85)}
