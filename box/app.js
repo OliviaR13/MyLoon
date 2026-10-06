@@ -168,12 +168,15 @@ function starIcon() {
    - 用 popover 提升到顶层，设置面板（modal dialog）打开时提示也不会被遮罩盖住。 */
 let toastTimer = 0, toastHideTimer = 0;
 const TOAST_NUB = { w: 96, h: 32, r: 16 };
+// 顶层（popover）只在有模态对话框（设置面板）打开时才用，因为只有它才能盖过对话框的遮罩。
+// 平时药丸就是普通的 fixed 元素：iOS 26 的 Safari 会拿顶层 / 固定定位的元素给工具栏取色，
+// 下拉时药丸一进顶层，底部 dock 里就会冒出一块灰色底座。
 function toastPopover(open) {
   const box = els.toast;
   try {
     if (typeof box.showPopover !== "function") return;
     const isOpen = box.matches(":popover-open");
-    if (open && !isOpen) box.showPopover();
+    if (open && !isOpen && document.querySelector("dialog[open]")) box.showPopover();
     if (!open && isOpen) box.hidePopover();
   } catch {}
 }
