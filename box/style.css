@@ -418,7 +418,9 @@ html{overscroll-behavior-y:contain}
    于是搜索框压到排序按钮上，放大镜也偏离中心。现在收起时 padding 全部归零，展开时再长回来（见下）。 */
 .search{position:relative}
 .search-lens{display:none}
-html[data-search-collapse] .search{flex:none;margin-left:auto;width:var(--sw,43px);transition:width .5s var(--spring)}
+/* 收起时搜索在最左，排序按钮靠右；展开时搜索从左边长出来，吃掉中间的空位 */
+html[data-search-collapse] .search{flex:none;width:var(--sw,43px);transition:width .5s var(--spring)}
+html[data-search-collapse] .sortwrap{margin-left:auto}
 /* 收起时左右 padding 都归零：border-box 的输入框宽度不会小于 padding + 边框，
    只要还有一点 padding，iOS 上盒子就可能被撑得比 43px 宽，放大镜（固定在 left:13px）就会偏左。
    归零后输入框可以随盒子缩到任意宽度；展开时 padding 再随盒子一起长出来（文字从 38px 开始，避开放大镜）。 */
