@@ -29,6 +29,7 @@
     root.toggleAttribute("data-hide-cat", !settings.showCat);
     sheet.querySelectorAll("[data-theme-opt]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.themeOpt === settings.theme)));
     sheet.querySelectorAll("[data-switch]").forEach((b) => b.setAttribute("aria-checked", String(settings[b.dataset.switch])));
+    if (typeof syncSort === "function") syncSort(); // 排序菜单里的「收藏置顶」状态跟着同步
   }
 
   /* ---------- 面板开关 ---------- */

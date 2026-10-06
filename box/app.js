@@ -36,8 +36,8 @@ const dateValue = (p) => {
   return p._ts;
 };
 const SORTS = {
-  date: { label: "时间", defaultDir: "desc", hint: { desc: "新到旧", asc: "旧到新" }, compare: (a, b) => dateValue(a) - dateValue(b) },
-  name: { label: "名称", defaultDir: "asc", hint: { asc: "A 到 Z", desc: "Z 到 A" }, compare: (a, b) => collator.compare(a.name, b.name) },
+  date: { label: "时间", defaultDir: "desc", hint: { desc: "新到旧", asc: "旧到新" }, short: { desc: "最新", asc: "最早" }, compare: (a, b) => dateValue(a) - dateValue(b) },
+  name: { label: "名称", defaultDir: "asc", hint: { asc: "A 到 Z", desc: "Z 到 A" }, short: { asc: "A-Z", desc: "Z-A" }, compare: (a, b) => collator.compare(a.name, b.name) },
 };
 const SORT_KEY = "myloon_box_sort"; // 存储格式：date:desc
 
@@ -574,42 +574,119 @@ els.search.addEventListener("input", (e) => {
 });
 els.refresh.addEventListener("click", () => load(true));
 
+/* ---------- 排序菜单 ----------
+   工具栏里只放一个按钮（图标 + 当前排序的简称），点开是菜单：
+   四种排序直接点选，不再有「再点一次反转」这种藏起来的操作；
+   「收藏置顶」也放进菜单，排序相关的选项集中在一处。 */
+const SORT_OPTIONS = Object.entries(SORTS).flatMap(([key, s]) =>
+  ["desc", "asc"].sort((a) => (a === s.defaultDir ? -1 : 1)).map((dir) => ({ key, dir, label: `${s.label} · ${s.hint[dir]}` }))
+);
+const sortUI = {};
+
+function sortIcon() {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  const p = document.createElementNS(ns, "path");
+  p.setAttribute("d", "M8 4v16M8 4L5 7M8 4l3 3M16 20V4M16 20l-3-3M16 20l3-3");
+  svg.append(p);
+  return svg;
+}
+
 function buildSort() {
-  els.sort.replaceChildren(
-    ...Object.entries(SORTS).map(([key, s]) => {
-      const b = el("button", "", s.label);
-      b.type = "button";
-      b.dataset.sort = key;
-      b.append(el("i", "dir"));
-      return b;
-    })
-  );
-  syncSort();
-}
-// 只更新状态，不重建按钮，箭头旋转和颜色过渡才能播放
-function syncSort() {
-  const { key, dir } = state.sort;
-  els.sort.querySelectorAll("button").forEach((b) => {
-    const s = SORTS[b.dataset.sort];
-    const active = b.dataset.sort === key;
-    b.setAttribute("aria-pressed", String(active));
-    b.dataset.dir = active ? dir : "";
-    b.setAttribute("aria-label", active ? `${s.label}，${s.hint[dir]}，点击反转` : `按${s.label}排序`);
-    b.title = active ? s.hint[dir] : "";
+  const btn = el("button", "sort-btn");
+  btn.type = "button";
+  btn.setAttribute("aria-haspopup", "menu");
+  btn.setAttribute("aria-expanded", "false");
+  btn.setAttribute("aria-controls", "sortMenu");
+  sortUI.text = el("span", "sort-text");
+  btn.append(sortIcon(), sortUI.text);
+
+  const menu = el("div", "sort-menu");
+  menu.id = "sortMenu";
+  menu.setAttribute("role", "menu");
+  menu.setAttribute("aria-label", "排序方式");
+  menu.append(el("div", "sort-title", "排序方式"));
+  sortUI.items = SORT_OPTIONS.map((o) => {
+    const b = el("button", "sort-item");
+    b.type = "button";
+    b.setAttribute("role", "menuitemradio");
+    b.dataset.key = o.key;
+    b.dataset.dir = o.dir;
+    b.append(el("span", "", o.label), el("i", "sort-check"));
+    menu.append(b);
+    return b;
   });
-}
-els.sort.addEventListener("click", (e) => {
-  const b = e.target.closest("button[data-sort]");
-  if (!b) return;
-  const key = b.dataset.sort;
-  state.sort = key === state.sort.key
-    ? { key, dir: state.sort.dir === "asc" ? "desc" : "asc" }
-    : { key, dir: SORTS[key].defaultDir };
-  try { localStorage.setItem(SORT_KEY, key + ":" + state.sort.dir); } catch {}
-  document.dispatchEvent(new Event("settings:change"));
+  menu.append(el("div", "sort-sep"));
+  const pin = el("button", "sort-item sort-pin");
+  pin.type = "button";
+  pin.setAttribute("role", "menuitemcheckbox");
+  pin.append(el("span", "", "收藏置顶"), el("i", "mini-switch"));
+  menu.append(pin);
+
+  Object.assign(sortUI, { btn, menu, pin });
+  els.sort.replaceChildren(btn, menu);
   syncSort();
+}
+
+// 更新按钮文字、选中项和「收藏置顶」状态（account.js 合并云端设置后也会调用）
+function syncSort() {
+  if (!sortUI.btn) return;
+  const { key, dir } = state.sort;
+  sortUI.text.textContent = SORTS[key].short[dir];
+  sortUI.btn.setAttribute("aria-label", `排序：${SORTS[key].label} ${SORTS[key].hint[dir]}`);
+  sortUI.items.forEach((b) => b.setAttribute("aria-checked", String(b.dataset.key === key && b.dataset.dir === dir)));
+  const pinned = !!(window.MLB_settings && window.MLB_settings.get().pinFavs);
+  sortUI.pin.setAttribute("aria-checked", String(pinned));
+  sortUI.btn.dataset.pin = String(pinned); // 按钮角上的小圆点：提示收藏置顶已开启
+}
+
+const sortIsOpen = () => sortUI.menu.dataset.open === "true";
+function setSortOpen(open, viaKeyboard = false) {
+  sortUI.menu.dataset.open = String(open);
+  sortUI.btn.setAttribute("aria-expanded", String(open));
+  if (open) {
+    syncSort();
+    // 只有键盘打开时才移动焦点；触屏点开不移动，避免出现焦点框
+    if (viaKeyboard) (sortUI.items.find((b) => b.getAttribute("aria-checked") === "true") || sortUI.items[0]).focus();
+  }
+}
+
+buildSort();
+
+sortUI.btn.addEventListener("click", (e) => setSortOpen(!sortIsOpen(), e.detail === 0));
+
+sortUI.menu.addEventListener("click", (e) => {
+  const item = e.target.closest(".sort-item");
+  if (!item) return;
+  if (item === sortUI.pin) { // 开关：菜单保持打开
+    if (!window.MLB_settings) return;
+    window.MLB_settings.set({ pinFavs: !window.MLB_settings.get().pinFavs });
+    document.dispatchEvent(new Event("settings:change")); // 通知 account.js 同步
+    syncSort();
+  } else { // 单选：选完关闭菜单
+    state.sort = { key: item.dataset.key, dir: item.dataset.dir };
+    try { localStorage.setItem(SORT_KEY, state.sort.key + ":" + state.sort.dir); } catch {}
+    document.dispatchEvent(new Event("settings:change"));
+    syncSort();
+    setSortOpen(false);
+    if (e.detail === 0) sortUI.btn.focus();
+  }
   if (state.plugins.length) render({ animate: true });
 });
-buildSort();
+
+// 点菜单外面关闭；Esc 关闭；上下方向键在菜单项之间移动
+document.addEventListener("click", (e) => { if (sortIsOpen() && !els.sort.contains(e.target)) setSortOpen(false); });
+document.addEventListener("keydown", (e) => {
+  if (!sortIsOpen()) return;
+  if (e.key === "Escape") { setSortOpen(false); sortUI.btn.focus(); return; }
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    const list = [...sortUI.items, sortUI.pin];
+    const i = list.indexOf(document.activeElement);
+    list[(i + (e.key === "ArrowDown" ? 1 : -1) + list.length) % list.length].focus();
+  }
+});
 
 load();
