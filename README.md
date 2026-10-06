@@ -11,7 +11,7 @@
 
 [![License](https://img.shields.io/badge/License-All_Rights_Reserved-8a8a85?style=flat-square)](LICENSE)
 [![Last commit](https://img.shields.io/github/last-commit/OliviaR13/MyLoon?style=flat-square&logo=github)](https://github.com/OliviaR13/MyLoon/commits/main)
-[![Plugins](https://img.shields.io/badge/Plugins-9-0f7f69?style=flat-square)](plugin/)
+[![Plugins](https://img.shields.io/badge/Plugins-8-0f7f69?style=flat-square)](plugin/)
 
 **[简体中文](#zh)** &nbsp;·&nbsp; **[English](#en)**
 
@@ -78,7 +78,6 @@ MyLoon 是一组面向 Loon 的网络规则与脚本插件，围绕三类场景�
 <!-- PLUGINS_ZH:START -->
 | 插件 | 分类 | 说明 |
 |---|---|---|
-| [示例 自选节点](plugin/Example.plugin) | 代理分流 | 功能说明 |
 | [Gemini 自选节点](plugin/Gemini.plugin) | 代理分流 | Google Gemini（网页、App、API、AI Studio）相关域名统一走 `PROXY` |
 | [Spotify 自选节点](plugin/Spotify.plugin) | 代理分流 | Spotify 官方站点、API、音频与图片 CDN、短链统一走 `PROXY` |
 | [推特 自选节点](plugin/Twitter.plugin) | 代理分流 | Twitter / X（网页、App、图片视频 CDN、短链）统一走 `PROXY` |
@@ -152,7 +151,7 @@ App 发出请求
 
 | 路径 | 内容 |
 |---|---|
-| [`plugin/`](plugin/) | Loon 插件（9 款） |
+| [`plugin/`](plugin/) | Loon 插件（8 款） |
 | [`script/`](script/) | 插件使用的脚本（微博来源机型） |
 | [`box/`](box/) | Loon Box 前端源码（HTML / CSS / JS） |
 | [`functions/`](functions/) | Cloudflare Pages Functions：清单接口、GitHub OAuth、云端同步、人机验证 |
@@ -277,7 +276,6 @@ MyLoon is a set of network-rule and script plugins for [Loon](https://www.nsloon
 <!-- PLUGINS_EN:START -->
 | Plugin | Category | Description |
 |---|---|---|
-| [示例 自选节点](plugin/Example.plugin) | Proxy routing | 功能说明 |
 | [Gemini (choose your node)](plugin/Gemini.plugin) | Proxy routing | Routes Google Gemini domains (web, app, API, AI Studio) through `PROXY` |
 | [Spotify (choose your node)](plugin/Spotify.plugin) | Proxy routing | Routes Spotify's official sites, API, audio and image CDNs, and short links through `PROXY` |
 | [Twitter / X (choose your node)](plugin/Twitter.plugin) | Proxy routing | Routes Twitter / X (web, app, image and video CDNs, short links) through `PROXY` |
@@ -351,7 +349,7 @@ This section applies to the Loon Box web app:
 
 | Path | Contents |
 |---|---|
-| [`plugin/`](plugin/) | Loon plugins (9) |
+| [`plugin/`](plugin/) | Loon plugins (8) |
 | [`script/`](script/) | Scripts used by plugins (Weibo source device) |
 | [`box/`](box/) | Loon Box front-end source (HTML / CSS / JS) |
 | [`functions/`](functions/) | Cloudflare Pages Functions: manifest API, GitHub OAuth, cloud sync, human verification |
