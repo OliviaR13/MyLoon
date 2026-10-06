@@ -213,26 +213,27 @@ html[data-hide-cat] .chip-cat{display:none}
 #refreshBtn{height:40px;padding:0 14px;flex:none} /* 与右边的设置按钮等高 */
 #refreshBtn:disabled{opacity:.6}
 
-/* 设置面板：手机为底部悬浮卡片，桌面为右侧抽屉。
-   iOS 26 的 Safari 工具栏是悬浮的，页面一直铺到屏幕底；贴底的面板会和它叠在一起，退场时还会从它下面「钻」出去。
-   所以手机上面板四周留出边距、四角全圆，和悬浮的 dock 是同一种语汇；
-   进场用先快后慢，退场用先慢后快（ease-in），遮罩和面板同一时长同一曲线，一起离开，不会出现「遮罩先没了，面板还在滑」。 */
-.sheet{--sheet-in:cubic-bezier(.32,.72,0,1);--sheet-out:cubic-bezier(.5,0,.75,0);
-  border:0;padding:0;background:var(--bg);color:var(--text);width:calc(100% - 16px);max-width:none;max-height:calc(88dvh - 16px);
-  margin:auto 8px max(10px,env(safe-area-inset-bottom));
-  border-radius:28px;overflow:hidden;transform:translateY(calc(100% + 32px));
-  transition:transform .46s var(--sheet-in);box-shadow:0 10px 44px rgb(var(--shadow) / .28),0 0 0 1px var(--line)}
+/* 设置面板：手机为底部弹层，桌面为右侧弹层。外观保持原样（贴底、顶部圆角），只处理退场的「割裂感」：
+   原来的问题出在三处——
+   ① 遮罩 .3s 先淡完，面板 .4s 还在往下滑：遮罩没了，面板却还留在亮着的页面上；
+   ② 退场和进场用同一条「先快后慢」的曲线，面板刚点完就飞出去，最后几像素又慢慢拖，看起来像卡了一下；
+   ③ 靠写死的 400ms 去 close()，和动画对不上时最后一帧会硬切。
+   现在：遮罩和面板同一时长同一曲线；退场加 .closing，换成「先慢后快」的收尾（.3s，比进场短）；
+   close() 等面板的 transform 真正结束再执行（settings.js）。 */
+.sheet{border:0;padding:0;background:var(--bg);color:var(--text);width:100%;max-width:none;max-height:88dvh;margin:auto 0 0;
+  border-radius:var(--r-lg) var(--r-lg) 0 0;overflow:hidden;transform:translateY(100%);
+  transition:transform .4s var(--ease);box-shadow:0 -8px 40px rgb(var(--shadow) / .25)}
 .sheet.open{transform:none}
-.sheet.closing{transition-duration:.32s;transition-timing-function:var(--sheet-out)}
+.sheet.closing{transition-duration:.3s;transition-timing-function:cubic-bezier(.4,0,1,1)}
 /* ::backdrop 在较旧的 Safari 里不继承自定义属性，曲线直接写字面量 */
-.sheet::backdrop{background:rgb(var(--shadow) / .45);opacity:0;transition:opacity .46s cubic-bezier(.32,.72,0,1)}
+.sheet::backdrop{background:rgb(var(--shadow) / .45);opacity:0;transition:opacity .4s cubic-bezier(.2,.8,.2,1)}
 .sheet.open::backdrop{opacity:1}
-.sheet.closing::backdrop{transition-duration:.32s;transition-timing-function:cubic-bezier(.5,0,.75,0)}
+.sheet.closing::backdrop{transition-duration:.3s;transition-timing-function:cubic-bezier(.4,0,1,1)}
 .sheet-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px}
 .sheet-head h2{font-size:17px;font-weight:650;letter-spacing:-.01em}
 /* 打开时焦点落在标题上（不可见），避免第一个按钮「完成」被聚焦框包住 */
 .sheet-head h2:focus,.sheet:focus{outline:none}
-.sheet-body{overflow-y:auto;overscroll-behavior:contain;max-height:calc(88dvh - 76px);padding:0 16px 20px}
+.sheet-body{overflow-y:auto;overscroll-behavior:contain;max-height:calc(88dvh - 60px);padding:0 16px calc(24px + env(safe-area-inset-bottom))}
 .group-title{margin:18px 4px 6px;font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em}
 .group{border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card);overflow:hidden}
 .row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:50px;padding:10px 14px;font-size:15px}
