@@ -1,0 +1,43 @@
+{
+  "_说明": "README 插件表的文案覆盖。键为 plugin/ 下的文件名（不含扩展名）。可选字段：zh_name、zh_desc、en_name、en_desc。没写的字段：中文取插件头部的 #!name 与 #!desc 首句；英文回退为中文并在 Actions 日志里给出警告。",
+  "Gemini": {
+    "zh_desc": "Google Gemini（网页、App、API、AI Studio）相关域名统一走 `PROXY`",
+    "en_name": "Gemini (choose your node)",
+    "en_desc": "Routes Google Gemini domains (web, app, API, AI Studio) through `PROXY`"
+  },
+  "Spotify": {
+    "zh_desc": "Spotify 官方站点、API、音频与图片 CDN、短链统一走 `PROXY`",
+    "en_name": "Spotify (choose your node)",
+    "en_desc": "Routes Spotify's official sites, API, audio and image CDNs, and short links through `PROXY`"
+  },
+  "Twitter": {
+    "zh_desc": "Twitter / X（网页、App、图片视频 CDN、短链）统一走 `PROXY`",
+    "en_name": "Twitter / X (choose your node)",
+    "en_desc": "Routes Twitter / X (web, app, image and video CDNs, short links) through `PROXY`"
+  },
+  "douyin_ip": {
+    "zh_desc": "仅代理承载属地 / 风控判定信号的接口，媒体 CDN 直连",
+    "en_name": "Douyin (choose your node)",
+    "en_desc": "Proxies only the endpoints that carry location and risk-control signals; media CDNs go direct"
+  },
+  "rednotebook_ip": {
+    "zh_desc": "仅代理带经纬度参数的推荐接口、设备指纹注册与打点上报接口，媒体 CDN 直连",
+    "en_name": "Xiaohongshu (choose your node)",
+    "en_desc": "Proxies only the recommendation endpoints carrying coordinates, device-fingerprint registration, and telemetry; media CDNs go direct"
+  },
+  "weibo": {
+    "zh_desc": "`api.weibo.cn` 走代理；可自定义发博、评论、转发时显示的来源机型（脚本）",
+    "en_name": "Weibo Plus: Attribution routing · Source device",
+    "en_desc": "Proxies `api.weibo.cn`; lets you customize the device name shown on posts, comments, and reposts (script)"
+  },
+  "outlook": {
+    "zh_desc": "Microsoft 认证相关域名直连并跳过 MITM，处理登录窗口反复弹出",
+    "en_name": "Outlook sign-in fix",
+    "en_desc": "Sends Microsoft authentication domains direct and skips MITM, fixing sign-in prompts that keep reappearing"
+  },
+  "blued": {
+    "zh_desc": "接口、图片、推送域名统一直连，使出口 IP 一致，用于排查登录失效与收不到推送",
+    "en_name": "Blued direct",
+    "en_desc": "Sends API, image, and push domains direct so the egress IP stays consistent; for troubleshooting lost sessions and missing push notifications"
+  }
+}
