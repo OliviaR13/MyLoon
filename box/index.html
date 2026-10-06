@@ -83,8 +83,8 @@
         <h3 class="group-title">云端同步</h3>
         <div class="group">
           <div class="row" id="syncRow">
-            <span class="row-text"><span>云端同步</span><span class="sub" id="syncState">-</span></span>
-            <button class="switch" id="syncMasterSwitch" type="button" role="switch" aria-label="云端同步总开关"></button>
+            <span class="row-text"><span>自动同步</span><span class="sub" id="syncState">-</span></span>
+            <button class="switch" id="syncMasterSwitch" type="button" role="switch" aria-label="自动同步总开关"></button>
           </div>
           <div class="row" id="syncFavsRow">
             <span class="row-text"><span>收藏</span><span class="sub">每个插件单独合并，以最近一次操作为准</span></span>
@@ -99,7 +99,7 @@
             <button class="switch" id="syncCardsSwitch" type="button" role="switch" aria-label="同步插件卡片设置"></button>
           </div>
           <div class="row" id="syncNowRow" hidden>
-            <span class="row-text"><span>立即同步</span><span class="sub">先合并云端的改动，再上传这台设备的</span></span>
+            <span class="row-text"><span>立即同步</span><span class="sub">合并云端与这台设备的最新改动</span></span>
             <button class="btn btn-ghost" id="syncNowBtn" type="button">同步</button>
           </div>
         </div>
@@ -113,7 +113,7 @@
           <button type="button" class="tile" data-theme-opt="light"><span class="tile-prev prev-light" aria-hidden="true"><i></i><i></i><i></i></span><span class="tile-label">浅色</span></button>
           <button type="button" class="tile" data-theme-opt="dark"><span class="tile-prev prev-dark" aria-hidden="true"><i></i><i></i><i></i></span><span class="tile-label">深色</span></button>
         </div>
-        <div class="row"><span class="row-text"><span>收起搜索框</span><span class="sub">平时只显示搜索图标，点一下展开；没输入内容时失焦自动收回</span></span><button class="switch" type="button" role="switch" data-switch="collapseSearch" aria-label="收起搜索框"></button></div>
+        <div class="row"><span class="row-text"><span>收起搜索框</span><span class="sub">默认仅显示搜索图标，点按后展开；未输入内容时，离开搜索框会自动收起</span></span><button class="switch" type="button" role="switch" data-switch="collapseSearch" aria-label="收起搜索框"></button></div>
       </div>
       <p class="group-foot">「跟随系统」会随手机的深色模式自动切换。</p>
 

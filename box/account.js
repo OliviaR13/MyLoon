@@ -52,8 +52,8 @@
       sw.disabled = !m;
     }
     $("syncFoot").textContent = m
-      ? "收藏始终同步。外观和插件卡片可以分别关闭，关闭后这台设备单独保存。多台设备改了同一项时，以后改的为准。"
-      : "云端同步已关闭：收藏和设置都只保存在这台设备上，不上传，也不采用云端的。";
+      ? "收藏会始终同步。外观和插件卡片可以分别关闭，关闭后只保存在这台设备。如果多台设备修改了同一项，以最后一次修改为准。"
+      : "云端同步已关闭：收藏和设置只保存在这台设备，不会上传，也不会读取云端的内容。";
     if (user) {
       $("acctName").textContent = user.login;
       $("acctAvatar").src = "https://github.com/" + encodeURIComponent(user.login) + ".png?size=48";
@@ -311,8 +311,8 @@
       $(id).setAttribute("aria-checked", String(next));
       liquidThumb($(id), 18, next);
       const label = GROUPS[g].label;
-      if (next) { setAt(g, Date.now()); settingsDirty[g] = true; push(); toast(`已开启${label}同步，这台设备的${label}已上传`); }
-      else toast(`已关闭${label}同步，这台设备单独保存${label}`);
+      if (next) { setAt(g, Date.now()); settingsDirty[g] = true; push(); toast(`已开启${label}同步，已将这台设备的${label}上传到云端`); }
+      else toast(`已关闭${label}同步，${label}只保存在这台设备`);
     });
   }
 
