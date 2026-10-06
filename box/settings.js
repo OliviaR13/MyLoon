@@ -70,12 +70,13 @@
     if (!sheet.open || endClose) return;
     sheet.classList.add("closing");
     sheet.classList.remove("open");
-    const finish = () => { cancelClose(); if (sheet.open) sheet.close(); setFull(false); }; // 关闭后恢复默认尺寸
+    const finish = () => { cancelClose(); if (sheet.open) sheet.close(); };
     const fn = (e) => { if (e.target === sheet && e.propertyName === "transform") finish(); };
     endClose = { fn, timer: setTimeout(finish, 600) }; // 兜底：减少动画 / 过渡被打断时也一定会关
     sheet.addEventListener("transitionend", fn);
   }
-  // 全屏切换：仅影响当前这次打开，关闭后恢复默认样式
+  // 全屏切换：状态只记在内存里（sheet 上的 .full 类）。
+  // 本次访问内关闭再打开设置页会保持上次的展开状态；刷新或重新进入页面后恢复默认，不写入 localStorage、也不同步到云端
   function setFull(on) {
     sheet.classList.toggle("full", on);
     const b = $("settingsFull");
