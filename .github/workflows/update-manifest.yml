@@ -7,7 +7,6 @@ on:
       - "plugin/*.plugin"
       - ".github/workflows/update-manifest.yml"
       - ".github/tools/update_readme.py"
-      - ".github/plugins-i18n.json"
   workflow_dispatch:
 
 permissions:
@@ -165,9 +164,7 @@ jobs:
               )
 
       # ========================================
-      # 3. 同步 README 的插件表与数量
-      #    只改 README 中 <!-- PLUGINS_ZH/EN:START --> ... <!-- ...:END --> 之间的内容和数量，
-      #    英文名与说明从 .github/plugins-i18n.json 读取。
+      # 3. 同步 README 中的插件数量（顶部徽章、仓库结构表的中英文两处）
       # ========================================
       - name: Update README
         run: python3 .github/tools/update_readme.py
