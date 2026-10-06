@@ -445,8 +445,27 @@ html[data-reduce-motion],html[data-reduce-motion] *,html[data-reduce-motion] *::
 .toast-pull svg{flex:none;display:block}
 .toast-pull circle{fill:currentColor}
 .pull-ring{transform-origin:14px 14px}
-.toast.working .pull-ring{animation:pull-spin .9s linear infinite}
-@keyframes pull-spin{to{transform:rotate(360deg)}}
+/* 刷新中：水滴环淡出，换成 Windows 11 风格的五点转圈 */
+.pull-goo{transition:opacity .15s}
+.toast.working .pull-goo{opacity:0}
+.pull-orbit{opacity:0;transition:opacity .15s}
+.toast.working .pull-orbit{opacity:1}
+.orb{transform-origin:14px 14px;opacity:0}
+.toast.working .orb{animation:win-orbit 2.6s infinite;animation-delay:calc(var(--i) * .17s)}
+/* 每个点：一圈里先快后慢、中段加速、尾段再减速，最后收在顶部淡出，随后下一轮开始。
+   五个点用相同曲线、错开起步时间，于是出现「散开 → 拉成一串 → 聚拢」的节奏 */
+@keyframes win-orbit{
+  0%{transform:rotate(225deg);opacity:1;animation-timing-function:ease-out}
+  7%{transform:rotate(345deg);animation-timing-function:linear}
+  30%{transform:rotate(455deg);animation-timing-function:ease-in-out}
+  39%{transform:rotate(690deg);animation-timing-function:linear}
+  70%{transform:rotate(815deg);opacity:1;animation-timing-function:ease-out}
+  75%{transform:rotate(945deg);animation-timing-function:ease-out}
+  76%,100%{transform:rotate(945deg);opacity:0}
+}
+/* 减少动画：不转，五个点均匀排成一圈 */
+@media (prefers-reduced-motion:reduce){.toast.working .orb{animation:none;opacity:1;transform:rotate(calc(var(--i) * 72deg))}}
+html[data-reduce-motion] .toast.working .orb{animation:none;opacity:1;transform:rotate(calc(var(--i) * 72deg))}
 /* 标签随拉动展开：药丸还窄的时候不占位，免得圈偏离中心 */
 .toast-pull-label{font-size:13.5px;font-weight:600;overflow:hidden;
   opacity:var(--lt,0);max-width:calc(58px * var(--lt,0));margin-left:calc(8px * var(--lt,0))}

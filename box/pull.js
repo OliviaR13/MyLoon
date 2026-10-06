@@ -4,7 +4,7 @@
    - 药丸里是一圈水滴（SVG goo），从中心向外散开成环；拉过阈值，环完整、药丸变强调色，同时轻震一下；
    - 决定发生在「距离」上而不是松手时：药丸变色就是「已就绪」，此时手还没松，你就知道松手会刷新；
    - 橡皮筋：位移曲线是饱和的，越往后越费劲；手指在时尺寸跟手（无过渡），弹簧只用于回家的路；
-   - 松手后整圈旋转；load() 结束时会调用 toast("清单已刷新")，药丸就地变形成消息，不用先消失再出现；
+   - 松手后水滴环淡出，换成 Windows 11 风格的五点转圈；load() 结束时会调用 toast("清单已刷新")，药丸就地变形成消息，不用先消失再出现；
      消息读完，药丸和页面一起收回去。
    刷新中 / 「清单已刷新」还在显示的这段时间里，再往下拉不会开始新一轮，但手势也不会交还给系统：
    否则 Safari 自己的回弹 / 下拉刷新会趁机接管，页面和药丸一起抖。这段时间的下拉直接吞掉（swallow）。
@@ -15,6 +15,7 @@
   const SIZE = 28, C = SIZE / 2;
   const DROPS = 8, RING = 7.5;          // 水滴数量、圆环半径
   const R_HEAD = 3, R_STEP = 0.2;       // 头部水滴半径，以及每往后一颗缩小多少（渐细的尾巴）
+  const ORBS = 5, ORB_R = 1.9;          // 刷新中转圈的点数与半径
   const R_START = 1.7;                  // 刚开始拉时每颗水滴的半径
   const THRESHOLD = 64;                 // 位移（经过橡皮筋曲线后）达到这个值就算「就绪」，大约要真实拉 80px
   const RESISTANCE = 340;               // 橡皮筋的软硬：位移的上限，越大越接近跟手
@@ -47,11 +48,19 @@
   );
   const defs = mk("defs");
   defs.append(filter);
-  const goo = mk("g", { filter: "url(#pull-goo)" });
+  const goo = mk("g", { filter: "url(#pull-goo)", class: "pull-goo" });
   const ring = mk("g", { class: "pull-ring" });
   const drops = Array.from({ length: DROPS }, () => ring.appendChild(mk("circle", { r: R_START })));
   goo.append(ring);
-  svg.append(defs, goo);
+  // 刷新中的转圈：Windows 11 风格。5 个点依次起步，在圆环上加速、聚拢、减速，再依次离场；
+  // 动画只写在 CSS 里（.toast.working .orb），松手进入刷新时才开始播放
+  const orbit = mk("g", { class: "pull-orbit" });
+  for (let i = 0; i < ORBS; i++) {
+    const o = mk("g", { class: "orb", style: `--i:${i}` });
+    o.append(mk("circle", { cx: C, cy: C - RING, r: ORB_R }));
+    orbit.append(o);
+  }
+  svg.append(defs, goo, orbit);
   const label = document.createElement("span");
   label.className = "toast-pull-label";
   label.textContent = TEXT.idle;
