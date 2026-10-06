@@ -403,8 +403,8 @@ html[data-reduce-motion],html[data-reduce-motion] *,html[data-reduce-motion] *::
 @keyframes pull-pop{from{transform:scale(.86)}to{transform:none}}
 .shell.pull-drag{transition:none}
 .shell.pull-anim{transition:transform .5s var(--spring)}
-/* 让浏览器自带的下拉刷新别和这个抢手势 */
-html{overscroll-behavior-y:contain}
+/* 让浏览器自带的下拉刷新 / 顶部回弹别和这个抢手势（none 比 contain 更彻底：contain 只挡滚动链，根元素的回弹还在） */
+html{overscroll-behavior-y:none}
 
 /* 页签指示器：一条下划线，切换时两段式移动（借自 Bencho Icon bar）。
    前进方向的那一端先走（快），后面那一端稍晚带回弹地追上（慢）。 */

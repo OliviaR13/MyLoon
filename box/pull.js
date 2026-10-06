@@ -96,13 +96,19 @@
     }
   }
 
-  let startY = 0, tracking = false, dragging = false, armed = false, busy = false, popTimer = 0, swallow = false;
+  let startX = 0, startY = 0, tracking = false, dragging = false, armed = false, busy = false, popTimer = 0, swallow = false, lockH = false;
 
-  // 这些地方的手势不归我们管：输入框、菜单、分类条、对话框
-  const excluded = (e) => e.target.closest("dialog, input, textarea, .sort-menu, .filters") || document.querySelector("dialog[open]");
-  const blocked = (e) => busy || tracking || window.scrollY > 0 || !els.list || els.refresh.disabled || excluded(e);
+  // 「在顶部」留 2px 的余量：iOS 上惯性滚动停下来时 scrollY 常常是 0.3 这样的小数，严格 > 0 会误判成「还没到顶」，
+  // 手势就整个交给了系统
+  const atTop = () => (window.scrollY || document.documentElement.scrollTop || 0) <= 2;
+  // 键盘弹着（搜索框有焦点）时，下拉是用来收键盘 / 选文字的，不归我们管
+  const typing = () => { const a = document.activeElement; return !!a && a.matches("input, textarea"); };
+  // 这些地方的手势不归我们管：菜单、对话框、正在输入。
+  // 搜索框、分类条不再整个排除——页头下面一大片就是它们，从那里起手的下拉也是下拉；分类条横向可滚，靠方向判断（见 touchmove）
+  const excluded = (e) => e.target.closest("dialog, .sort-menu") || document.querySelector("dialog[open]") || typing();
+  const blocked = (e) => busy || !atTop() || !els.list || els.refresh.disabled || excluded(e);
   // 正在刷新（含结果还在显示）：不开始新的下拉，但要把「往下拉」这个手势接住，别让系统趁机接管
-  const shouldSwallow = (e) => !tracking && (busy || els.refresh.disabled) && window.scrollY <= 0 && els.list && !excluded(e);
+  const shouldSwallow = (e) => (busy || els.refresh.disabled) && atTop() && els.list && !excluded(e);
 
   // 第一次真正往下拉时才接管药丸（此前它可能正显示着别的提示）
   function begin() {
@@ -127,29 +133,37 @@
 
   document.addEventListener("touchstart", (e) => {
     swallow = false;
+    if (tracking) release(false); // 上一次触摸没有等到 touchend（被系统手势打断之类）：先收拾干净，否则 tracking 会一直卡着，之后每次下拉都被拦下
     if (e.touches.length !== 1) return;
-    if (shouldSwallow(e)) { swallow = true; startY = e.touches[0].clientY; return; }
+    const t = e.touches[0];
+    startX = t.clientX; startY = t.clientY;
+    lockH = !!e.target.closest(".filters"); // 分类条能横向滑：起手在它上面时要看方向
+    if (shouldSwallow(e)) { swallow = true; return; }
     if (blocked(e)) return;
     tracking = true; armed = false; dragging = false;
-    startY = e.touches[0].clientY;
   }, { passive: true });
 
   document.addEventListener("touchmove", (e) => {
     if (swallow) { // 刷新中的下拉：吞掉，不让系统接管；往上推或页面已滚动则照常放行
-      if (e.cancelable && window.scrollY <= 0 && e.touches[0].clientY - startY > 0) e.preventDefault();
+      if (e.cancelable && atTop() && e.touches[0].clientY - startY > 0) e.preventDefault();
       return;
     }
     if (!tracking) return;
-    const raw = e.touches[0].clientY - startY;
-    if (raw <= 0 || window.scrollY > 0) { // 往上推，或者页面已经滚动了：交还给浏览器
-      if (dragging) release(false);
-      return;
+    const t = e.touches[0];
+    const raw = t.clientY - startY;
+    if (!atTop()) { if (dragging) release(false); return; } // 页面已经滚动了：交还给浏览器
+    if (!dragging) {
+      if (raw <= 0) return; // 还没往下拉（或在往上推）：先不管，浏览器照常滚
+      if (lockH && Math.abs(t.clientX - startX) > raw) { tracking = false; return; } // 在分类条上横着划：交给它
     }
-    if (e.cancelable) e.preventDefault(); // 接管：不让浏览器自己的下拉刷新 / 回弹抢手势
+    // 一旦接管就接管到底：手指回到起点以上时只是拉动量归零，不把手势还给系统
+    // （还回去的话，同一次触摸里再往下拉，就是系统的回弹 / 下拉刷新在动）
+    if (e.cancelable) e.preventDefault();
     if (!dragging) begin();
-    const drawn = (RESISTANCE * raw) / (RESISTANCE + raw); // 饱和曲线：前 20px 比后 20px 便宜
+    const pull = Math.max(0, raw);
+    const drawn = (RESISTANCE * pull) / (RESISTANCE + pull); // 饱和曲线：前 20px 比后 20px 便宜
     const p = clamp(drawn / THRESHOLD, 0, 1);
-    draw(p, raw * 0.6);
+    draw(p, pull * 0.6);
     pill(p, drawn);
     shiftShell(Math.min(drawn, MAX_SHIFT), { animate: false });
     const nowArmed = p >= 1;
@@ -175,7 +189,8 @@
       box.classList.add("working");
       toastSize(WORK.w, WORK.h, WORK.h / 2);
       shiftShell(HOLD, { animate: true }); // 页面停在药丸下面，整圈旋转
-      try { await load(true); } catch {}
+      // load 最多等 15 秒：网络一直不回的话，busy 永远不放，之后每次下拉都被吞掉
+      try { await Promise.race([load(true), new Promise((r) => setTimeout(r, 15000))]); } catch {}
       if (box.classList.contains("pulling")) {
         hideToast(); // 失败：load() 没有发消息，药丸直接收起
       } else {
@@ -196,5 +211,6 @@
   }
   document.addEventListener("touchend", () => { swallow = false; if (tracking) release(true); }, { passive: true });
   document.addEventListener("touchcancel", () => { swallow = false; if (tracking) release(false); }, { passive: true });
+  document.addEventListener("visibilitychange", () => { if (document.hidden && tracking) release(false); });
   draw(0);
 })();
