@@ -3,7 +3,7 @@
    依赖 app.js 中的全局：state、render、readSort、syncSort、toast、SORT_KEY。 */
 (() => {
   const KEY = "myloon_box_settings";
-  const DEFAULTS = { theme: "system", showDesc: true, showVer: true, showCat: true, pinFavs: false, compact: false, reduceMotion: false };
+  const DEFAULTS = { theme: "system", showDesc: true, showVer: true, showCat: true, pinFavs: false, compact: false, reduceMotion: false, collapseSearch: false };
   const root = document.documentElement;
   const sheet = document.getElementById("settings");
   const $ = (id) => document.getElementById(id);
@@ -13,7 +13,7 @@
     try { s = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch {}
     const out = { ...DEFAULTS };
     if (["system", "light", "dark"].includes(s.theme)) out.theme = s.theme;
-    for (const k of ["showDesc", "showVer", "showCat", "pinFavs", "compact", "reduceMotion"]) if (typeof s[k] === "boolean") out[k] = s[k];
+    for (const k of ["showDesc", "showVer", "showCat", "pinFavs", "compact", "reduceMotion", "collapseSearch"]) if (typeof s[k] === "boolean") out[k] = s[k];
     return out;
   }
   let settings = load();
@@ -29,9 +29,11 @@
     root.toggleAttribute("data-hide-cat", !settings.showCat);
     root.toggleAttribute("data-compact", settings.compact);
     root.toggleAttribute("data-reduce-motion", settings.reduceMotion);
+    root.toggleAttribute("data-search-collapse", settings.collapseSearch);
     sheet.querySelectorAll("[data-theme-opt]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.themeOpt === settings.theme)));
     sheet.querySelectorAll("[data-switch]").forEach((b) => b.setAttribute("aria-checked", String(settings[b.dataset.switch])));
     if (typeof syncSort === "function") syncSort(); // 排序菜单里的「收藏置顶」状态跟着同步
+    if (typeof syncSearch === "function") syncSearch(); // 搜索框收起 / 展开跟着设置走
   }
 
   /* ---------- 面板开关 ---------- */

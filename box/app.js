@@ -471,7 +471,62 @@ function syncTabs() {
   });
   const fc = document.getElementById("favCount");
   if (fc) fc.textContent = String(state.favorites.size);
+  placeTabInd();
 }
+
+/* 页签指示器（思路借自 Bencho 的 Icon bar）：整个页面只有一条下划线，切换页签时分两段走——
+   第一段：前进方向的那一端先冲到目标页签，线被拉长、横跨两个页签；
+   第二段：后面那一端稍晚、带一点回弹地追上来，收缩到目标页签上。
+   两端各自一条过渡（左 / 右），用 left、right 而不是 width，所以「谁先走」只是过渡参数不同。
+   页签文字宽度变化（收藏数从 9 变成 10、字体加载完）时直接落到新位置，不做动画。 */
+const tabInd = document.createElement("i");
+tabInd.className = "tab-ind";
+tabInd.setAttribute("aria-hidden", "true");
+els.tabs.append(tabInd);
+let tabPrev = -1;
+function placeTabInd() {
+  const tabs = [...els.tabs.querySelectorAll(".tab")];
+  const idx = tabs.findIndex((b) => b.getAttribute("aria-pressed") === "true");
+  const act = tabs[idx];
+  if (!act || !els.tabs.clientWidth) return;
+  els.tabs.classList.add("has-ind"); // 有指示器了，页签自带的下划线就让出来
+  const move = tabPrev !== -1 && idx !== tabPrev && !motionOff();
+  tabInd.dataset.dir = idx > tabPrev ? "fwd" : "back";
+  tabInd.classList.toggle("no-anim", !move);
+  tabInd.style.left = act.offsetLeft + "px";
+  tabInd.style.right = els.tabs.clientWidth - act.offsetLeft - act.offsetWidth + "px";
+  tabPrev = idx;
+}
+if (window.ResizeObserver) {
+  const ro = new ResizeObserver(() => placeTabInd());
+  ro.observe(els.tabs);
+  els.tabs.querySelectorAll(".tab").forEach((t) => ro.observe(t));
+}
+
+/* 搜索框收起（思路借自 Bencho 的 Search）：一个盒子，宽度就是状态，而不是图标和输入框互相淡入淡出。
+   放大镜离左边缘的距离固定：收起时（43px）这个距离恰好让它居中，展开后又正好是输入框的左内边距，
+   所以它「从中间走到左边」不是谁写的动画，而是盒子在它周围长大。
+   展开宽度由 JS 量出来（工具栏宽度减去排序按钮），这样宽度才能走弹簧过渡。
+   设置里的「收起搜索框」开着才生效；有内容或正在输入时保持展开。 */
+function syncSearch() {
+  const box = els.search.closest(".search");
+  if (!box) return;
+  if (!document.documentElement.hasAttribute("data-search-collapse")) {
+    box.removeAttribute("data-open");
+    box.style.removeProperty("--sw");
+    return;
+  }
+  const open = document.activeElement === els.search || els.search.value !== "";
+  box.toggleAttribute("data-open", open);
+  if (open) {
+    const room = box.parentElement.clientWidth - (els.sort ? els.sort.offsetWidth : 0) - 8; // 8 是工具栏的 gap
+    box.style.setProperty("--sw", Math.max(120, room) + "px");
+  } else box.style.removeProperty("--sw");
+}
+els.search.addEventListener("focus", syncSearch);
+els.search.addEventListener("blur", syncSearch);
+els.search.addEventListener("input", syncSearch); // 点输入框里的清除按钮也会触发
+if (window.ResizeObserver) new ResizeObserver(syncSearch).observe(els.search.closest(".toolbar"));
 els.tabs.addEventListener("click", (e) => {
   const b = e.target.closest(".tab");
   if (!b) return;
@@ -486,6 +541,7 @@ els.tabs.addEventListener("click", (e) => {
 function resetFilters() {
   state.category = CONFIG.all;
   state.query = els.search.value = "";
+  syncSearch();
   renderFilters();
   render({ animate: true });
 }

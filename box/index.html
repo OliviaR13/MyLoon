@@ -42,6 +42,7 @@
     <div class="toolbar">
       <div class="search">
         <input id="searchInput" type="search" autocomplete="off" placeholder="搜索插件名称或描述" aria-label="搜索插件">
+        <svg class="search-lens" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>
       </div>
       <div class="sortwrap" id="sortBox"></div>
     </div>
@@ -75,16 +76,21 @@
           <span class="acct"><img id="acctAvatar" alt="" width="26" height="26"><span id="acctName"></span></span>
           <button class="btn btn-ghost" id="logoutBtn" type="button">退出登录</button>
         </div>
-        <div class="row">
-          <span class="row-text"><span>云端同步</span><span class="sub">收藏始终同步</span></span>
-          <span class="row-actions">
-            <span class="muted" id="syncState">未登录</span>
-            <button class="btn btn-ghost" id="syncNowBtn" type="button" hidden>立即同步</button>
-          </span>
+        <div class="row" id="syncRow">
+          <span class="row-text"><span>云端同步</span><span class="sub" id="syncState">未登录</span></span>
+          <button class="switch" id="syncMasterSwitch" type="button" role="switch" aria-label="云端同步总开关" hidden></button>
+        </div>
+        <div class="row" id="syncNowRow" hidden>
+          <span class="row-text"><span>立即同步</span><span class="sub">把云端的改动合并进来，再把这台设备的改动传上去</span></span>
+          <button class="btn btn-ghost" id="syncNowBtn" type="button">同步</button>
         </div>
         <div class="row" id="syncLookRow" hidden>
-          <span class="row-text"><span>同步外观与显示</span><span class="sub">主题、卡片显示项和排序。关闭后这台设备独立保存，不上传也不采用云端的外观</span></span>
-          <button class="switch" id="syncLookSwitch" type="button" role="switch" aria-label="同步外观与显示"></button>
+          <span class="row-text"><span>同步外观</span><span class="sub">主题、减少动画和搜索框样式。关闭后这台设备独立保存，不上传也不采用云端的</span></span>
+          <button class="switch" id="syncLookSwitch" type="button" role="switch" aria-label="同步外观"></button>
+        </div>
+        <div class="row" id="syncCardsRow" hidden>
+          <span class="row-text"><span>同步插件卡片设置</span><span class="sub">卡片显示项、紧凑模式、收藏置顶和排序。关闭后这台设备独立保存</span></span>
+          <button class="switch" id="syncCardsSwitch" type="button" role="switch" aria-label="同步插件卡片设置"></button>
         </div>
       </div>
 
@@ -95,6 +101,7 @@
           <button type="button" class="tile" data-theme-opt="light"><span class="tile-prev prev-light" aria-hidden="true"><i></i><i></i><i></i></span><span class="tile-label">浅色</span></button>
           <button type="button" class="tile" data-theme-opt="dark"><span class="tile-prev prev-dark" aria-hidden="true"><i></i><i></i><i></i></span><span class="tile-label">深色</span></button>
         </div>
+        <div class="row"><span class="row-text"><span>收起搜索框</span><span class="sub">平时只显示搜索图标，点一下展开；没输入内容时失焦自动收回</span></span><button class="switch" type="button" role="switch" data-switch="collapseSearch" aria-label="收起搜索框"></button></div>
       </div>
       <p class="group-foot">「跟随系统」会随手机的深色模式自动切换。</p>
 
