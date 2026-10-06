@@ -75,16 +75,18 @@ MyLoon 是一组面向 Loon 的网络规则与脚本插件，围绕三类场景�
 
 ### 插件列表
 
+<!-- PLUGINS_ZH:START -->
 | 插件 | 分类 | 说明 |
 |---|---|---|
-| Gemini 自选节点 | 代理分流 | Google Gemini（网页、App、API、AI Studio）相关域名统一走 `PROXY` |
-| Spotify 自选节点 | 代理分流 | Spotify 官方站点、API、音频与图片 CDN、短链统一走 `PROXY` |
-| 推特 自选节点 | 代理分流 | Twitter / X（网页、App、图片视频 CDN、短链）统一走 `PROXY` |
-| 抖音 自选节点 | IP 属地 | 仅代理承载属地 / 风控判定信号的接口，媒体 CDN 直连 |
-| 小红书 自选节点 | IP 属地 | 仅代理带经纬度参数的推荐接口、设备指纹注册与打点上报接口，媒体 CDN 直连 |
-| 微博增强｜属地分流 · 来源机型 | IP 属地 · 功能增强 | `api.weibo.cn` 走代理；可自定义发博、评论、转发时显示的来源机型（脚本） |
-| Outlook 登录修复 | 登录修复 | Microsoft 认证相关域名直连并跳过 MITM，处理登录窗口反复弹出 |
-| Blued 直连 | 登录修复 | 接口、图片、推送域名统一直连，使出口 IP 一致，用于排查登录失效与收不到推送 |
+| [Gemini 自选节点](plugin/Gemini.plugin) | 代理分流 | Google Gemini（网页、App、API、AI Studio）相关域名统一走 `PROXY` |
+| [Spotify 自选节点](plugin/Spotify.plugin) | 代理分流 | Spotify 官方站点、API、音频与图片 CDN、短链统一走 `PROXY` |
+| [推特 自选节点](plugin/Twitter.plugin) | 代理分流 | Twitter / X（网页、App、图片视频 CDN、短链）统一走 `PROXY` |
+| [抖音 自选节点](plugin/douyin_ip.plugin) | IP 属地 | 仅代理承载属地 / 风控判定信号的接口，媒体 CDN 直连 |
+| [小红书 自选节点](plugin/rednotebook_ip.plugin) | IP 属地 | 仅代理带经纬度参数的推荐接口、设备指纹注册与打点上报接口，媒体 CDN 直连 |
+| [微博增强｜属地分流 · 来源机型](plugin/weibo.plugin) | IP 属地 · 功能增强 | `api.weibo.cn` 走代理；可自定义发博、评论、转发时显示的来源机型（脚本） |
+| [Blued 直连](plugin/blued.plugin) | 登录修复 | 接口、图片、推送域名统一直连，使出口 IP 一致，用于排查登录失效与收不到推送 |
+| [Outlook 登录修复](plugin/outlook.plugin) | 登录修复 | Microsoft 认证相关域名直连并跳过 MITM，处理登录窗口反复弹出 |
+<!-- PLUGINS_ZH:END -->
 
 分类由插件头部的 `#!tag` 决定，Loon Box 取第一个标签作为主分类；`#!tag` 可用英文逗号写多个，例如 `#!tag = IP 属地,功能增强`。
 
@@ -271,16 +273,18 @@ MyLoon is a set of network-rule and script plugins for [Loon](https://www.nsloon
 
 ### Plugins
 
+<!-- PLUGINS_EN:START -->
 | Plugin | Category | Description |
 |---|---|---|
-| Gemini (choose your node) | Proxy routing | Routes Google Gemini domains (web, app, API, AI Studio) through `PROXY` |
-| Spotify (choose your node) | Proxy routing | Routes Spotify's official sites, API, audio and image CDNs, and short links through `PROXY` |
-| Twitter / X (choose your node) | Proxy routing | Routes Twitter / X (web, app, image and video CDNs, short links) through `PROXY` |
-| Douyin (choose your node) | IP attribution | Proxies only the endpoints that carry location and risk-control signals; media CDNs go direct |
-| Xiaohongshu (choose your node) | IP attribution | Proxies only the recommendation endpoints carrying coordinates, device-fingerprint registration, and telemetry; media CDNs go direct |
-| Weibo Plus: Attribution routing · Source device | IP attribution · Enhancement | Proxies `api.weibo.cn`; lets you customize the device name shown on posts, comments, and reposts (script) |
-| Outlook sign-in fix | Sign-in repair | Sends Microsoft authentication domains direct and skips MITM, fixing sign-in prompts that keep reappearing |
-| Blued direct | Sign-in repair | Sends API, image, and push domains direct so the egress IP stays consistent; for troubleshooting lost sessions and missing push notifications |
+| [Gemini (choose your node)](plugin/Gemini.plugin) | Proxy routing | Routes Google Gemini domains (web, app, API, AI Studio) through `PROXY` |
+| [Spotify (choose your node)](plugin/Spotify.plugin) | Proxy routing | Routes Spotify's official sites, API, audio and image CDNs, and short links through `PROXY` |
+| [Twitter / X (choose your node)](plugin/Twitter.plugin) | Proxy routing | Routes Twitter / X (web, app, image and video CDNs, short links) through `PROXY` |
+| [Douyin (choose your node)](plugin/douyin_ip.plugin) | IP attribution | Proxies only the endpoints that carry location and risk-control signals; media CDNs go direct |
+| [Xiaohongshu (choose your node)](plugin/rednotebook_ip.plugin) | IP attribution | Proxies only the recommendation endpoints carrying coordinates, device-fingerprint registration, and telemetry; media CDNs go direct |
+| [Weibo Plus: Attribution routing · Source device](plugin/weibo.plugin) | IP attribution · Enhancement | Proxies `api.weibo.cn`; lets you customize the device name shown on posts, comments, and reposts (script) |
+| [Blued direct](plugin/blued.plugin) | Sign-in repair | Sends API, image, and push domains direct so the egress IP stays consistent; for troubleshooting lost sessions and missing push notifications |
+| [Outlook sign-in fix](plugin/outlook.plugin) | Sign-in repair | Sends Microsoft authentication domains direct and skips MITM, fixing sign-in prompts that keep reappearing |
+<!-- PLUGINS_EN:END -->
 
 A plugin's category comes from its `#!tag` header. Loon Box uses the first tag as the primary category, and multiple tags can be separated by commas, for example `#!tag = IP 属地,功能增强`.
 
