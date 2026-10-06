@@ -6,6 +6,8 @@ on:
     paths:
       - "plugin/*.plugin"
       - ".github/workflows/update-manifest.yml"
+      - ".github/tools/update_readme.py"
+      - ".github/plugins-i18n.json"
   workflow_dispatch:
 
 permissions:
@@ -163,19 +165,27 @@ jobs:
               )
 
       # ========================================
-      # 3. 提交 manifest.json
+      # 3. 同步 README 的插件表与数量
+      #    只改 README 中 <!-- PLUGINS_ZH/EN:START --> ... <!-- ...:END --> 之间的内容和数量，
+      #    英文名与说明从 .github/plugins-i18n.json 读取。
       # ========================================
-      - name: Commit manifest
+      - name: Update README
+        run: python3 .github/tools/update_readme.py
+
+      # ========================================
+      # 4. 提交 manifest.json 与 README.md
+      # ========================================
+      - name: Commit changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add manifest.json
+          git add manifest.json README.md
 
           if git diff --cached --quiet; then
-            echo "manifest.json unchanged"
+            echo "manifest.json and README.md unchanged"
           else
-            git commit -m "chore: update plugin manifest"
+            git commit -m "chore: update plugin manifest and README"
             # 必须用默认的 GITHUB_TOKEN：它推送产生的事件不会触发新的 workflow run。
             # 一旦换成 PAT，上面 generatedAt 每次都是新时间戳 → manifest 永远有 diff
             # → 提交 → 触发新一轮 → 无限循环，几分钟就能烧完 Actions 额度。
