@@ -109,7 +109,7 @@
     dragging = true;
     toastHold();
     box.style.opacity = "0";
-    box.classList.remove("open", "armed", "working", "pop");
+    box.classList.remove("open", "armed", "working", "pop", "leaving");
     box.classList.add("dragging", "pulling", "show");
     label.textContent = TEXT.idle;
     draw(0);

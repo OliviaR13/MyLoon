@@ -192,7 +192,7 @@ function toast(msg, action) {
   clearTimeout(toastTimer);
   clearTimeout(toastHideTimer);
   box.style.opacity = "";                                // 下拉刷新可能留下了行内透明度
-  box.classList.remove("pulling", "armed", "working");   // 下拉刷新的内容淡出，消息淡入（药丸就地变形）
+  box.classList.remove("leaving", "pulling", "armed", "working"); // 取消退场（退场到一半来了新提示）；下拉刷新的内容淡出，消息淡入，药丸就地变形
 
   box.querySelector(".toast-msg").textContent = msg;
   act.hidden = !action;
@@ -217,13 +217,19 @@ function toast(msg, action) {
 
   toastTimer = setTimeout(hideToast, action ? 5000 : 1800);
 }
+// 退场：不再复用进场那条带回弹的弹簧（缩回去会先抖一下，再被硬切掉），而是单独一条平滑的收尾——
+// ① 内容先淡出（和 .open 脱开就开始，.16s）；② 药丸同时缩回小药丸并轻轻上收，曲线不回弹；
+// ③ 药丸在缩到一半时开始淡出，等它几乎没了再摘掉 .show。时长见 style.css 里的 .toast.leaving。
+const TOAST_LEAVE = 340;
 function hideToast() {
   const box = els.toast;
   clearTimeout(toastTimer);
   clearTimeout(toastHideTimer);
+  if (!box.classList.contains("show")) return;
   box.classList.remove("open", "pulling", "armed", "working"); // 内容先淡出
+  box.classList.add("leaving");
   toastSize(TOAST_NUB.w, TOAST_NUB.h, TOAST_NUB.r); // 缩回小药丸
-  toastHideTimer = setTimeout(() => { box.classList.remove("show"); toastPopover(false); }, 380);
+  toastHideTimer = setTimeout(() => { box.classList.remove("show", "leaving"); toastPopover(false); }, TOAST_LEAVE + 20);
 }
 // 离开页面（例如已跳转到 Loon）时收起提示，避免返回后还看到过期的提示
 document.addEventListener("visibilitychange", () => { if (document.hidden) hideToast(); });
