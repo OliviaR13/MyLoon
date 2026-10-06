@@ -228,16 +228,17 @@ html[data-hide-cat] .chip-cat{display:none}
    ③ 靠写死的 400ms 去 close()，和动画对不上时最后一帧会硬切。
    现在：遮罩和面板同一时长同一曲线；退场加 .closing，换成「先慢后快」的收尾（.3s，比进场短）；
    close() 等面板的 transform 真正结束再执行（settings.js）。 */
-.sheet{border:0;padding:0;background:var(--bg);color:var(--text);width:100%;max-width:none;max-height:calc(88dvh + var(--bleed));margin:auto 0 0;inset-block-end:calc(-1 * var(--bleed));
+.sheet{border:0;padding:0;background:var(--bg);color:var(--text);width:100%;max-width:none;max-height:calc(100dvh + var(--bleed));margin:auto 0 0;inset-block-end:calc(-1 * var(--bleed));
   border-radius:var(--r-lg) var(--r-lg) 0 0;overflow:hidden;transform:translateY(100%);
-  transition:transform .4s var(--ease),max-height .35s var(--ease),width .35s var(--ease),border-radius .35s var(--ease);box-shadow:0 -8px 40px rgb(var(--shadow) / .25)}
+  height:calc(88dvh + var(--bleed));transition:transform .4s var(--ease),height .45s var(--ease),width .45s var(--ease),border-radius .45s var(--ease);box-shadow:0 -8px 40px rgb(var(--shadow) / .25)}
 .sheet.open{transform:none}
+.sheet[open]{display:flex;flex-direction:column}
 .sheet.closing{transition-duration:.3s;transition-timing-function:cubic-bezier(.4,0,1,1)}
 /* ::backdrop 在较旧的 Safari 里不继承自定义属性，曲线直接写字面量 */
 .sheet::backdrop{background:rgb(var(--shadow) / .45);opacity:0;transition:opacity .4s cubic-bezier(.2,.8,.2,1)}
 .sheet.open::backdrop{opacity:1}
 .sheet.closing::backdrop{transition-duration:.3s;transition-timing-function:cubic-bezier(.4,0,1,1)}
-.sheet-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px 10px}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px 12px;transition:padding-top .4s var(--ease)}
 .sheet-head h2{margin:0;font-size:17px;font-weight:650;letter-spacing:-.01em;text-align:right}
 .sheet-nav{display:flex;align-items:center;gap:8px}
 /* 全屏按钮：展开 / 收起两个图标随状态切换 */
@@ -257,7 +258,7 @@ html[data-hide-cat] .chip-cat{display:none}
      避免标题栏高度带小数时露出一条没被盖住的细线。
    ■ body 的内边距跟着留足，滚到底 / 回到顶时内容不会被盖住。 */
 .sheet{--sheet-fade:64px;--sheet-fade-top:36px;--bleed:120px}
-.sheet-body{overflow-y:auto;overscroll-behavior:contain;max-height:calc(88dvh - 60px + var(--bleed));
+.sheet-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
   padding:calc(var(--sheet-fade-top) - 18px) 16px calc(var(--bleed) + var(--sheet-fade) + env(safe-area-inset-bottom))}
 .sheet::before,.sheet::after,.sheet-head::before,.sheet-head::after{content:"";position:absolute;left:0;right:0;z-index:2;pointer-events:none}
 .sheet::before{bottom:var(--bleed);height:var(--sheet-fade);
@@ -302,17 +303,19 @@ html:has(.sheet[open]){overflow:hidden}
 .switch:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (hover:hover){.row-btn:hover{background:var(--hover)}}
 @media (min-width:600px){
-  .sheet{width:min(400px,100vw);height:calc(100dvh + var(--bleed));max-height:none;margin:0 0 0 auto;border-radius:var(--r-lg) 0 0 var(--r-lg);transform:translateX(100%);box-shadow:-8px 0 40px rgb(var(--shadow) / .25)}
+  .sheet{width:400px;height:calc(100dvh + var(--bleed));max-height:none;margin:0 0 0 auto;border-radius:var(--r-lg) 0 0 var(--r-lg);transform:translateX(100%);box-shadow:-8px 0 40px rgb(var(--shadow) / .25)}
   .sheet.open{transform:none}
-  .sheet-body{max-height:calc(100dvh - 60px + var(--bleed))}
 }
 
 /* 全屏：铺满整个视口（手机上从 88% 高度的底部面板变成整页；桌面上从 400px 侧栏变成整页） */
 .sheet.full{max-height:calc(100dvh + var(--bleed));height:calc(100dvh + var(--bleed));border-radius:0}
-.sheet.full .sheet-head{padding-top:calc(14px + env(safe-area-inset-top))}
-.sheet.full .sheet-body{max-height:calc(100dvh - 60px - env(safe-area-inset-top) + var(--bleed))}
+.sheet.full .sheet-head{padding-top:calc(18px + env(safe-area-inset-top))}
+/* 切换时图标淡入并轻微旋转，和面板的伸缩同步 */
+#settingsFull svg{animation:full-ico .4s var(--ease)}
+@keyframes full-ico{from{opacity:0;transform:scale(.6) rotate(-45deg)}to{opacity:1;transform:none}}
+html[data-reduce-motion] #settingsFull svg{animation:none}
 @media (min-width:600px){
-  .sheet.full{width:100vw;max-width:none;border-radius:0}
+  .sheet.full{width:100vw;max-width:none;border-radius:0;margin:0}
 }
 
 /* 收藏星标 */
