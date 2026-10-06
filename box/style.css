@@ -369,19 +369,21 @@ html[data-compact] .tags{margin-top:7px}
 html[data-reduce-motion],html[data-reduce-motion] *,html[data-reduce-motion] *::before,html[data-reduce-motion] *::after{
   animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}
 
-/* 下拉刷新指示器（借自 Bencho Pull to refresh · Balance）：
-   水滴聚拢、过阈值融成一滴；手指在时跟手，松手后弹簧回家 */
-.pull{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 6px);width:44px;height:44px;margin-left:-22px;border-radius:50%;
-  background:var(--card);box-shadow:0 0 0 1px var(--line),0 6px 18px rgb(var(--shadow) / .18);color:var(--accent);
+/* 下拉刷新指示器（借自 Bencho Pull to refresh · Balance，重新设计）：
+   固定在视口顶部、只放大和淡入，不从屏幕外滑入，所以不会被系统顶栏切掉；
+   页面内容跟着手指下移，指示器就长在露出来的空隙里 */
+.pull{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 8px);width:44px;height:44px;margin-left:-22px;border-radius:50%;
+  background:var(--card);box-shadow:0 0 0 1px var(--line),0 6px 18px rgb(var(--shadow) / .18);
   z-index:var(--z-toast);pointer-events:none;opacity:0;
-  transform:translateY(calc(var(--py,0px) - 56px)) scale(.9);
-  transition:transform .5s var(--spring),opacity .25s}
+  transform:scale(var(--ps,.5));transition:transform .4s var(--spring),opacity .25s}
 .pull.dragging{transition:none}
 .pull svg{display:block;border-radius:50%}
 .pull circle{fill:var(--accent)}
-.pull[data-armed="true"]{transform:translateY(calc(var(--py,0px) - 56px)) scale(1)}
+.pull[data-armed="true"]{transform:scale(1.08)}
 .pull-ring{transform-origin:22px 22px}
-.pull[data-phase="work"] .pull-ring{animation:pull-spin 1.1s linear infinite}
+.pull[data-phase="work"] .pull-ring{animation:pull-spin .9s linear infinite}
 @keyframes pull-spin{to{transform:rotate(360deg)}}
+.shell.pull-drag{transition:none}
+.shell.pull-anim{transition:transform .5s var(--spring)}
 /* 让浏览器自带的下拉刷新别和这个抢手势 */
 html{overscroll-behavior-y:contain}
