@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-10-06T21:54:47.458455+00:00",
+  "generatedAt": "2026-10-06T21:55:31.698900+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -54,16 +54,16 @@
       "id": "blued",
       "name": "Blued 直连",
       "file": "plugin/blued.plugin",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "@OliviaR13",
       "category": "登录修复",
       "tags": [
         "登录修复"
       ],
-      "date": "2026-10-04",
+      "date": "2026-10-07",
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/icon/blued.png",
-      "description": "Blued 相关域名（接口、图片、个推推送）统一直连，使各请求的出口 IP 保持一致。用于排查登录失效和收不到推送的问题。"
+      "description": "Blued 及其内置 SDK（风控设备指纹、百度定位、个推推送等）相关域名统一直连，使各请求的出口 IP 保持一致。用于排查登录失效和收不到推送的问题。"
     },
     {
       "id": "douyin_ip",
