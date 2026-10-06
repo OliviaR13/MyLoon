@@ -35,6 +35,8 @@
   function renderAccount() {
     $("loginRow").hidden = !!user; // 整行一起藏，只藏按钮会剩一个孤零零的「GitHub」
     $("accountRow").hidden = !user;
+    $("syncLookRow").hidden = !user; // 没登录就没有「同步」可言
+    $("syncLookSwitch").setAttribute("aria-checked", String(syncLook()));
     const b = $("syncNowBtn");
     if (b) b.hidden = !user; // 没登录就没有可同步的东西
     if (user) {
@@ -49,9 +51,19 @@
   const getAt = () => { try { return Number(localStorage.getItem(AT_KEY)) || 0; } catch { return 0; } };
   const setAt = (t) => { try { localStorage.setItem(AT_KEY, String(t)); } catch {} };
 
+  // 「同步外观与显示」是每台设备各自的偏好，本身不上云。
+  // 关闭后：本机不上传、也不采用云端的外观设置（主题、卡片显示项、排序），收藏仍然同步。
+  const LOOK_KEY = "myloon_box_sync_look";
+  const syncLook = () => { try { return localStorage.getItem(LOOK_KEY) !== "0"; } catch { return true; } };
+
   const snapshot = () => {
     const s = window.MLB_settings.get();
-    return { favorites: [...state.favorites], favMeta: state.favMeta, settingsAt: getAt(), settings: { theme: s.theme, showDesc: s.showDesc, showVer: s.showVer, showCat: s.showCat, pinFavs: s.pinFavs, sort: state.sort.key + ":" + state.sort.dir } };
+    const out = { favorites: [...state.favorites], favMeta: state.favMeta };
+    if (syncLook()) { // 关闭时不带 settings，服务端会保留云端原有的那一份
+      out.settingsAt = getAt();
+      out.settings = { theme: s.theme, showDesc: s.showDesc, showVer: s.showVer, showCat: s.showCat, pinFavs: s.pinFavs, compact: s.compact, reduceMotion: s.reduceMotion, sort: state.sort.key + ":" + state.sort.dir };
+    }
+    return out;
   };
 
   // 同一类错误只提示一次，否则每次改动都弹一条很烦
@@ -128,7 +140,10 @@
   };
 
   document.addEventListener("favs:change", push);
-  document.addEventListener("settings:change", () => { settingsDirty = true; setAt(Date.now()); push(); });
+  document.addEventListener("settings:change", () => {
+    if (!syncLook()) return; // 这台设备的外观不参与同步
+    settingsDirty = true; setAt(Date.now()); push();
+  });
 
   // 页面要走了立刻补发，不等防抖。
   // iOS Safari 切后台会冻结页面，setTimeout 根本不会再执行，普通 fetch 也会被掐断；
@@ -168,7 +183,7 @@
     const localAt = getAt();
     // 旧数据没有时间戳：两边都没记录时，沿用「本次会话没改过就听云端的」
     const useRemote = remoteAt > localAt || (remoteAt === 0 && localAt === 0 && !settingsDirty);
-    if (useRemote && remote?.settings) {
+    if (syncLook() && useRemote && remote?.settings) {
       const { sort, ...rest } = remote.settings;
       window.MLB_settings.set(rest);
       const [key, dir] = String(sort || "").split(":");
@@ -208,6 +223,15 @@
       if (n) n.textContent = "未连接云端";
     }
   }
+
+  // 开启时，以这台设备当前的外观为准上传（刚点开关就是明确的操作）；关闭时只记下选择
+  $("syncLookSwitch").addEventListener("click", () => {
+    const on = !syncLook();
+    try { localStorage.setItem(LOOK_KEY, on ? "1" : "0"); } catch {}
+    $("syncLookSwitch").setAttribute("aria-checked", String(on));
+    if (on) { setAt(Date.now()); settingsDirty = true; push(); toast("已开启外观同步，本机外观已上传"); }
+    else toast("已关闭外观同步，这台设备独立保存外观");
+  });
 
   $("logoutBtn").addEventListener("click", async () => {
     // 先取消待发的云端同步：退出之后那次 PUT 必定 401，没必要再发一次

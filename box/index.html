@@ -68,18 +68,23 @@
       <h3 class="group-title">账号</h3>
       <div class="group">
         <div class="row" id="loginRow">
-          <span>GitHub</span>
+          <span class="row-text"><span>GitHub 账号</span><span class="sub">登录后，收藏和设置可以在多台设备间同步</span></span>
           <a class="btn btn-primary" id="loginBtn" href="/api/auth/login">立即登录</a>
         </div>
         <div class="row" id="accountRow" hidden>
           <span class="acct"><img id="acctAvatar" alt="" width="26" height="26"><span id="acctName"></span></span>
           <button class="btn btn-ghost" id="logoutBtn" type="button">退出登录</button>
         </div>
-        <div class="row"><span>云端同步</span>
+        <div class="row">
+          <span class="row-text"><span>云端同步</span><span class="sub">收藏始终同步</span></span>
           <span class="row-actions">
             <span class="muted" id="syncState">未登录</span>
             <button class="btn btn-ghost" id="syncNowBtn" type="button" hidden>立即同步</button>
           </span>
+        </div>
+        <div class="row" id="syncLookRow" hidden>
+          <span class="row-text"><span>同步外观与显示</span><span class="sub">主题、卡片显示项和排序。关闭后这台设备独立保存，不上传也不采用云端的外观</span></span>
+          <button class="switch" id="syncLookSwitch" type="button" role="switch" aria-label="同步外观与显示"></button>
         </div>
       </div>
 
@@ -91,30 +96,50 @@
           <button type="button" class="tile" data-theme-opt="dark"><span class="tile-prev prev-dark" aria-hidden="true"><i></i><i></i><i></i></span><span class="tile-label">深色</span></button>
         </div>
       </div>
+      <p class="group-foot">「跟随系统」会随手机的深色模式自动切换。</p>
 
       <h3 class="group-title">插件卡片</h3>
       <div class="group">
-        <div class="row"><span>显示描述</span><button class="switch" type="button" role="switch" data-switch="showDesc" aria-label="显示描述"></button></div>
-        <div class="row"><span>显示版本号</span><button class="switch" type="button" role="switch" data-switch="showVer" aria-label="显示版本号"></button></div>
-        <div class="row"><span>收藏置顶</span><button class="switch" type="button" role="switch" data-switch="pinFavs" aria-label="收藏置顶"></button></div>
-        <div class="row"><span>显示分类标签</span><button class="switch" type="button" role="switch" data-switch="showCat" aria-label="显示分类标签"></button></div>
+        <div class="row"><span class="row-text"><span>显示描述</span><span class="sub">卡片里的插件简介</span></span><button class="switch" type="button" role="switch" data-switch="showDesc" aria-label="显示描述"></button></div>
+        <div class="row"><span class="row-text"><span>显示版本号</span><span class="sub">名称旁边的版本标签</span></span><button class="switch" type="button" role="switch" data-switch="showVer" aria-label="显示版本号"></button></div>
+        <div class="row"><span class="row-text"><span>显示分类标签</span><span class="sub">卡片底部的分类和标签</span></span><button class="switch" type="button" role="switch" data-switch="showCat" aria-label="显示分类标签"></button></div>
+        <div class="row"><span class="row-text"><span>紧凑模式</span><span class="sub">缩小间距，一屏显示更多插件</span></span><button class="switch" type="button" role="switch" data-switch="compact" aria-label="紧凑模式"></button></div>
+        <div class="row"><span class="row-text"><span>收藏置顶</span><span class="sub">已收藏的插件排在最前面</span></span><button class="switch" type="button" role="switch" data-switch="pinFavs" aria-label="收藏置顶"></button></div>
+      </div>
+
+      <h3 class="group-title">辅助功能</h3>
+      <div class="group">
+        <div class="row"><span class="row-text"><span>减少动画</span><span class="sub">关闭过渡和入场动画。系统已开启「减少动态效果」时自动生效</span></span><button class="switch" type="button" role="switch" data-switch="reduceMotion" aria-label="减少动画"></button></div>
       </div>
 
       <h3 class="group-title">数据</h3>
       <div class="group">
-        <button class="row row-btn row-danger" id="clearBtn" type="button"><span>清除本地设置</span></button>
+        <button class="row row-btn" id="copyFavsBtn" type="button">
+          <span class="row-text"><span>复制收藏的插件链接</span><span class="sub">每行一个，可以直接粘贴到 Loon</span></span><i class="row-chev"></i>
+        </button>
+        <button class="row row-btn row-danger" id="clearBtn" type="button">
+          <span class="row-text"><span>清除本地设置</span><span class="sub">恢复主题、显示项和排序的默认值，不影响云端和插件</span></span>
+        </button>
         <div class="row row-confirm" id="clearConfirm" hidden>
-          <span class="muted">将恢复主题、显示项和排序的默认值，不影响 GitHub 上的插件。</span>
+          <span class="muted">确定要恢复默认设置吗？</span>
           <span class="row-actions"><button class="btn btn-ghost" id="clearCancel" type="button">取消</button><button class="btn btn-primary" id="clearOk" type="button">清除</button></span>
         </div>
       </div>
 
       <h3 class="group-title">关于</h3>
       <div class="group">
+        <div class="about-card">
+          <img src="./icon.png" alt="" width="48" height="48">
+          <span class="row-text"><strong>OliviaR13's Loon Box</strong><span class="sub">Loon 插件清单，点击即可安装</span></span>
+        </div>
         <div class="row"><span>插件数量</span><span class="muted" id="aboutCount">-</span></div>
-        <div class="row"><span>清单更新</span><span class="muted" id="aboutDate">-</span></div>
-        <a class="row row-btn" href="https://github.com/OliviaR13/MyLoon" target="_blank" rel="noreferrer"><span>GitHub</span><span class="muted">OliviaR13/MyLoon</span></a>
-        <a class="row row-btn" href="https://github.com/OliviaR13/MyLoon/blob/main/LICENSE" target="_blank" rel="noreferrer"><span>许可</span><span class="muted">保留所有权利</span></a>
+        <div class="row"><span class="row-text"><span>清单更新</span><span class="sub" id="aboutAgo" hidden></span></span><span class="muted" id="aboutDate">-</span></div>
+        <a class="row row-btn" href="https://github.com/OliviaR13/MyLoon" target="_blank" rel="noreferrer">
+          <span class="row-text"><span>GitHub</span><span class="sub">源码与更新记录</span></span><span class="row-end"><span class="muted">OliviaR13/MyLoon</span><i class="row-chev"></i></span>
+        </a>
+        <a class="row row-btn" href="https://github.com/OliviaR13/MyLoon/blob/main/LICENSE" target="_blank" rel="noreferrer">
+          <span class="row-text"><span>许可</span><span class="sub">版权所有 © 2026 soobsessed</span></span><span class="row-end"><span class="muted">保留所有权利</span><i class="row-chev"></i></span>
+        </a>
       </div>
     </div>
   </dialog>

@@ -35,7 +35,13 @@
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
 /* 顶部 96px 渐变回底色：避免状态栏区域（纯底色）和光晕之间出现一条硬边 */
-body{margin:0;background:linear-gradient(var(--bg),transparent 96px) no-repeat,radial-gradient(60% 320px at 50% 190px,var(--glow),transparent) no-repeat,var(--bg);color:var(--text);font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+/* 背景光晕：固定在视口里，不随列表滚动；顶部和底部各 18% 渐变回底色，和状态栏、底部工具栏衔接 */
+body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    linear-gradient(var(--bg) 0,transparent 18%,transparent 82%,var(--bg) 100%),
+    radial-gradient(75% 46% at 50% 14%,var(--glow),transparent 72%),
+    radial-gradient(65% 40% at 85% 96%,color-mix(in srgb,var(--glow) 55%,transparent),transparent 70%)}
 body::before{content:"";position:fixed;inset:0;z-index:var(--z-grain);pointer-events:none;opacity:.05;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
 .shell{position:relative;z-index:2;max-width:720px;margin:0 auto;padding:calc(24px + env(safe-area-inset-top)) 16px calc(36px + env(safe-area-inset-bottom))}
@@ -306,3 +312,35 @@ html[data-hide-cat] .chip-cat{display:none}
 .sort-pin[aria-checked="true"] .mini-switch{background:var(--accent);box-shadow:none}
 .sort-pin[aria-checked="true"] .mini-switch::after{transform:translateX(14px)}
 @media (hover:hover){.sort-item:hover{background:var(--chip)}.sort-btn:hover{border-color:var(--muted)}}
+
+/* 触屏：去掉 iOS 点按时出现的灰色矩形，改用自己的按下反馈 */
+html{-webkit-tap-highlight-color:transparent}
+button,a,.tab,.tile,.row-btn,.chip-filter,.star{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+@media (hover:none){
+  .tab:active,.more:active,.toast-act:active{opacity:.6}
+  .row-btn:active,.sort-item:active{background:var(--chip)}
+}
+
+/* 设置页：两行条目（标题 + 说明）、分组脚注、关于卡片 */
+.row{min-height:52px}
+.row-text{display:grid;gap:2px;min-width:0;text-align:left}
+.sub{font-size:12.5px;line-height:1.4;color:var(--muted)}
+.sub[hidden]{display:none}
+.row-end{display:flex;align-items:center;gap:6px;flex:none}
+.row-chev{flex:none;width:7px;height:7px;border:solid var(--muted);border-width:2px 2px 0 0;transform:rotate(45deg);opacity:.7}
+.row-danger .sub{color:var(--muted)}
+.group-foot{margin:8px 6px 0;font-size:12.5px;line-height:1.5;color:var(--muted)}
+.about-card{display:flex;align-items:center;gap:12px;padding:14px;border-bottom:1px solid var(--line)}
+.about-card img{flex:none;border-radius:var(--r-md);box-shadow:0 0 0 1px var(--line)}
+.about-card strong{font-size:15.5px;letter-spacing:-.01em}
+
+/* 紧凑模式：缩小卡片内边距和描述行数（展开后仍然显示全文） */
+html[data-compact] .card{padding:11px 14px;gap:8px 12px;grid-template-columns:34px 1fr}
+html[data-compact] .card-icon{width:34px;height:34px}
+html[data-compact] .card-desc:not([data-open="true"]){max-height:calc(2 * 1.55em);margin-top:3px}
+html[data-compact] .tags{margin-top:7px}
+@media (min-width:600px){html[data-compact] .card{grid-template-columns:34px 1fr auto}}
+
+/* 手动开启「减少动画」：效果和系统的「减少动态效果」一致 */
+html[data-reduce-motion],html[data-reduce-motion] *,html[data-reduce-motion] *::before,html[data-reduce-motion] *::after{
+  animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}
