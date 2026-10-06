@@ -52,8 +52,7 @@
   }
   function open() {
     renderAbout();
-    $("clearConfirm").hidden = true;
-    $("clearBtn").hidden = false;
+    endClear();
     sheet.showModal();
     requestAnimationFrame(() => sheet.classList.add("open")); // 下一帧再加 class，过渡才会播放
   }
@@ -80,10 +79,22 @@
     }
   });
 
-  /* ---------- 清除本地设置（行内二次确认） ---------- */
-  $("clearBtn").addEventListener("click", () => { $("clearBtn").hidden = true; $("clearConfirm").hidden = false; });
-  $("clearCancel").addEventListener("click", () => { $("clearConfirm").hidden = true; $("clearBtn").hidden = false; });
-  $("clearOk").addEventListener("click", () => {
+  /* ---------- 清除本地设置（行内立即执行 + 撤销） ----------
+     思路借自 Bencho 的 Confirm：不弹二次确认，点一下就恢复默认，
+     同一行变成「已恢复默认设置 · 撤销」，下方一条细线在 GRACE 内烧完。
+     撤销就在原地，只打扰改变主意的人。 */
+  const GRACE = 5000;
+  let clearTimer = 0;
+  const showClearRow = (done) => { $("clearConfirm").hidden = !done; $("clearBtn").hidden = done; };
+  const endClear = () => { clearTimeout(clearTimer); showClearRow(false); };
+
+  $("clearBtn").addEventListener("click", () => {
+    // 先留一份现状，撤销时原样放回
+    const prevSettings = { ...settings };
+    const prevSort = { ...state.sort };
+    let prevSortRaw = null;
+    try { prevSortRaw = localStorage.getItem(SORT_KEY); } catch {}
+
     try { localStorage.removeItem(SORT_KEY); } catch {}
     settings = { ...DEFAULTS };
     save(); // 走 save 才会派发 settings:change，云端跟着一起恢复默认
@@ -91,9 +102,28 @@
     state.sort = readSort(); // 排序也回到默认
     syncSort();
     if (state.plugins.length) render({ animate: true });
-    $("clearConfirm").hidden = true;
-    $("clearBtn").hidden = false;
-    toast("已恢复默认设置");
+
+    // 每次都重新播放「烧引信」动画
+    const fuse = $("clearFuse");
+    fuse.style.animation = "none";
+    void fuse.offsetWidth;
+    fuse.style.animation = "";
+    fuse.style.animationDuration = GRACE + "ms";
+    showClearRow(true);
+    clearTimeout(clearTimer);
+    clearTimer = setTimeout(endClear, GRACE);
+
+    $("clearUndo").onclick = () => {
+      settings = prevSettings;
+      try { if (prevSortRaw !== null) localStorage.setItem(SORT_KEY, prevSortRaw); } catch {}
+      state.sort = prevSort;
+      save();
+      apply();
+      syncSort();
+      if (state.plugins.length) render({ animate: true });
+      endClear();
+      toast("已撤销");
+    };
   });
 
   /* ---------- 复制收藏的插件链接 ---------- */

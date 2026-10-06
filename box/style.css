@@ -229,7 +229,10 @@ html[data-hide-cat] .chip-cat{display:none}
 .row-danger{color:#c0392b}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .row-danger{color:#ff8a7a}}
 :root[data-theme="dark"] .row-danger{color:#ff8a7a}
-.row-confirm{flex-wrap:wrap}
+.row-confirm{flex-wrap:wrap;position:relative}
+/* 撤销的剩余时间：一条细线从满烧到空（借自 Bencho Confirm 的 fuse） */
+.row-fuse{position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--accent);transform-origin:left center;animation:row-burn 5s linear forwards}
+@keyframes row-burn{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 .row-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
 .muted{color:var(--muted);font-size:13.5px}
 .switch{flex:none;position:relative;width:46px;height:28px;border:0;border-radius:14px;background:var(--chip);box-shadow:inset 0 0 0 1px var(--line);
@@ -247,13 +250,28 @@ html[data-hide-cat] .chip-cat{display:none}
 }
 
 /* 收藏星标 */
-.star{margin-left:auto;flex:none;width:32px;height:32px;display:grid;place-items:center;border:0;background:none;color:var(--muted);
+.star{position:relative;margin-left:auto;flex:none;width:32px;height:32px;display:grid;place-items:center;border:0;background:none;color:var(--muted);
   border-radius:var(--r-md);cursor:pointer;transition:color .2s,transform .4s var(--spring),background-color .2s}
 .star svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round;transition:fill .2s}
 .star:active{transform:scale(.85)}
 .star[aria-pressed="true"]{color:var(--accent-text)}
 .star[aria-pressed="true"] svg{fill:currentColor}
 .star:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+/* 收藏爆发（借自 Bencho Like · Bloom）：弹跳 + 光盘镂空成圆环 + 七对彩点 */
+.star svg.pop{animation:star-pop .5s var(--spring)}
+@keyframes star-pop{0%{transform:scale(.7)}55%{transform:scale(1.3)}100%{transform:scale(1)}}
+.star-burst{position:absolute;inset:0;pointer-events:none}
+.star-ring{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;box-sizing:border-box;border-radius:50%;
+  border:13px solid var(--accent-text);opacity:0;animation:star-bloom .5s ease-out forwards}
+@keyframes star-bloom{0%{transform:scale(.2);border-width:13px;opacity:.5}40%{transform:scale(1);border-width:9px;opacity:.35}100%{transform:scale(1.25);border-width:0;opacity:0}}
+.star-spoke{position:absolute;left:50%;top:50%;width:0;height:0;transform:rotate(var(--a))}
+.star-spoke i{position:absolute;left:0;top:0;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:var(--c);opacity:0;
+  --d:24px;animation:star-fly .6s cubic-bezier(.2,.7,.3,1) forwards}
+.star-spoke i + i{--d:15px;animation-delay:.04s}
+@keyframes star-fly{0%{transform:translateX(7px) scale(.7);opacity:1}100%{transform:translateX(var(--d)) scale(.2);opacity:0}}
+/* 减少动画时不显示粒子（统一的 .01ms 规则会让它们一闪而过） */
+@media (prefers-reduced-motion:reduce){.star-burst{display:none}}
+html[data-reduce-motion] .star-burst{display:none}
 @media (hover:hover){.star:hover{background:var(--chip)}}
 
 /* 账号行 */

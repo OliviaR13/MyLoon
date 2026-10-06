@@ -84,12 +84,46 @@ function setFavorites(ids, meta) { // 供 account.js 合并云端数据时调用
   try { localStorage.setItem(FAV_KEY, JSON.stringify([...state.favorites])); } catch {}
   if (state.plugins.length) { renderFilters(); render(); }
 }
+/* 收藏时的爆发动效，思路借自 Bencho 的 Like（Bloom）：
+   星标先挤压、再弹过头、落回原位；同时一圈光盘镂空成圆环，七对彩点沿辐条飞出。
+   粒子的角度和颜色都是固定值，不用随机数，每次收藏看到的是同一个效果。
+   只在「收藏」时播放，取消收藏不庆祝。 */
+const BURST_COLORS = ["#f48ea7", "#cc8ef5", "#8ce8c3", "#91d2fa", "#f5a524", "#e5484d", "#9fc7fa"];
+const motionOff = () =>
+  document.documentElement.hasAttribute("data-reduce-motion") || matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function burstStar(btn) {
+  if (motionOff()) return;
+  btn.querySelector(".star-burst")?.remove(); // 连点时重新开始，而不是排队
+  const svg = btn.querySelector("svg");
+  svg.classList.remove("pop");
+  void svg.getBoundingClientRect(); // 强制回流，让动画能重播
+  svg.classList.add("pop");
+
+  const wrap = el("span", "star-burst");
+  wrap.setAttribute("aria-hidden", "true");
+  wrap.append(el("span", "star-ring"));
+  BURST_COLORS.forEach((c, k) => {
+    const spoke = el("span", "star-spoke");
+    spoke.style.setProperty("--a", `${(k * 360) / BURST_COLORS.length - 90}deg`);
+    [c, BURST_COLORS[(k + 3) % BURST_COLORS.length]].forEach((color) => {
+      const dot = el("i");
+      dot.style.setProperty("--c", color);
+      spoke.append(dot);
+    });
+    wrap.append(spoke);
+  });
+  btn.append(wrap);
+  setTimeout(() => { wrap.remove(); svg.classList.remove("pop"); }, 900);
+}
+
 function toggleFav(id, btn) {
   state.favorites.has(id) ? state.favorites.delete(id) : state.favorites.add(id);
   state.favMeta[id] = [Date.now(), state.favorites.has(id) ? 1 : 0]; // 取消收藏也要留一条记录
   saveFavMeta();
   saveFavs();
   btn.setAttribute("aria-pressed", String(state.favorites.has(id)));
+  if (state.favorites.has(id)) burstStar(btn);
   renderFilters();
   if (state.category === FAV) render(); // 在「收藏」里取消收藏时，该行立即消失
 }
