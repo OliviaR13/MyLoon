@@ -62,8 +62,16 @@
 
   <dialog class="sheet" id="settings" aria-labelledby="settingsTitle">
     <div class="sheet-head">
+      <div class="sheet-nav">
+        <button class="btn btn-ghost btn-icon" id="settingsClose" type="button" aria-label="返回">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+        </button>
+        <button class="btn btn-ghost btn-icon" id="settingsFull" type="button" aria-label="全屏显示" aria-pressed="false">
+          <svg class="ico-expand" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg>
+          <svg class="ico-shrink" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10h-6V4M4 14h6v6M14 10l7-7M3 21l7-7"/></svg>
+        </button>
+      </div>
       <h2 id="settingsTitle" tabindex="-1" autofocus>设置</h2>
-      <button class="btn btn-ghost" id="settingsClose" type="button">完成</button>
     </div>
     <div class="sheet-body">
       <h3 class="group-title">账号</h3>
@@ -150,7 +158,7 @@
       <div class="group">
         <div class="about-card">
           <img src="./icon.png" alt="" width="48" height="48">
-          <span class="row-text"><strong>OliviaR13's Loon Box</strong><span class="sub">Loon 插件清单，点击即可安装</span></span>
+          <span class="row-text"><strong>OliviaR13's Loon Box</strong><span class="sub">Loon 插件目录，支持检索、收藏与一键安装</span></span>
         </div>
         <div class="row"><span>插件数量</span><span class="muted" id="aboutCount">-</span></div>
         <div class="row"><span class="row-text"><span>清单更新</span><span class="sub" id="aboutAgo" hidden></span></span><span class="muted" id="aboutDate">-</span></div>

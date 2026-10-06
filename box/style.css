@@ -230,15 +230,20 @@ html[data-hide-cat] .chip-cat{display:none}
    close() 等面板的 transform 真正结束再执行（settings.js）。 */
 .sheet{border:0;padding:0;background:var(--bg);color:var(--text);width:100%;max-width:none;max-height:calc(88dvh + var(--bleed));margin:auto 0 0;inset-block-end:calc(-1 * var(--bleed));
   border-radius:var(--r-lg) var(--r-lg) 0 0;overflow:hidden;transform:translateY(100%);
-  transition:transform .4s var(--ease);box-shadow:0 -8px 40px rgb(var(--shadow) / .25)}
+  transition:transform .4s var(--ease),max-height .35s var(--ease),width .35s var(--ease),border-radius .35s var(--ease);box-shadow:0 -8px 40px rgb(var(--shadow) / .25)}
 .sheet.open{transform:none}
 .sheet.closing{transition-duration:.3s;transition-timing-function:cubic-bezier(.4,0,1,1)}
 /* ::backdrop 在较旧的 Safari 里不继承自定义属性，曲线直接写字面量 */
 .sheet::backdrop{background:rgb(var(--shadow) / .45);opacity:0;transition:opacity .4s cubic-bezier(.2,.8,.2,1)}
 .sheet.open::backdrop{opacity:1}
 .sheet.closing::backdrop{transition-duration:.3s;transition-timing-function:cubic-bezier(.4,0,1,1)}
-.sheet-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px}
-.sheet-head h2{font-size:17px;font-weight:650;letter-spacing:-.01em}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px 10px}
+.sheet-head h2{margin:0;font-size:17px;font-weight:650;letter-spacing:-.01em;text-align:right}
+.sheet-nav{display:flex;align-items:center;gap:8px}
+/* 全屏按钮：展开 / 收起两个图标随状态切换 */
+#settingsFull .ico-shrink{display:none}
+#settingsFull[aria-pressed="true"] .ico-expand{display:none}
+#settingsFull[aria-pressed="true"] .ico-shrink{display:block}
 /* 打开时焦点落在标题上（不可见），避免第一个按钮「完成」被聚焦框包住 */
 .sheet-head h2:focus,.sheet:focus{outline:none}
 /* 设置面板的上下过渡
@@ -300,6 +305,14 @@ html:has(.sheet[open]){overflow:hidden}
   .sheet{width:min(400px,100vw);height:calc(100dvh + var(--bleed));max-height:none;margin:0 0 0 auto;border-radius:var(--r-lg) 0 0 var(--r-lg);transform:translateX(100%);box-shadow:-8px 0 40px rgb(var(--shadow) / .25)}
   .sheet.open{transform:none}
   .sheet-body{max-height:calc(100dvh - 60px + var(--bleed))}
+}
+
+/* 全屏：铺满整个视口（手机上从 88% 高度的底部面板变成整页；桌面上从 400px 侧栏变成整页） */
+.sheet.full{max-height:calc(100dvh + var(--bleed));height:calc(100dvh + var(--bleed));border-radius:0}
+.sheet.full .sheet-head{padding-top:calc(14px + env(safe-area-inset-top))}
+.sheet.full .sheet-body{max-height:calc(100dvh - 60px - env(safe-area-inset-top) + var(--bleed))}
+@media (min-width:600px){
+  .sheet.full{width:100vw;max-width:none;border-radius:0}
 }
 
 /* 收藏星标 */

@@ -70,11 +70,19 @@
     if (!sheet.open || endClose) return;
     sheet.classList.add("closing");
     sheet.classList.remove("open");
-    const finish = () => { cancelClose(); if (sheet.open) sheet.close(); };
+    const finish = () => { cancelClose(); if (sheet.open) sheet.close(); setFull(false); }; // 关闭后恢复默认尺寸
     const fn = (e) => { if (e.target === sheet && e.propertyName === "transform") finish(); };
     endClose = { fn, timer: setTimeout(finish, 600) }; // 兜底：减少动画 / 过渡被打断时也一定会关
     sheet.addEventListener("transitionend", fn);
   }
+  // 全屏切换：仅影响当前这次打开，关闭后恢复默认样式
+  function setFull(on) {
+    sheet.classList.toggle("full", on);
+    const b = $("settingsFull");
+    b.setAttribute("aria-pressed", String(on));
+    b.setAttribute("aria-label", on ? "退出全屏" : "全屏显示");
+  }
+  $("settingsFull").addEventListener("click", () => setFull(!sheet.classList.contains("full")));
   $("settingsBtn").addEventListener("click", open);
   $("settingsClose").addEventListener("click", close);
   sheet.addEventListener("cancel", (e) => { e.preventDefault(); close(); }); // Esc
