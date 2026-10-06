@@ -198,8 +198,8 @@ html[data-hide-ver] .chip-ver{display:none}
 html[data-hide-cat] .chip-cat{display:none}
 
 .btn-icon{display:grid;place-items:center;width:40px;height:40px;padding:0;flex:none}
-#refreshBtn:disabled{opacity:.7}
-#refreshBtn:disabled svg{animation:spin .9s linear infinite} /* 加载中图标转动 */
+#refreshBtn{height:40px;padding:0 14px;flex:none} /* 与右边的设置按钮等高 */
+#refreshBtn:disabled{opacity:.6}
 
 /* 设置面板：手机为底部弹层，桌面为右侧弹层 */
 .sheet{border:0;padding:0;background:var(--bg);color:var(--text);width:100%;max-width:none;max-height:88dvh;margin:auto 0 0;
