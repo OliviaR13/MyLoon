@@ -181,12 +181,18 @@ function toastSize(w, h, r) {
   const s = els.toast.style;
   s.setProperty("--tw", w + "px"); s.setProperty("--th", h + "px"); s.setProperty("--tr", r + "px");
 }
+function toastHold() { // 下拉刷新接管药丸：取消待执行的收起
+  clearTimeout(toastTimer);
+  clearTimeout(toastHideTimer);
+}
 function toast(msg, action) {
   const box = els.toast;
   const inner = box.querySelector(".toast-in");
   const act = box.querySelector(".toast-act");
   clearTimeout(toastTimer);
   clearTimeout(toastHideTimer);
+  box.style.opacity = "";                                // 下拉刷新可能留下了行内透明度
+  box.classList.remove("pulling", "armed", "working");   // 下拉刷新的内容淡出，消息淡入（药丸就地变形）
 
   box.querySelector(".toast-msg").textContent = msg;
   act.hidden = !action;
@@ -215,7 +221,7 @@ function hideToast() {
   const box = els.toast;
   clearTimeout(toastTimer);
   clearTimeout(toastHideTimer);
-  box.classList.remove("open"); // 内容先淡出
+  box.classList.remove("open", "pulling", "armed", "working"); // 内容先淡出
   toastSize(TOAST_NUB.w, TOAST_NUB.h, TOAST_NUB.r); // 缩回小药丸
   toastHideTimer = setTimeout(() => { box.classList.remove("show"); toastPopover(false); }, 380);
 }

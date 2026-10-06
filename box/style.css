@@ -180,7 +180,7 @@ a{color:var(--accent-text)}
   transform:translateX(-50%);width:var(--tw,96px);height:var(--th,32px);border-radius:var(--tr,16px);overflow:hidden;
   opacity:0;visibility:hidden;z-index:var(--z-toast);
   background:var(--text);color:var(--bg);font-size:13.5px;line-height:1.4;box-shadow:0 8px 24px rgb(var(--shadow) / .22);
-  transition:width .5s var(--spring),height .5s var(--spring),border-radius .5s var(--spring),opacity .2s,visibility .2s}
+  transition:width .5s var(--spring),height .5s var(--spring),border-radius .5s var(--spring),opacity .2s,visibility .2s,background-color .25s,color .25s}
 .toast.show{opacity:1;visibility:visible}
 .toast-in{position:absolute;left:0;top:0;width:max-content;max-width:min(92vw,420px);box-sizing:border-box;
   display:flex;align-items:center;gap:12px;padding:10px 16px;
@@ -369,20 +369,26 @@ html[data-compact] .tags{margin-top:7px}
 html[data-reduce-motion],html[data-reduce-motion] *,html[data-reduce-motion] *::before,html[data-reduce-motion] *::after{
   animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}
 
-/* 下拉刷新指示器（借自 Bencho Pull to refresh · Balance，重新设计）：
-   固定在视口顶部、只放大和淡入，不从屏幕外滑入，所以不会被系统顶栏切掉；
-   页面内容跟着手指下移，指示器就长在露出来的空隙里 */
-.pull{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 8px);width:44px;height:44px;margin-left:-22px;border-radius:50%;
-  background:var(--card);box-shadow:0 0 0 1px var(--line),0 6px 18px rgb(var(--shadow) / .18);
-  z-index:var(--z-toast);pointer-events:none;opacity:0;
-  transform:scale(var(--ps,.5));transition:transform .4s var(--spring),opacity .25s}
-.pull.dragging{transition:none}
-.pull svg{display:block;border-radius:50%}
-.pull circle{fill:var(--accent)}
-.pull[data-armed="true"]{transform:scale(1.08)}
-.pull-ring{transform-origin:22px 22px}
-.pull[data-phase="work"] .pull-ring{animation:pull-spin .9s linear infinite}
+/* 下拉刷新 × 灵动岛：不再单独画一个圆，而是借用上面的提示条药丸（#toast）。
+   拉 → 药丸从顶部长出来，里面一圈水滴向外散开；过阈值 → 圈完整、药丸变强调色；
+   松手 → 整圈旋转；刷新完 → 同一颗药丸就地变形成「清单已刷新」，再缩回。
+   页面内容跟着手指下移，药丸就悬在露出来的空隙里。 */
+.toast.dragging{transition:opacity .2s,visibility .2s,background-color .25s,color .25s} /* 手指在时跟手：尺寸不走弹簧 */
+.toast.armed{background:var(--accent);color:var(--accent-ink)}
+.toast-pull{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;white-space:nowrap;pointer-events:none;
+  opacity:0;transform:scale(.92);filter:blur(6px);transition:opacity .16s,transform .16s,filter .16s}
+.toast.pulling .toast-pull{opacity:1;transform:none;filter:none;transition-duration:.22s;transition-delay:.06s}
+.toast-pull svg{flex:none;display:block}
+.toast-pull circle{fill:currentColor}
+.pull-ring{transform-origin:14px 14px}
+.toast.working .pull-ring{animation:pull-spin .9s linear infinite}
 @keyframes pull-spin{to{transform:rotate(360deg)}}
+/* 标签随拉动展开：药丸还窄的时候不占位，免得圈偏离中心 */
+.toast-pull-label{font-size:13.5px;font-weight:600;overflow:hidden;
+  opacity:var(--lt,0);max-width:calc(58px * var(--lt,0));margin-left:calc(8px * var(--lt,0))}
+/* 过阈值那一下：内容轻轻弹一下 */
+.toast.pop .toast-pull{animation:pull-pop .4s var(--spring)}
+@keyframes pull-pop{from{transform:scale(.86)}to{transform:none}}
 .shell.pull-drag{transition:none}
 .shell.pull-anim{transition:transform .5s var(--spring)}
 /* 让浏览器自带的下拉刷新别和这个抢手势 */
