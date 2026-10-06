@@ -1,0 +1,10 @@
+#!name = 示例 自选节点
+#!desc = 功能说明
+#!tag = 代理分流
+#!author = @OliviaR13
+#!icon = https://example.com/icon.png
+#!version = 1.0.0
+
+[Rule]
+# 测试用规则：example.com 是 IANA 保留的示例域名，不会影响任何真实服务
+DOMAIN-SUFFIX,example.com,PROXY
