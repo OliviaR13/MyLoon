@@ -417,6 +417,7 @@ button,a,.tab,.tile,.row-btn,.chip-filter,.star{-webkit-touch-callout:none;-webk
 .row-chev{flex:none;width:7px;height:7px;border:solid var(--muted);border-width:2px 2px 0 0;transform:rotate(45deg);opacity:.7}
 .row-danger .sub{color:var(--muted)}
 .group-foot{margin:8px 6px 0;font-size:12.5px;line-height:1.5;color:var(--muted)}
+.group-foot.privacy{margin-top:18px;font-size:12px}
 .about-card{display:flex;align-items:center;gap:12px;padding:14px;border-bottom:1px solid var(--line)}
 .about-card img{flex:none;border-radius:var(--r-md);box-shadow:0 0 0 1px var(--line)}
 .about-card strong{font-size:15.5px;letter-spacing:-.01em}
