@@ -415,13 +415,16 @@ html{overscroll-behavior-y:contain}
    放大镜离左边缘固定 13px：收起（43px）时恰好居中，展开后正好是输入框的左内边距。
    注意：input 是 border-box，左右 padding + 边框加起来超过盒子宽度时，盒子会被「撑」出来。
    以前收起时 padding 是 38 + 14，再加边框就是 54px，比 43px 的盒子宽，
-   于是搜索框压到排序按钮上，放大镜也偏离中心。现在收起时右 padding 归零（40px < 43px），展开时再长回来。 */
+   于是搜索框压到排序按钮上，放大镜也偏离中心。现在收起时 padding 全部归零，展开时再长回来（见下）。 */
 .search{position:relative}
 .search-lens{display:none}
 html[data-search-collapse] .search{flex:none;margin-left:auto;width:var(--sw,43px);transition:width .5s var(--spring)}
-html[data-search-collapse] .search input{padding-left:38px;padding-right:0;min-width:0;cursor:pointer;caret-color:transparent;
-  text-overflow:clip;transition:border-color .15s,padding-right .5s var(--spring)}
-html[data-search-collapse] .search[data-open] input{padding-right:14px;cursor:text;caret-color:auto;text-overflow:ellipsis}
+/* 收起时左右 padding 都归零：border-box 的输入框宽度不会小于 padding + 边框，
+   只要还有一点 padding，iOS 上盒子就可能被撑得比 43px 宽，放大镜（固定在 left:13px）就会偏左。
+   归零后输入框可以随盒子缩到任意宽度；展开时 padding 再随盒子一起长出来（文字从 38px 开始，避开放大镜）。 */
+html[data-search-collapse] .search input{padding-left:0;padding-right:0;min-width:0;max-width:100%;cursor:pointer;caret-color:transparent;
+  text-overflow:clip;transition:border-color .15s,padding .5s var(--spring)}
+html[data-search-collapse] .search[data-open] input{padding-left:38px;padding-right:14px;cursor:text;caret-color:auto;text-overflow:ellipsis}
 html[data-search-collapse] .search input::placeholder{opacity:0;transition:opacity .15s}
 html[data-search-collapse] .search[data-open] input::placeholder{opacity:1;transition-delay:.15s}
 /* 收起时不显示输入框里的清除按钮，避免它从 1 像素宽的内容区里漏出来 */
