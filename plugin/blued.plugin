@@ -1,16 +1,28 @@
 #!name = Blued 直连
-#!desc = Blued 相关域名（接口、图片、个推推送）统一直连，使各请求的出口 IP 保持一致。用于排查登录失效和收不到推送的问题。
+#!desc = Blued 及其内置 SDK（风控设备指纹、百度定位、个推推送等）相关域名统一直连，使各请求的出口 IP 保持一致。用于排查登录失效和收不到推送的问题。
 #!icon = https://raw.githubusercontent.com/OliviaR13/MyLoon/main/icon/blued.png
 #!tag = 登录修复
 #!author = @OliviaR13
 #!homepage = https://www.github.com/OliviaR13
-#!date = 2026-10-04
-#!version = 1.0.0
+#!date = 2026-10-07
+#!version = 1.1.0
 
 [Rule]
-DOMAIN-SUFFIX, irisgw.cn, DIRECT
-DOMAIN-SUFFIX, blued.cn, DIRECT
-DOMAIN-SUFFIX, blued.com, DIRECT
-DOMAIN-SUFFIX, bldimg.cn, DIRECT
-DOMAIN-SUFFIX, bldimg.com, DIRECT
-DOMAIN-SUFFIX, gepush.com, DIRECT
+# === 1. Blued 自有域名（接口、图片、静态资源、支付、直播） ===
+DOMAIN-SUFFIX,irisgw.cn,DIRECT
+DOMAIN-SUFFIX,blued.cn,DIRECT
+DOMAIN-SUFFIX,blued.com,DIRECT
+DOMAIN-SUFFIX,bldimg.cn,DIRECT
+DOMAIN-SUFFIX,bldimg.com,DIRECT
+
+# === 2. 推送 ===
+DOMAIN-SUFFIX,gepush.com,DIRECT
+
+# === 3. 内置 SDK：设备指纹 / 定位 / 登录分享 / 音视频授权 / 安全码 ===
+# 抓包确认这些请求与 Blued 接口在同一时刻发出，出口 IP 需与上面一致。
+DOMAIN-SUFFIX,fengkongcloud.com,DIRECT
+DOMAIN-SUFFIX,map.baidu.com,DIRECT
+DOMAIN,sofire.baidu.com,DIRECT
+DOMAIN,cgi.connect.qq.com,DIRECT
+DOMAIN-SUFFIX,trtcube-license.cn,DIRECT
+DOMAIN-SUFFIX,youzanyun.com,DIRECT
