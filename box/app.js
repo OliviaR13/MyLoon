@@ -29,8 +29,11 @@ const els = {
 const collator = new Intl.Collator("zh-Hans-CN", { numeric: true, sensitivity: "base" });
 // 手动解析日期，不依赖 Date.parse（Safari 对 2026-9-5 这类非补零格式会返回无效）
 const dateValue = (p) => {
-  const m = p.date.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
-  return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) : NaN;
+  if (p._ts === undefined) { // 每个插件只解析一次，排序时不再重复跑正则
+    const m = p.date.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+    p._ts = m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) : NaN;
+  }
+  return p._ts;
 };
 const SORTS = {
   date: { label: "时间", defaultDir: "desc", hint: { desc: "新到旧", asc: "旧到新" }, compare: (a, b) => dateValue(a) - dateValue(b) },
@@ -180,10 +183,20 @@ function normalize(raw) {
   };
 }
 
+/* 排序优先级（从高到低）：
+   1. 搜索时，名称命中的排在只有描述命中的前面
+   2. 开启「收藏置顶」时，已收藏的排前面
+   3. 所选的排序方式与方向（同值按名称，保证顺序稳定） */
 function sortPlugins(list) {
   const { key, dir } = state.sort;
   const sign = dir === "asc" ? 1 : -1;
+  const q = state.query.trim().toLowerCase();
+  const pin = !!(window.MLB_settings && window.MLB_settings.get().pinFavs);
+  const nameHit = (p) => (q && p.name.toLowerCase().includes(q) ? 0 : 1);
+  const pinned = (p) => (pin && state.favorites.has(p.id) ? 0 : 1);
   return [...list].sort((a, b) => {
+    const tier = nameHit(a) - nameHit(b) || pinned(a) - pinned(b);
+    if (tier) return tier;
     if (key === "date") {
       const missA = Number.isNaN(dateValue(a)), missB = Number.isNaN(dateValue(b));
       if (missA !== missB) return missA ? 1 : -1;
@@ -287,7 +300,8 @@ function notice(title, body, label, onClick) {
 function render({ animate = false } = {}) {
   const visible = sortPlugins(state.plugins.filter(matches));
   const total = state.plugins.length;
-  els.count.textContent = visible.length === total ? `共 ${total} 个插件` : `${visible.length} / ${total} 个插件`;
+  const how = SORTS[state.sort.key];
+  els.count.textContent = (visible.length === total ? `共 ${total} 个插件` : `${visible.length} / ${total} 个插件`) + ` · ${how.label} ${how.hint[state.sort.dir]}`;
 
   if (!visible.length) {
     els.list.replaceChildren(

@@ -51,7 +51,7 @@
 
   const snapshot = () => {
     const s = window.MLB_settings.get();
-    return { favorites: [...state.favorites], favMeta: state.favMeta, settingsAt: getAt(), settings: { theme: s.theme, showDesc: s.showDesc, showVer: s.showVer, showCat: s.showCat, sort: state.sort.key + ":" + state.sort.dir } };
+    return { favorites: [...state.favorites], favMeta: state.favMeta, settingsAt: getAt(), settings: { theme: s.theme, showDesc: s.showDesc, showVer: s.showVer, showCat: s.showCat, pinFavs: s.pinFavs, sort: state.sort.key + ":" + state.sort.dir } };
   };
 
   // 同一类错误只提示一次，否则每次改动都弹一条很烦

@@ -3,7 +3,7 @@
    依赖 app.js 中的全局：state、render、readSort、syncSort、toast、SORT_KEY。 */
 (() => {
   const KEY = "myloon_box_settings";
-  const DEFAULTS = { theme: "system", showDesc: true, showVer: true, showCat: true };
+  const DEFAULTS = { theme: "system", showDesc: true, showVer: true, showCat: true, pinFavs: false };
   const root = document.documentElement;
   const sheet = document.getElementById("settings");
   const $ = (id) => document.getElementById(id);
@@ -13,7 +13,7 @@
     try { s = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch {}
     const out = { ...DEFAULTS };
     if (["system", "light", "dark"].includes(s.theme)) out.theme = s.theme;
-    for (const k of ["showDesc", "showVer", "showCat"]) if (typeof s[k] === "boolean") out[k] = s[k];
+    for (const k of ["showDesc", "showVer", "showCat", "pinFavs"]) if (typeof s[k] === "boolean") out[k] = s[k];
     return out;
   }
   let settings = load();
@@ -62,6 +62,7 @@
       settings[k] = !settings[k];
       save(); apply();
       if (k === "showDesc" && state.plugins.length) render(); // 描述重新显示后，重新计算「展开」按钮
+      if (k === "pinFavs" && state.plugins.length) render({ animate: true }); // 收藏置顶开关改变排序结果
     }
   });
 
