@@ -40,7 +40,7 @@
     $("accountRow").hidden = !user;
     $("syncSection").hidden = !user; // 没登录就没有「同步」可言，整块收起来，不留一行「未登录」
     if (user) $("loginSub").textContent = "登录后，收藏和设置可以在多台设备间同步";
-    $("syncMasterSwitch").setAttribute("aria-checked", String(m));
+    setSwitch($("syncMasterSwitch"), m);
     $("syncNowRow").hidden = !user || !m;
     // 收藏不挂在任何子开关上：只要总开关开着就一直同步；总开关关了才暂停
     $("syncFavsRow").dataset.off = String(!m);
@@ -48,7 +48,7 @@
     for (const [g, id] of [["look", "syncLook"], ["cards", "syncCards"]]) {
       $(id + "Row").dataset.off = String(!m); // 总开关关了，两个子开关变灰
       const sw = $(id + "Switch");
-      sw.setAttribute("aria-checked", String(own(g)));
+      setSwitch(sw, own(g));
       sw.disabled = !m;
     }
     $("syncFoot").textContent = m
@@ -288,8 +288,7 @@
   // 打开时做一次完整的来回，各组设置以这台设备当前的为准（刚点开关就是明确的操作），收藏逐项合并。
   $("syncMasterSwitch").addEventListener("click", () => {
     const next = !ownMaster();
-    lsSet(SYNC_KEYS.master, next ? "1" : "0");
-    liquidThumb($("syncMasterSwitch"), 18, next);
+    lsSet(SYNC_KEYS.master, next ? "1" : "0"); // 开关状态和动效由下面的 renderAccount → setSwitch 负责
     if (next) {
       for (const g of Object.keys(GROUPS)) if (own(g)) { setAt(g, Date.now()); settingsDirty[g] = true; }
       renderAccount();
@@ -308,8 +307,7 @@
       if (!ownMaster()) return;
       const next = !own(g);
       lsSet(SYNC_KEYS[g], next ? "1" : "0");
-      $(id).setAttribute("aria-checked", String(next));
-      liquidThumb($(id), 18, next);
+      setSwitch($(id), next);
       const label = GROUPS[g].label;
       if (next) { setAt(g, Date.now()); settingsDirty[g] = true; push(); toast(`已开启${label}同步，已将这台设备的${label}上传到云端`); }
       else toast(`已关闭${label}同步，${label}只保存在这台设备`);

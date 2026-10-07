@@ -13,7 +13,9 @@
   <meta property="og:title" content="OliviaR13's Loon Box">
   <meta property="og:description" content="浏览、搜索 Loon 插件，并一键安装到 Loon。">
   <title>OliviaR13's Loon Box</title>
-  <script>try{var t=JSON.parse(localStorage.getItem("myloon_box_settings")||"{}").theme;if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}</script>
+  <script>(function(d){var s={};try{s=JSON.parse(localStorage.getItem("myloon_box_settings")||"{}")}catch(e){}
+    if(s.theme==="light"||s.theme==="dark")d.dataset.theme=s.theme;
+    try{if(s.reduceMotion===true||matchMedia("(prefers-reduced-motion: reduce)").matches)d.setAttribute("data-reduce-motion","")}catch(e){}})(document.documentElement)</script>
   <link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="./style.css">
   <!-- 不需要人机验证：把 app.js 里 CONFIG.turnstile.siteKey 设为空字符串，并删除下面这行 -->
@@ -136,7 +138,7 @@
 
       <h3 class="group-title">辅助功能</h3>
       <div class="group">
-        <div class="row"><span class="row-text"><span>减少动画</span><span class="sub">关闭过渡和入场动画。系统已开启「减少动态效果」时自动生效</span></span><button class="switch" type="button" role="switch" data-switch="reduceMotion" aria-label="减少动画"></button></div>
+        <div class="row"><span class="row-text"><span>减少动画</span><span class="sub" id="reduceMotionSub">关闭过渡和入场动画。系统已开启「减少动态效果」时自动生效</span></span><button class="switch" type="button" role="switch" data-switch="reduceMotion" aria-label="减少动画"></button></div>
       </div>
 
       <h3 class="group-title">数据</h3>

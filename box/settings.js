@@ -7,13 +7,14 @@
   const root = document.documentElement;
   const sheet = document.getElementById("settings");
   const $ = (id) => document.getElementById(id);
+  const BOOL_KEYS = Object.keys(DEFAULTS).filter((k) => typeof DEFAULTS[k] === "boolean"); // 开关类设置，不再手写第二份清单
 
   function load() {
     let s = {};
     try { s = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch {}
     const out = { ...DEFAULTS };
     if (["system", "light", "dark"].includes(s.theme)) out.theme = s.theme;
-    for (const k of ["showDesc", "showVer", "showCat", "pinFavs", "compact", "reduceMotion", "collapseSearch"]) if (typeof s[k] === "boolean") out[k] = s[k];
+    for (const k of BOOL_KEYS) if (typeof s[k] === "boolean") out[k] = s[k];
     return out;
   }
   let settings = load();
@@ -22,16 +23,27 @@
     document.dispatchEvent(new Event("settings:change")); // account.js 据此同步到云端
   };
 
+  // 系统的「减少动态效果」。生效与否 = 手动开启 或 系统开启，合并后写到 <html data-reduce-motion>，CSS 和 app.js 都只认它
+  const sysReduce = matchMedia("(prefers-reduced-motion: reduce)");
+  const REDUCE_HINT = "关闭过渡和入场动画。系统已开启「减少动态效果」时自动生效";
+
   function apply() {
+    const forced = sysReduce.matches; // 系统已开：这一项由系统接管，开关显示为开并锁定
     if (settings.theme === "system") delete root.dataset.theme; else root.dataset.theme = settings.theme;
     root.toggleAttribute("data-hide-desc", !settings.showDesc);
     root.toggleAttribute("data-hide-ver", !settings.showVer);
     root.toggleAttribute("data-hide-cat", !settings.showCat);
     root.toggleAttribute("data-compact", settings.compact);
-    root.toggleAttribute("data-reduce-motion", settings.reduceMotion);
+    root.toggleAttribute("data-reduce-motion", settings.reduceMotion || forced);
     root.toggleAttribute("data-search-collapse", settings.collapseSearch);
     sheet.querySelectorAll("[data-theme-opt]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.themeOpt === settings.theme)));
-    sheet.querySelectorAll("[data-switch]").forEach((b) => b.setAttribute("aria-checked", String(settings[b.dataset.switch])));
+    // 所有开关的状态都经 setSwitch：点击、云端同步、恢复默认走的是同一条路，动效一致
+    sheet.querySelectorAll("[data-switch]").forEach((b) => {
+      const lock = forced && b.dataset.switch === "reduceMotion";
+      setSwitch(b, settings[b.dataset.switch] || lock);
+      b.disabled = lock;
+    });
+    $("reduceMotionSub").textContent = forced ? "系统已开启「减少动态效果」，已自动生效" : REDUCE_HINT;
     if (typeof syncSort === "function") syncSort(); // 排序菜单里的「收藏置顶」状态跟着同步
     if (typeof syncSearch === "function") syncSearch(); // 搜索框收起 / 展开跟着设置走
   }
@@ -97,10 +109,10 @@
     if (sw) {
       const k = sw.dataset.switch;
       settings[k] = !settings[k];
-      save(); apply();
-      liquidThumb(sw, 18, settings[k]); // 液体开关动效，见 app.js
-      if ((k === "showDesc" || k === "compact") && state.plugins.length) render(); // 描述重新显示后，重新计算「展开」按钮
-      if (k === "pinFavs" && state.plugins.length) render({ animate: true }); // 收藏置顶开关改变排序结果
+      save(); apply(); // 开关动效在 apply → setSwitch 里播
+      // 描述重新显示后，重新计算「展开」按钮；收藏置顶会改变排序结果。都等开关动效起步后再重建列表
+      if ((k === "showDesc" || k === "compact") && state.plugins.length) afterPaint(() => render());
+      if (k === "pinFavs" && state.plugins.length) afterPaint(() => render({ animate: true }));
     }
   });
 
@@ -170,6 +182,9 @@
       if (prev !== settings.showDesc && state.plugins.length) render();
     },
   };
+
+  // 系统设置在页面打开期间改了也要立刻跟上
+  if (sysReduce.addEventListener) sysReduce.addEventListener("change", apply); else sysReduce.addListener(apply);
 
   apply();
 })();

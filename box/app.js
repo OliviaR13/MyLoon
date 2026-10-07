@@ -89,8 +89,10 @@ function setFavorites(ids, meta) { // 供 account.js 合并云端数据时调用
    粒子的角度和颜色都是固定值，不用随机数，每次收藏看到的是同一个效果。
    只在「收藏」时播放，取消收藏不庆祝。 */
 const BURST_COLORS = ["#f48ea7", "#cc8ef5", "#8ce8c3", "#91d2fa", "#f5a524", "#e5484d", "#9fc7fa"];
-const motionOff = () =>
-  document.documentElement.hasAttribute("data-reduce-motion") || matchMedia("(prefers-reduced-motion: reduce)").matches;
+// 「减少动画」的唯一判断：settings.js 把「手动开启 或 系统开启」合并后写在 <html data-reduce-motion> 上；
+// 再看一眼系统媒体查询只是兜底（脚本还没跑完的极短时间里也不会误播动画）
+const reduceMQ = matchMedia("(prefers-reduced-motion: reduce)");
+const motionOff = () => document.documentElement.hasAttribute("data-reduce-motion") || reduceMQ.matches;
 
 function burstStar(btn) {
   if (motionOff()) return;
@@ -121,9 +123,12 @@ function burstStar(btn) {
    滑块不是平移过去，而是沿行进方向被拉长、同时变薄（面积保持），到位时带一点回弹，
    像一滴液体穿过轨道。滑块是 ::after 伪元素，所以用 Web Animations API 直接给伪元素写关键帧；
    位移也写在关键帧里，避免单独的 scale 属性把位移一起缩放而偏离终点。
-   host：.switch 或 .mini-switch；travel：滑块的行程（px）；on：切换后的状态。 */
-function liquidThumb(host, travel, on) {
+   host：.switch 或 .mini-switch；on：切换后的状态。行程直接按元素的宽高量（宽 - 高），和 CSS 里滑块的位移同一个来源。
+   不要直接调用：改状态一律走 setSwitch，这样每个开关、每条改动路径（点击、云端同步、恢复默认）动效都一样。 */
+function liquidThumb(host, on) {
   if (!host || !host.animate || motionOff()) return;
+  const travel = host.offsetWidth - host.offsetHeight;
+  if (travel <= 0) return; // 不在屏幕上（display:none / hidden）就没必要播
   const [a, b] = on ? [0, travel] : [travel, 0];
   const at = (x, sx, sy) => `translateX(${x}px) scale(${sx}, ${sy})`;
   try {
@@ -137,6 +142,21 @@ function liquidThumb(host, travel, on) {
     );
   } catch {}
 }
+
+/* 开关状态的唯一入口：写 aria-checked，状态真的变了、且不是第一次赋值时，才播液体动效。
+   host：带 aria-checked 的元素；thumb：真正承载滑块的元素，默认就是 host
+   （排序菜单里 aria-checked 在整行 .sort-pin 上，滑块在里面的 .mini-switch）。 */
+function setSwitch(host, on, thumb = host) {
+  if (!host) return;
+  const prev = host.getAttribute("aria-checked");
+  const next = String(!!on);
+  if (prev === next) return;
+  host.setAttribute("aria-checked", next);
+  if (prev !== null) liquidThumb(thumb, !!on); // prev 为 null = 页面刚加载的初始化，不播
+}
+
+// 等开关的第一帧画出去再做重活：render() 会整表重建，同步执行会把动效最前面几帧吃掉，看起来像「这个开关没动画」
+const afterPaint = (fn) => requestAnimationFrame(() => requestAnimationFrame(fn));
 
 function toggleFav(id, btn) {
   state.favorites.has(id) ? state.favorites.delete(id) : state.favorites.add(id);
@@ -810,7 +830,7 @@ function syncSort() {
   sortUI.btn.setAttribute("aria-label", `排序：${SORTS[key].label} ${SORTS[key].hint[dir]}`);
   sortUI.items.forEach((b) => b.setAttribute("aria-checked", String(b.dataset.key === key && b.dataset.dir === dir)));
   const pinned = !!(window.MLB_settings && window.MLB_settings.get().pinFavs);
-  sortUI.pin.setAttribute("aria-checked", String(pinned));
+  setSwitch(sortUI.pin, pinned, sortUI.pin.querySelector(".mini-switch"));
   sortUI.btn.dataset.pin = String(pinned); // 按钮角上的小圆点：提示收藏置顶已开启
 }
 
@@ -837,8 +857,7 @@ sortUI.menu.addEventListener("click", (e) => {
     const nextPin = !window.MLB_settings.get().pinFavs;
     window.MLB_settings.set({ pinFavs: nextPin });
     document.dispatchEvent(new Event("settings:change")); // 通知 account.js 同步
-    syncSort();
-    liquidThumb(item.querySelector(".mini-switch"), 14, nextPin);
+    syncSort(); // 开关状态和动效都在 syncSort → setSwitch 里
   } else { // 单选：选完关闭菜单
     state.sort = { key: item.dataset.key, dir: item.dataset.dir };
     try { localStorage.setItem(SORT_KEY, state.sort.key + ":" + state.sort.dir); } catch {}
