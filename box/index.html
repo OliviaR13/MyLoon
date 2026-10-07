@@ -42,9 +42,14 @@
     </div>
 
     <div class="toolbar">
-      <div class="search">
-        <input id="searchInput" type="search" autocomplete="off" placeholder="搜索插件名称或描述" aria-label="搜索插件">
+      <div class="search" id="searchBox" role="search">
         <svg class="search-lens" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>
+        <div class="search-field" id="searchField">
+          <!-- 已确认的关键词（.kw）由 app.js 插在输入框前面 -->
+          <input id="searchInput" type="text" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="搜索，回车添加多词" aria-label="搜索插件">
+        </div>
+        <button class="search-clear" id="searchClear" type="button" hidden aria-label="清除全部关键词"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        <button class="search-go" id="searchGo" type="button">搜索</button>
       </div>
       <div class="sortwrap" id="sortBox"></div>
     </div>

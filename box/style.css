@@ -82,12 +82,37 @@ a{color:var(--accent-text)}
 @media (hover:hover){.tab:hover{color:var(--text)}}
 
 /* 工具栏：搜索 + 排序 */
-.toolbar{display:flex;gap:8px;position:relative;z-index:5}
-.search{flex:1;min-width:0}
-/* 输入框字号必须 ≥16px，否则 iOS Safari 聚焦时会自动放大页面 */
-.search input{width:100%;font:inherit;font-size:16px;line-height:1.3;padding:10px 14px;border-radius:var(--r-md);border:1px solid var(--line);
-  background:var(--card);color:var(--text);transition:border-color .15s;-webkit-appearance:none;appearance:none}
+.toolbar{display:flex;align-items:flex-start;gap:8px;position:relative;z-index:5}
+/* 搜索框：一个带边框的盒子，从左到右依次是 放大镜 · 已确认的关键词 + 输入框 · 红叉（清除全部）· 搜索按钮。
+   输入框本身没有边框，边框、聚焦光圈都画在盒子上；关键词多了会在盒子里换行，盒子随之长高。
+   输入框字号必须 ≥16px，否则 iOS Safari 聚焦时会自动放大页面 */
+.search{flex:1;min-width:0;position:relative;display:flex;align-items:flex-start;min-height:43px;overflow:hidden;
+  border:1px solid var(--line);border-radius:var(--r-md);background:var(--card);cursor:text;transition:border-color .15s,box-shadow .15s}
+.search:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
+.search-lens{flex:none;margin:12px 8px 0 12px;color:var(--muted);pointer-events:none;transition:color .2s}
+.search:focus-within .search-lens,.search[data-has="true"] .search-lens{color:var(--text)}
+.search-field{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:7px 0}
+.search input{flex:1 1 96px;min-width:96px;height:27px;padding:0;border:0;outline:0;background:none;color:var(--text);
+  font:inherit;font-size:16px;line-height:27px;text-overflow:ellipsis;-webkit-appearance:none;appearance:none}
 .search input::placeholder{color:var(--muted)}
+/* 关键词胶囊：文字 + 红叉 */
+.kw{position:relative;display:inline-flex;align-items:center;gap:2px;max-width:100%;height:27px;padding:0 4px 0 10px;border-radius:999px;
+  background:var(--chip);box-shadow:inset 0 0 0 1px var(--line);font-size:14px;cursor:default}
+.kw-text{min-width:0;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kw-x,.search-clear{flex:none;display:grid;place-items:center;border:0;padding:0;background:none;color:#e5484d;cursor:pointer}
+.kw-x{position:relative;width:20px;height:20px;border-radius:50%;transition:background-color .15s}
+.kw-x::after{content:"";position:absolute;inset:-6px} /* 把点按范围撑大，手指好点 */
+.search-clear{align-self:flex-start;width:36px;height:41px}
+.search-clear[hidden]{display:none}
+.search-go{flex:none;margin:5px 5px 5px 0;height:31px;padding:0 13px;border:0;border-radius:calc(var(--r-md) - 3px);background:var(--accent);color:var(--accent-ink);
+  font:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:filter .15s,transform .35s var(--spring)}
+.search-go:active{transform:scale(.94)}
+.kw-x:focus-visible,.search-clear:focus-visible,.search-go:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+@media (hover:hover){
+  .kw-x:hover{background:color-mix(in srgb,#e5484d 16%,transparent)}
+  .search-clear:hover{color:#c93036}
+  .search-go:hover{filter:brightness(1.08)}
+}
 
 /* 分类筛选 */
 .filters{display:flex;gap:8px;overflow-x:auto;padding:12px 0 4px;scrollbar-width:none}
@@ -374,7 +399,7 @@ html[data-reduce-motion] .star-burst{display:none}
 @media (hover:hover){.tile:not([aria-pressed="true"]):hover .tile-prev{box-shadow:inset 0 0 0 1px var(--muted)}}
 
 /* 排序：一个按钮 + 弹出菜单 */
-.sortwrap{position:relative;flex:none}
+.sortwrap{position:relative;flex:none;height:43px}
 .sort-btn{height:100%;display:flex;align-items:center;gap:7px;padding:0 13px;font:inherit;font-size:14px;font-weight:600;color:var(--text);
   background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);cursor:pointer;position:relative;
   transition:border-color .15s,transform .35s var(--spring)}
@@ -489,29 +514,16 @@ html{overscroll-behavior-y:contain}
 .tab-ind.no-anim{transition:none}
 
 /* 搜索框收起（借自 Bencho Search）：一个盒子，宽度就是状态。
-   放大镜离左边缘固定 13px：收起（43px）时恰好居中，展开后正好是输入框的左内边距。
-   注意：input 是 border-box，左右 padding + 边框加起来超过盒子宽度时，盒子会被「撑」出来。
-   以前收起时 padding 是 38 + 14，再加边框就是 54px，比 43px 的盒子宽，
-   于是搜索框压到排序按钮上，放大镜也偏离中心。现在收起时 padding 全部归零，展开时再长回来（见下）。 */
-.search{position:relative}
-.search-lens{display:none}
+   放大镜离盒子左边缘固定 12px（+1px 边框 = 13px）：收起（43px）时恰好居中，展开后就是它在盒子里的位置。
+   盒子 overflow:hidden、宽度固定，里面的输入框、关键词、按钮再宽也撑不开它；收起时它们只是淡出。 */
 /* 收起时搜索在最左，排序按钮靠右；展开时搜索从左边长出来，吃掉中间的空位 */
-html[data-search-collapse] .search{flex:none;width:var(--sw,43px);transition:width .5s var(--spring)}
+html[data-search-collapse] .search{flex:none;width:var(--sw,43px);transition:width .5s var(--spring),border-color .15s,box-shadow .15s}
 html[data-search-collapse] .sortwrap{margin-left:auto}
-/* 收起时左右 padding 都归零：border-box 的输入框宽度不会小于 padding + 边框，
-   只要还有一点 padding，iOS 上盒子就可能被撑得比 43px 宽，放大镜（固定在 left:13px）就会偏左。
-   归零后输入框可以随盒子缩到任意宽度；展开时 padding 再随盒子一起长出来（文字从 38px 开始，避开放大镜）。 */
-html[data-search-collapse] .search input{padding-left:0;padding-right:0;min-width:0;max-width:100%;cursor:pointer;caret-color:transparent;
-  text-overflow:clip;transition:border-color .15s,padding .5s var(--spring)}
-html[data-search-collapse] .search[data-open] input{padding-left:38px;padding-right:14px;cursor:text;caret-color:auto;text-overflow:ellipsis}
-html[data-search-collapse] .search input::placeholder{opacity:0;transition:opacity .15s}
-html[data-search-collapse] .search[data-open] input::placeholder{opacity:1;transition-delay:.15s}
-/* 收起时不显示输入框里的清除按钮，避免它从 1 像素宽的内容区里漏出来 */
-html[data-search-collapse] .search:not([data-open]) input::-webkit-search-cancel-button{display:none}
-html[data-search-collapse] .search-lens{display:block;position:absolute;left:13px;top:50%;margin-top:-8.5px;color:var(--muted);pointer-events:none;
-  transition:color .2s}
-html[data-search-collapse] .search[data-open] .search-lens{color:var(--text)}
-@media (hover:hover){html[data-search-collapse] .search:not([data-open]) input:hover{border-color:var(--muted)}}
+html[data-search-collapse] .search :is(.search-field,.search-clear,.search-go){transition:opacity .15s}
+html[data-search-collapse] .search[data-open] :is(.search-field,.search-clear,.search-go){transition-delay:.15s}
+html[data-search-collapse] .search:not([data-open]){cursor:pointer}
+html[data-search-collapse] .search:not([data-open]) :is(.search-field,.search-clear,.search-go){opacity:0;pointer-events:none}
+@media (hover:hover){html[data-search-collapse] .search:not([data-open]):hover{border-color:var(--muted)}}
 
 /* 同步总开关关闭时，两个子开关变灰 */
 .row[data-off="true"]{opacity:.5}

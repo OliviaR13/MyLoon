@@ -72,7 +72,8 @@ function readFavMeta() {
 }
 const saveFavMeta = () => { try { localStorage.setItem(FAV_META_KEY, JSON.stringify(state.favMeta)); } catch {} };
 
-const state = { plugins: [], category: CONFIG.all, query: "", sort: readSort(), favorites: readFavs(), favMeta: readFavMeta() };
+// query：输入框里还没回车的那一段；keywords：已回车确认的关键词（显示成胶囊）
+const state = { plugins: [], category: CONFIG.all, query: "", keywords: [], sort: readSort(), favorites: readFavs(), favMeta: readFavMeta() };
 
 function saveFavs() {
   try { localStorage.setItem(FAV_KEY, JSON.stringify([...state.favorites])); } catch {}
@@ -319,12 +320,11 @@ function normalize(raw) {
    1. 搜索时，名称命中的排在只有描述命中的前面
    2. 开启「收藏置顶」时，已收藏的排前面
    3. 所选的排序方式与方向（同值按名称，保证顺序稳定） */
-function sortPlugins(list) {
+function sortPlugins(list, terms = searchTerms()) {
   const { key, dir } = state.sort;
   const sign = dir === "asc" ? 1 : -1;
-  const q = state.query.trim().toLowerCase();
   const pin = !!(window.MLB_settings && window.MLB_settings.get().pinFavs);
-  const nameHit = (p) => (q && p.name.toLowerCase().includes(q) ? 0 : 1);
+  const nameHit = (p) => (terms.length && terms.every((t) => p.name.toLowerCase().includes(t)) ? 0 : 1); // 名称里就命中的排前面
   const pinned = (p) => (pin && state.favorites.has(p.id) ? 0 : 1);
   return [...list].sort((a, b) => {
     const tier = nameHit(a) - nameHit(b) || pinned(a) - pinned(b);
@@ -338,11 +338,17 @@ function sortPlugins(list) {
   });
 }
 
-function matches(p) {
+// 当前生效的搜索词 = 已确认的关键词 + 还在输入的那一段（边输入边筛）。多个词之间是「并且」：每个词都要命中
+const searchTerms = () => {
+  const draft = state.query.trim().toLowerCase();
+  return [...state.keywords.map((k) => k.toLowerCase()), ...(draft ? [draft] : [])];
+};
+function matches(p, terms = searchTerms()) {
   if (state.category === FAV) { if (!state.favorites.has(p.id)) return false; }
   else if (state.category !== CONFIG.all && p.category !== state.category) return false;
-  const q = state.query.trim().toLowerCase();
-  return !q || (p.name + " " + p.description).toLowerCase().includes(q);
+  if (!terms.length) return true;
+  const hay = (p.name + " " + p.description).toLowerCase();
+  return terms.every((t) => hay.includes(t));
 }
 
 /* ---------- 渲染 ---------- */
@@ -430,7 +436,8 @@ function notice(title, body, label, onClick) {
 }
 
 function render({ animate = false } = {}) {
-  const visible = sortPlugins(state.plugins.filter(matches));
+  const terms = searchTerms();
+  const visible = sortPlugins(state.plugins.filter((p) => matches(p, terms)), terms);
   const total = state.plugins.length;
   const how = SORTS[state.sort.key];
   els.count.textContent = (visible.length === total ? `共 ${total} 个插件` : `${visible.length} / ${total} 个插件`) + ` · ${how.label} ${how.hint[state.sort.dir]}`;
@@ -532,32 +539,98 @@ if (window.ResizeObserver) {
   els.tabs.querySelectorAll(".tab").forEach((t) => ro.observe(t));
 }
 
+/* ---------- 搜索框 ----------
+   盒子里从左到右：放大镜 · 关键词胶囊 + 输入框 · 红叉（清除全部）· 搜索按钮。
+   - 输入时边输边筛；回车把输入框里的字「确认」成一个关键词胶囊，可以连续加多个，之间是「并且」；
+   - 胶囊上的红叉删除这一个，右边的红叉清除全部；输入框为空时按退格会删掉最后一个；
+   - 搜索按钮：把没回车的字也收进来、收起键盘。输入框为空时回车也一样收起键盘。 */
+const searchBox = $("#searchBox"), searchField = $("#searchField"), searchClear = $("#searchClear");
+const crossIcon = () => {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  for (const [k, v] of Object.entries({ width: 12, height: 12, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": 3, "stroke-linecap": "round", "aria-hidden": "true" })) svg.setAttribute(k, v);
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", "M6 6l12 12M18 6L6 18");
+  svg.append(path);
+  return svg;
+};
+function renderKeywords() {
+  searchField.querySelectorAll(".kw").forEach((n) => n.remove());
+  state.keywords.forEach((k, i) => {
+    const chip = el("span", "kw");
+    const x = el("button", "kw-x");
+    x.type = "button";
+    x.dataset.i = i;
+    x.setAttribute("aria-label", `删除关键词 ${k}`);
+    x.append(crossIcon());
+    chip.append(el("span", "kw-text", k), x);
+    searchField.insertBefore(chip, els.search);
+  });
+}
+// 把输入框里的字确认成关键词（重复的不加）。返回有没有确认成功
+function commitDraft() {
+  const v = els.search.value.trim();
+  if (!v) return false;
+  if (!state.keywords.some((k) => k.toLowerCase() === v.toLowerCase())) state.keywords.push(v);
+  els.search.value = state.query = "";
+  return true;
+}
+function applySearch({ animate = false } = {}) {
+  clearTimeout(timer);
+  renderKeywords();
+  syncSearch();
+  if (state.plugins.length) render({ animate });
+}
+
 /* 搜索框收起（思路借自 Bencho 的 Search）：一个盒子，宽度就是状态，而不是图标和输入框互相淡入淡出。
-   放大镜离左边缘的距离固定：收起时（43px）这个距离恰好让它居中，展开后又正好是输入框的左内边距，
-   所以它「从中间走到左边」不是谁写的动画，而是盒子在它周围长大。
    展开宽度由 JS 量出来（工具栏宽度减去排序按钮），这样宽度才能走弹簧过渡。
-   设置里的「收起搜索框」开着才生效；有内容或正在输入时保持展开。 */
+   设置里的「收起搜索框」开着才生效；盒子里有焦点、或有关键词 / 输入内容时保持展开。 */
 function syncSearch() {
-  const box = els.search.closest(".search");
-  if (!box) return;
+  const has = state.keywords.length > 0 || els.search.value !== "";
+  searchBox.dataset.has = String(has);
+  searchClear.hidden = !has;
+  els.search.placeholder = state.keywords.length ? "继续添加" : "搜索，回车添加多词";
   if (!document.documentElement.hasAttribute("data-search-collapse")) {
-    box.removeAttribute("data-open");
-    box.style.removeProperty("--sw");
+    searchBox.removeAttribute("data-open");
+    searchBox.style.removeProperty("--sw");
     return;
   }
-  const open = document.activeElement === els.search || els.search.value !== "";
-  box.toggleAttribute("data-open", open);
+  const open = searchBox.contains(document.activeElement) || has;
+  searchBox.toggleAttribute("data-open", open);
   if (open) {
-    const room = box.parentElement.clientWidth - (els.sort ? els.sort.offsetWidth : 0) - 8; // 8 是工具栏的 gap
-    box.style.setProperty("--sw", Math.max(120, room) + "px");
-  } else box.style.removeProperty("--sw");
+    const room = searchBox.parentElement.clientWidth - (els.sort ? els.sort.offsetWidth : 0) - 8; // 8 是工具栏的 gap
+    searchBox.style.setProperty("--sw", Math.max(120, room) + "px");
+  } else searchBox.style.removeProperty("--sw");
 }
 els.search.addEventListener("focus", syncSearch);
 els.search.addEventListener("blur", syncSearch);
-els.search.addEventListener("input", syncSearch); // 点输入框里的清除按钮也会触发
+els.search.addEventListener("input", (e) => { state.query = e.target.value; syncSearch(); });
+els.search.addEventListener("keydown", (e) => {
+  if (e.isComposing || e.keyCode === 229) return; // 拼音输入法选词时的回车不算
+  if (e.key === "Enter") {
+    e.preventDefault();
+    if (commitDraft()) applySearch(); else els.search.blur(); // 空的时候回车 = 收起键盘
+  } else if (e.key === "Backspace" && !els.search.value && state.keywords.length) {
+    state.keywords.pop();
+    applySearch();
+  }
+});
+searchBox.addEventListener("mousedown", (e) => { if (e.target.closest("button")) e.preventDefault(); }); // 点按钮时输入框别失焦，不然收起的搜索框会先缩回去、点击落空
+searchBox.addEventListener("click", (e) => {
+  const x = e.target.closest(".kw-x");
+  if (x) { state.keywords.splice(Number(x.dataset.i), 1); applySearch(); return; }
+  if (e.target.closest("#searchClear")) {
+    state.keywords = [];
+    els.search.value = state.query = "";
+    applySearch({ animate: true });
+    els.search.focus();
+    return;
+  }
+  if (e.target.closest("#searchGo")) { commitDraft(); applySearch({ animate: true }); els.search.blur(); return; }
+  if (!e.target.closest(".kw")) els.search.focus(); // 点盒子的空白处 / 放大镜 = 聚焦输入框（收起时也靠它展开）
+});
 if (window.ResizeObserver) { // 工具栏宽度、排序按钮宽度（「最新」→「名称 A–Z」）变了，展开的搜索框都要跟着重新量
   const ro = new ResizeObserver(syncSearch);
-  ro.observe(els.search.closest(".toolbar"));
+  ro.observe(searchBox.parentElement);
   ro.observe(els.sort);
 }
 els.tabs.addEventListener("click", (e) => {
@@ -574,6 +647,8 @@ els.tabs.addEventListener("click", (e) => {
 function resetFilters() {
   state.category = CONFIG.all;
   state.query = els.search.value = "";
+  state.keywords = [];
+  renderKeywords();
   syncSearch();
   renderFilters();
   render({ animate: true });
@@ -762,7 +837,7 @@ async function load(announce = false) {
 let timer = 0;
 els.search.addEventListener("input", (e) => {
   clearTimeout(timer);
-  timer = setTimeout(() => { state.query = e.target.value; if (state.plugins.length) render(); }, 120);
+  timer = setTimeout(() => { if (state.plugins.length) render(); }, 120);
 });
 els.refresh.addEventListener("click", () => load(true));
 
