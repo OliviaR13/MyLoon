@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """根据 manifest.json 同步 README.md 中的插件数量。
 
-更新三处：顶部徽章、「Loon 插件（N 款）」、「Loon plugins (N)」。
+更新两处：顶部徽章、仓库结构表里的「Loon 插件（N 款）」。
 README 的其余内容原样保留。
 """
 import json
@@ -25,7 +25,6 @@ def main():
     old = README.read_text(encoding="utf-8")
     text = replace_count(old, r"Plugins-\d+-", f"Plugins-{n}-", "顶部徽章")
     text = replace_count(text, r"Loon 插件（\d+ 款）", f"Loon 插件（{n} 款）", "Loon 插件（N 款）")
-    text = replace_count(text, r"Loon plugins \(\d+\)", f"Loon plugins ({n})", "Loon plugins (N)")
 
     if text != old:
         README.write_text(text, encoding="utf-8")
