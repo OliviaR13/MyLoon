@@ -211,6 +211,8 @@ App 发出请求
 
 版权所有 © 2026 soobsessed，保留所有权利。详见 [LICENSE](LICENSE)。
 
+第三方内容：[`script/spotify/`](script/spotify/) 下的脚本源自 [app2smile/rules](https://github.com/app2smile/rules)，版权归原作者 app2smile 所有，按 MIT 许可使用，许可文本见 [script/spotify/LICENSE](script/spotify/LICENSE)。
+
 [↑ 回到顶部](#top)
 
 ---
@@ -404,5 +406,7 @@ The contents of this repository are written for personal use cases and were prod
 ### License
 
 Copyright © 2026 soobsessed. All rights reserved. See [LICENSE](LICENSE).
+
+Third-party content: the scripts under [`script/spotify/`](script/spotify/) come from [app2smile/rules](https://github.com/app2smile/rules), copyright app2smile, used under the MIT License. See [script/spotify/LICENSE](script/spotify/LICENSE).
 
 [↑ Back to top](#top)
