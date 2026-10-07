@@ -55,7 +55,7 @@ a{color:var(--accent-text)}
 .head-text{flex:1;min-width:0}
 .head h1{font-size:24px;line-height:1.05;font-weight:700;letter-spacing:-.03em}
 .h1-eyebrow{display:block;font-size:13px;font-weight:600;letter-spacing:0;color:var(--muted);margin-bottom:3px}
-.head p{color:var(--muted);font-size:13px;margin-top:5px;line-break:strict;text-wrap:balance}
+.head p{color:var(--muted);font-size:13px;font-weight:500;margin-top:5px;line-break:strict;text-wrap:balance}
 @supports (word-break:auto-phrase){.head p{word-break:auto-phrase}}
 
 /* 按钮 */
