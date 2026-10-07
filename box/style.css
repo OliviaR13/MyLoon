@@ -83,6 +83,11 @@ a{color:var(--accent-text)}
 
 /* 工具栏：搜索 + 排序 */
 .toolbar{display:flex;align-items:flex-start;gap:8px;position:relative;z-index:5}
+/* 搜索框脚注：聚焦时用 grid 行高 0fr→1fr 平滑展开，失焦折叠，不占位置 */
+.search-hint{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .28s cubic-bezier(.2,.8,.2,1),opacity .2s}
+.search-hint[data-show]{grid-template-rows:1fr;opacity:1}
+.search-hint>div{overflow:hidden;min-height:0}
+.search-hint span{display:block;padding:6px 4px 0;font-size:12px;line-height:1.5;color:var(--muted)}
 /* 搜索框：一个带边框的盒子，从左到右依次是 放大镜 · 已确认的关键词 + 输入框 · 红叉（清除全部）· 搜索按钮。
    输入框本身没有边框，边框、聚焦光圈都画在盒子上；关键词多了会在盒子里换行，盒子随之长高。
    输入框字号必须 ≥16px，否则 iOS Safari 聚焦时会自动放大页面 */

@@ -600,7 +600,15 @@ function syncSearch() {
   const has = state.keywords.length > 0 || els.search.value !== "";
   searchBox.dataset.has = String(has);
   searchClear.hidden = !has;
-  els.search.placeholder = state.keywords.length ? "继续添加" : "搜索，回车添加多词";
+  els.search.placeholder = state.keywords.length ? "继续添加关键词" : "输入关键词";
+  // 脚注：搜索框获得焦点时显示，说明回车的作用和当前的多关键词逻辑；失焦后折叠，不占位置
+  const hintOn = document.activeElement === els.search;
+  const hint = $("#searchHint");
+  if (hint) {
+    const or = window.MLB_settings?.get().searchMode === "or";
+    $("#searchHintText").textContent = "回车确认为关键词；多个关键词" + (or ? "命中任一即显示（OR）" : "须同时命中（AND）");
+    hint.toggleAttribute("data-show", hintOn);
+  }
   if (!document.documentElement.hasAttribute("data-search-collapse")) {
     searchBox.removeAttribute("data-open");
     searchBox.style.removeProperty("--sw");
