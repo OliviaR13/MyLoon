@@ -218,7 +218,9 @@ function toast(msg, action) {
   box.style.opacity = "";                                // 下拉刷新可能留下了行内透明度
   box.classList.remove("leaving", "pulling", "armed", "working"); // 取消退场（退场到一半来了新提示）；下拉刷新的内容淡出，消息淡入，药丸就地变形
 
-  box.querySelector(".toast-msg").textContent = msg;
+  const msgEl = box.querySelector(".toast-msg");
+  msgEl.style.width = "";                                // 上一条提示收紧过的宽度要先放开，再量这一条
+  msgEl.textContent = msg;
   act.hidden = !action;
   act.onclick = action ? () => { hideToast(); action.run(); } : null;
   if (action) act.textContent = action.label;
@@ -232,6 +234,12 @@ function toast(msg, action) {
   box.classList.add("show");
 
   const grow = () => {
+    // 文字换行并均衡后，最宽的一行往往比容器窄；把文字区收紧到最宽那行，药丸左右就不会留出多余空白
+    msgEl.style.width = "";
+    const range = document.createRange();
+    range.selectNodeContents(msgEl);
+    const textW = Math.ceil(range.getBoundingClientRect().width);
+    if (textW > 0 && textW < msgEl.offsetWidth) msgEl.style.width = textW + 1 + "px";
     const w = inner.offsetWidth, h = inner.offsetHeight; // 内容的自然大小
     toastSize(w, h, Math.min(22, h / 2));
     box.classList.add("open");
