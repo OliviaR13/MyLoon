@@ -106,7 +106,7 @@
             <span class="muted" id="syncFavsState">始终同步</span>
           </div>
           <div class="row" id="syncLookRow">
-            <span class="row-text"><span>外观</span><span class="sub">主题、减少动画、搜索框样式、关键词匹配方式</span></span>
+            <span class="row-text"><span>外观</span><span class="sub">主题、减少动画、搜索框样式、多关键词逻辑</span></span>
             <button class="switch" id="syncLookSwitch" type="button" role="switch" aria-label="同步外观"></button>
           </div>
           <div class="row" id="syncCardsRow">
@@ -129,8 +129,8 @@
           <button type="button" class="tile" data-theme-opt="dark"><span class="tile-prev prev-dark" aria-hidden="true"><i></i><i></i><i></i></span><span class="tile-label">深色</span></button>
         </div>
         <div class="row"><span class="row-text"><span>收起搜索框</span><span class="sub">默认仅显示搜索图标，点按后展开；未输入内容时，离开搜索框会自动收起</span></span><button class="switch" type="button" role="switch" data-switch="collapseSearch" aria-label="收起搜索框"></button></div>
-        <div class="row"><span class="row-text"><span>多个关键词</span><span class="sub" id="searchModeSub"></span></span>
-          <span class="opt2" role="group" aria-label="多个关键词的匹配方式"><button type="button" data-mode-opt="and" aria-pressed="true">交</button><button type="button" data-mode-opt="or" aria-pressed="false">并</button></span></div>
+        <div class="row"><span class="row-text"><span>多关键词逻辑</span><span class="sub" id="searchModeSub"></span></span>
+          <span class="opt2" role="group" aria-label="多关键词匹配逻辑" data-mode="and"><button type="button" data-mode-opt="and" aria-pressed="true">AND</button><button type="button" data-mode-opt="or" aria-pressed="false">OR</button></span></div>
       </div>
       <p class="group-foot">「跟随系统」会随手机的深色模式自动切换。</p>
 

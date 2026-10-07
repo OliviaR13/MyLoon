@@ -38,7 +38,8 @@
     root.toggleAttribute("data-reduce-motion", settings.reduceMotion || forced);
     root.toggleAttribute("data-search-collapse", settings.collapseSearch);
     sheet.querySelectorAll("[data-mode-opt]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.modeOpt === settings.searchMode)));
-    $("searchModeSub").textContent = settings.searchMode === "or" ? "并：命中任意一个关键词就显示" : "交：必须同时命中所有关键词";
+    sheet.querySelector(".opt2")?.setAttribute("data-mode", settings.searchMode);
+    $("searchModeSub").textContent = settings.searchMode === "or" ? "OR：命中任一关键词即显示（取并集）" : "AND：须同时命中全部关键词（取交集）";
     sheet.querySelectorAll("[data-theme-opt]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.themeOpt === settings.theme)));
     // 所有开关的状态都经 setSwitch：点击、云端同步、恢复默认走的是同一条路，动效一致
     sheet.querySelectorAll("[data-switch]").forEach((b) => {

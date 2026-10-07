@@ -377,11 +377,15 @@ html[data-reduce-motion] .star-burst{display:none}
 .acct span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* 主题选择：三张带预览的卡片（预览颜色固定，不随当前主题变化） */
-/* 两选一的分段控件（多个关键词：交 / 并） */
-.opt2{flex:none;display:inline-flex;padding:2px;border-radius:var(--r-md);background:var(--chip);box-shadow:inset 0 0 0 1px var(--line)}
-.opt2 button{border:0;background:none;font:inherit;font-size:14px;font-weight:600;color:var(--muted);padding:6px 18px;border-radius:calc(var(--r-md) - 2px);cursor:pointer;
-  transition:background-color .2s,color .2s,box-shadow .2s}
-.opt2 button[aria-pressed="true"]{background:var(--card);color:var(--text);box-shadow:0 1px 3px rgb(var(--shadow) / .25)}
+/* 两选一的分段控件（多个关键词的匹配逻辑：AND / OR）
+   选中态是一块独立的滑块（::before），切换时用弹簧曲线平移到另一侧，而不是两个按钮各自瞬间换底色 */
+.opt2{flex:none;position:relative;isolation:isolate;display:inline-grid;grid-template-columns:1fr 1fr;padding:2px;border-radius:var(--r-md);background:var(--chip);box-shadow:inset 0 0 0 1px var(--line)}
+.opt2::before{content:"";position:absolute;z-index:-1;top:2px;bottom:2px;left:2px;width:calc(50% - 2px);border-radius:calc(var(--r-md) - 2px);
+  background:var(--card);box-shadow:0 1px 3px rgb(var(--shadow) / .25);transition:transform .38s var(--spring)}
+.opt2[data-mode="or"]::before{transform:translateX(100%)}
+.opt2 button{border:0;background:none;font:inherit;font-size:13px;font-weight:600;letter-spacing:.04em;color:var(--muted);padding:6px 16px;min-width:56px;text-align:center;border-radius:calc(var(--r-md) - 2px);cursor:pointer;
+  transition:color .2s}
+.opt2 button[aria-pressed="true"]{color:var(--text)}
 .opt2 button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .theme-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:14px}
 .tile{font:inherit;display:grid;gap:8px;justify-items:center;padding:0;border:0;background:none;color:var(--muted);cursor:pointer;
