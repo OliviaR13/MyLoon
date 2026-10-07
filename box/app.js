@@ -324,7 +324,7 @@ function sortPlugins(list, terms = searchTerms()) {
   const { key, dir } = state.sort;
   const sign = dir === "asc" ? 1 : -1;
   const pin = !!(window.MLB_settings && window.MLB_settings.get().pinFavs);
-  const nameHit = (p) => (terms.length && terms.every((t) => p.name.toLowerCase().includes(t)) ? 0 : 1); // 名称里就命中的排前面
+  const nameHit = (p) => (terms.length && termsHit(terms, p.name.toLowerCase()) ? 0 : 1); // 名称里就命中的排前面
   const pinned = (p) => (pin && state.favorites.has(p.id) ? 0 : 1);
   return [...list].sort((a, b) => {
     const tier = nameHit(a) - nameHit(b) || pinned(a) - pinned(b);
@@ -338,7 +338,9 @@ function sortPlugins(list, terms = searchTerms()) {
   });
 }
 
-// 当前生效的搜索词 = 已确认的关键词 + 还在输入的那一段（边输入边筛）。多个词之间是「并且」：每个词都要命中
+// 当前生效的搜索词 = 已确认的关键词 + 还在输入的那一段（边输入边筛）。
+// 多个词之间怎么算由设置里的「多个关键词」决定：交（默认）= 每个词都要命中；并 = 命中任意一个就行
+const termsHit = (terms, text) => (window.MLB_settings?.get().searchMode === "or" ? terms.some((t) => text.includes(t)) : terms.every((t) => text.includes(t)));
 const searchTerms = () => {
   const draft = state.query.trim().toLowerCase();
   return [...state.keywords.map((k) => k.toLowerCase()), ...(draft ? [draft] : [])];
@@ -348,7 +350,7 @@ function matches(p, terms = searchTerms()) {
   else if (state.category !== CONFIG.all && p.category !== state.category) return false;
   if (!terms.length) return true;
   const hay = (p.name + " " + p.description).toLowerCase();
-  return terms.every((t) => hay.includes(t));
+  return termsHit(terms, hay);
 }
 
 /* ---------- 渲染 ---------- */

@@ -3,7 +3,7 @@
    依赖 app.js 中的全局：state、render、readSort、syncSort、toast、SORT_KEY。 */
 (() => {
   const KEY = "myloon_box_settings";
-  const DEFAULTS = { theme: "system", showDesc: true, showVer: true, showCat: true, pinFavs: false, compact: false, reduceMotion: false, collapseSearch: false };
+  const DEFAULTS = { theme: "system", showDesc: true, showVer: true, showCat: true, pinFavs: false, compact: false, reduceMotion: false, collapseSearch: false, searchMode: "and" };
   const root = document.documentElement;
   const sheet = document.getElementById("settings");
   const $ = (id) => document.getElementById(id);
@@ -14,6 +14,7 @@
     try { s = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch {}
     const out = { ...DEFAULTS };
     if (["system", "light", "dark"].includes(s.theme)) out.theme = s.theme;
+    if (["and", "or"].includes(s.searchMode)) out.searchMode = s.searchMode;
     for (const k of BOOL_KEYS) if (typeof s[k] === "boolean") out[k] = s[k];
     return out;
   }
@@ -36,6 +37,8 @@
     root.toggleAttribute("data-compact", settings.compact);
     root.toggleAttribute("data-reduce-motion", settings.reduceMotion || forced);
     root.toggleAttribute("data-search-collapse", settings.collapseSearch);
+    sheet.querySelectorAll("[data-mode-opt]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.modeOpt === settings.searchMode)));
+    $("searchModeSub").textContent = settings.searchMode === "or" ? "并：命中任意一个关键词就显示" : "交：必须同时命中所有关键词";
     sheet.querySelectorAll("[data-theme-opt]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.themeOpt === settings.theme)));
     // 所有开关的状态都经 setSwitch：点击、云端同步、恢复默认走的是同一条路，动效一致
     sheet.querySelectorAll("[data-switch]").forEach((b) => {
@@ -105,6 +108,13 @@
   sheet.addEventListener("click", (e) => {
     const t = e.target.closest("[data-theme-opt]");
     if (t) { settings.theme = t.dataset.themeOpt; save(); apply(); return; }
+    const m = e.target.closest("[data-mode-opt]");
+    if (m) {
+      if (settings.searchMode === m.dataset.modeOpt) return;
+      settings.searchMode = m.dataset.modeOpt; save(); apply();
+      if (state.plugins.length) render({ animate: true });
+      return;
+    }
     const sw = e.target.closest("[data-switch]");
     if (sw) {
       const k = sw.dataset.switch;
@@ -175,11 +185,11 @@
   window.MLB_settings = {
     get: () => ({ ...settings }),
     set(next) {
-      const prev = settings.showDesc;
+      const prev = settings.showDesc, prevMode = settings.searchMode;
       settings = { ...settings, ...next };
       try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch {}
       apply();
-      if (prev !== settings.showDesc && state.plugins.length) render();
+      if ((prev !== settings.showDesc || prevMode !== settings.searchMode) && state.plugins.length) render();
     },
   };
 

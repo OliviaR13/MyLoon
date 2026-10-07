@@ -75,7 +75,7 @@
   const on = (g) => ownMaster() && own(g); // 这一组此刻是否真的在同步
 
   const GROUPS = {
-    look: { keys: ["theme", "reduceMotion", "collapseSearch"], at: "myloon_box_look_at", cloud: "lookAt", label: "外观" },
+    look: { keys: ["theme", "reduceMotion", "collapseSearch", "searchMode"], at: "myloon_box_look_at", cloud: "lookAt", label: "外观" },
     cards: { keys: ["showDesc", "showVer", "showCat", "compact", "pinFavs"], sort: true, at: "myloon_box_cards_at", cloud: "cardsAt", label: "插件卡片设置" },
   };
   // 每组设置的「最后修改时间」，同步时用它判断本机和云端谁更新；没有时回退到旧的统一时间戳
