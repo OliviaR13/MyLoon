@@ -34,6 +34,7 @@ function clean(d) {
   const s = d?.settings || {};
   const settings = {};
   if (["system", "light", "dark"].includes(s.theme)) settings.theme = s.theme;
+  if (["and", "or"].includes(s.searchMode)) settings.searchMode = s.searchMode;
   for (const k of ["showDesc", "showVer", "showCat", "pinFavs", "compact", "reduceMotion", "collapseSearch"]) if (typeof s[k] === "boolean") settings[k] = s[k];
   if (typeof s.sort === "string" && /^(date|name):(asc|desc)$/.test(s.sort)) settings.sort = s.sort;
   return { favorites, favMeta, settings, settingsAt, lookAt, cardsAt, updatedAt: Date.now() };
