@@ -51,18 +51,22 @@ function page({ menu, open }) {
     --glow:color-mix(in srgb,var(--accent) 14%,transparent)}
 }
 *,*::before,*::after{box-sizing:border-box}
-html{background:var(--bg);-webkit-text-size-adjust:100%}
-body{margin:0;min-height:100dvh;display:grid;place-items:center;
-  padding:calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+html{background:var(--bg);-webkit-text-size-adjust:100%;height:100%;overflow:hidden}
+/* 页面本身不滚动，背景固定在视口里纹丝不动；需要滚动时只有里面的 .scroll 滚。
+   之前是整个文档在滚：在微信里往下拉，文档整体被拉下去，露出微信自己的灰色底，
+   文档的上边缘就成了一条线，背景也跟着内容一起动。现在文档不动，下拉只会让卡片所在的 .scroll 回弹。 */
+body{position:fixed;inset:0;margin:0;overflow:hidden;overscroll-behavior:none;
   color:var(--text);font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased;
-  /* 背景光晕直接画在 body 自己的背景上，随内容一起滚动。
-     原来是一个 position:fixed 的伪元素铺满视口：微信里工具栏收放、页面下滑时，固定层的高度和实际可视区域对不上，
-     光晕会在某个高度被硬生生切断，露出一条横线。光晕改成按像素定尺寸、中心靠近顶部 / 底部，
-     两端都在到达元素边缘之前就已经渐变到透明，不再有任何可见的边界。 */
   background:
-    radial-gradient(ellipse 90% 340px at 50% 120px,var(--glow),transparent 72%),
-    radial-gradient(ellipse 70% 280px at 85% calc(100% - 60px),color-mix(in srgb,var(--glow) 55%,transparent),transparent 70%),
+    linear-gradient(var(--bg) 0,transparent 18%,transparent 82%,var(--bg) 100%),
+    radial-gradient(75% 46% at 50% 14%,var(--glow),transparent 72%),
+    radial-gradient(65% 40% at 85% 96%,color-mix(in srgb,var(--glow) 55%,transparent),transparent 70%),
     var(--bg)}
+.scroll{position:absolute;inset:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  display:flex;flex-direction:column;
+  padding:calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))}
+/* margin:auto：内容不够高时居中；够高时从顶部排起，不会像 place-items:center 那样把上半截挤出可滚动范围 */
+.scroll>.card{margin:auto}
 .hint{z-index:3;position:fixed;top:calc(12px + env(safe-area-inset-top));right:14px;display:flex;align-items:center;gap:6px;
   padding:7px 12px;border:1px solid var(--line);border-radius:999px;background:var(--card);
   font-size:12.5px;font-weight:600;box-shadow:0 6px 20px rgb(0 0 0 / 7%);animation:hint-in .5s var(--spring) .15s both}
@@ -93,6 +97,7 @@ h1{margin:0;font-size:20px;line-height:1.35;font-weight:650;letter-spacing:-.02e
 </head>
 <body>
 <div class="hint" aria-hidden="true"><span>点击右上角「${esc(menu)}」</span><i>↗</i></div>
+<div class="scroll">
 <main class="card">
   <span class="badge">OliviaR13's Loon Box</span>
   <div class="icon" aria-hidden="true">
@@ -107,6 +112,7 @@ h1{margin:0;font-size:20px;line-height:1.35;font-weight:650;letter-spacing:-.02e
   <button class="copy" id="copy" type="button">复制链接</button>
   <p class="tip">找不到菜单？复制链接后，到浏览器地址栏粘贴打开即可。</p>
 </main>
+</div>
 <script>
 (function () {
   var btn = document.getElementById("copy"), timer;
