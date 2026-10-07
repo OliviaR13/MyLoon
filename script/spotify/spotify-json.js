@@ -1,3 +1,4 @@
+// Original work: https://github.com/app2smile/rules (c) 2023 app2smile, MIT License. See ./LICENSE
 console.log(`spotify-json-2025.06.20`);
 let url = $request.url;
 // console.log(`原始url:${url}`);
