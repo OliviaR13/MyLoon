@@ -238,7 +238,9 @@ function toast(msg, action) {
     msgEl.style.width = "";
     const range = document.createRange();
     range.selectNodeContents(msgEl);
-    const textW = Math.ceil(range.getBoundingClientRect().width);
+    // 起步时内容带 scale(.92)，getBoundingClientRect 量到的是缩小后的宽度，要除回去，否则会把文字区收得过窄、多折出一行
+    const scale = inner.offsetWidth ? inner.getBoundingClientRect().width / inner.offsetWidth : 1;
+    const textW = Math.ceil(range.getBoundingClientRect().width / (scale || 1));
     if (textW > 0 && textW < msgEl.offsetWidth) msgEl.style.width = textW + 1 + "px";
     const w = inner.offsetWidth, h = inner.offsetHeight; // 内容的自然大小
     toastSize(w, h, Math.min(22, h / 2));
