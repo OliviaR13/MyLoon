@@ -10,6 +10,11 @@
     "en_name": "Spotify (choose your node)",
     "en_desc": "Routes Spotify's official sites, API, audio and image CDNs, and short links through `PROXY`"
   },
+  "Spotify_premium": {
+    "zh_desc": "解锁 Spotify Premium 会员（脚本来自 @app2smile，已移植为 Loon 格式）",
+    "en_name": "Spotify Premium unlock",
+    "en_desc": "Unlocks Spotify Premium (scripts by @app2smile, ported to Loon)"
+  },
   "Twitter": {
     "zh_desc": "Twitter / X（网页、App、图片视频 CDN、短链）统一走 `PROXY`",
     "en_name": "Twitter / X (choose your node)",
