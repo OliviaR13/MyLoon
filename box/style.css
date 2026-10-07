@@ -367,7 +367,8 @@ html[data-reduce-motion] #settingsFull svg{animation:none}
      用多栏排版让各组设置从左列流到右列；标题不与下面的分组拆开，分组和脚注都不跨栏断开 */
   html[data-full-cols="2"] .sheet.full{--full-col:1120px}
   html[data-full-cols="2"] .sheet.full .sheet-body{column-count:2;column-gap:32px}
-  html[data-full-cols="2"] .sheet.full .group-title{break-after:avoid}
+  /* 分栏会吃掉每一栏顶部的 margin，右栏标题会比左栏高一截；改用 padding 撑开间距，两栏起点才对齐 */
+  html[data-full-cols="2"] .sheet.full .group-title{break-after:avoid;margin-top:0;padding-top:26px}
   html[data-full-cols="2"] .sheet.full .group,
   html[data-full-cols="2"] .sheet.full .group-foot{break-inside:avoid}
   html[data-full-cols="2"] .sheet.full .group-foot{break-before:avoid}
