@@ -164,7 +164,7 @@
       if (!dirty) toast("已同步");
       else if (!pushWarned) toast("还没同步上去，稍后会自动重试"); // pushWarned 为真说明 flush 已经把原因说清楚了
     } catch {
-      toast("同步失败，请检查网络后重试");
+      toast("同步失败，请检查网络连接后重试");
     } finally {
       syncing = false;
       if (b) b.disabled = false;
@@ -297,7 +297,7 @@
       clearTimeout(timer);
       dirty = false;
       renderAccount();
-      toast("已关闭云端同步，收藏和设置只保存在这台设备");
+      toast("云端同步已关闭，收藏与设置仅保存在本地");
     }
   });
 
@@ -332,7 +332,7 @@
     pushWarned = false;
     setHint(false);
     renderAccount();
-    toast("已退出登录，这台设备上的收藏和设置还在");
+    toast("已退出登录，本地收藏与设置已保留");
   });
 
   refreshSeen();
