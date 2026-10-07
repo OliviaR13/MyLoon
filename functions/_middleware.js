@@ -41,23 +41,31 @@ function page({ menu, open }) {
 :root{
   --bg:#f6f4ef;--card:#fdfcf9;--text:#1d1b17;--muted:#6a655a;--line:#e6e2d8;--chip:#efece4;
   --accent:#0f7f69;--accent-text:#0a6250;--accent-ink:#f7fbf9;
+  --glow:color-mix(in srgb,var(--accent) 16%,transparent);
   --ease:cubic-bezier(.2,.8,.2,1);--spring:cubic-bezier(.34,1.4,.64,1);
   --font:"Geist Sans",-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Noto Sans SC","Segoe UI",sans-serif;
 }
 @media (prefers-color-scheme:dark){
   :root{--bg:#12110f;--card:#191815;--text:#efece5;--muted:#a39e92;--line:#2b2924;--chip:#23211d;
-    --accent:#3fcfa6;--accent-text:#3fcfa6;--accent-ink:#04140e}
+    --accent:#3fcfa6;--accent-text:#3fcfa6;--accent-ink:#04140e;
+    --glow:color-mix(in srgb,var(--accent) 14%,transparent)}
 }
 *,*::before,*::after{box-sizing:border-box}
 html{background:var(--bg);-webkit-text-size-adjust:100%}
 body{margin:0;min-height:100dvh;display:grid;place-items:center;
   padding:calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
   background:var(--bg);color:var(--text);font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased}
-.hint{position:fixed;top:calc(12px + env(safe-area-inset-top));right:14px;display:flex;align-items:center;gap:6px;
+/* 背景光晕：和主页（box/style.css 的 body::after）完全一致——固定在视口里，顶部和底部各 18% 渐变回底色 */
+body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    linear-gradient(var(--bg) 0,transparent 18%,transparent 82%,var(--bg) 100%),
+    radial-gradient(75% 46% at 50% 14%,var(--glow),transparent 72%),
+    radial-gradient(65% 40% at 85% 96%,color-mix(in srgb,var(--glow) 55%,transparent),transparent 70%)}
+.hint{z-index:3;position:fixed;top:calc(12px + env(safe-area-inset-top));right:14px;display:flex;align-items:center;gap:6px;
   padding:7px 12px;border:1px solid var(--line);border-radius:999px;background:var(--card);
   font-size:12.5px;font-weight:600;box-shadow:0 6px 20px rgb(0 0 0 / 7%);animation:hint-in .5s var(--spring) .15s both}
 .hint i{font-style:normal;color:var(--accent-text);font-size:15px;line-height:1}
-.card{width:min(100%,400px);padding:30px 22px 22px;border:1px solid var(--line);border-radius:16px;background:var(--card);
+.card{position:relative;z-index:2;width:min(100%,400px);padding:30px 22px 22px;border:1px solid var(--line);border-radius:16px;background:var(--card);
   text-align:center;box-shadow:0 12px 36px rgb(0 0 0 / 5%);animation:card-in .45s var(--ease) both}
 .badge{display:inline-flex;align-items:center;height:26px;padding:0 10px;border:1px solid var(--line);border-radius:999px;
   background:var(--chip);color:var(--accent-text);font-size:12px;font-weight:600}
