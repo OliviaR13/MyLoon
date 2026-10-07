@@ -351,6 +351,21 @@ html[data-reduce-motion] #settingsFull svg{animation:none}
 @media (min-width:600px){
   .sheet.full{width:100vw;max-width:none;border-radius:0;margin:0}
 }
+/* 横屏 / PC 端全屏：内容不再被拉到整行宽度（一行设置横跨一整屏，开关离文字几千像素远），
+   而是收成居中的一列；顶栏的返回键和标题与这一列的左右边缘对齐。
+   --full-col 是内容列宽度，左右留白 = (视口宽 - 列宽) / 2，窄于列宽时回退到普通的 20px / 16px */
+@media (min-width:900px){
+  .sheet.full{--full-col:760px}
+  .sheet.full .sheet-head{padding-inline:max(24px,calc((100% - var(--full-col)) / 2))}
+  .sheet.full .sheet-body{padding-inline:max(24px,calc((100% - var(--full-col)) / 2))}
+  .sheet.full .sheet-head h2{font-size:30px}
+  .sheet.full .group-title{margin-top:26px;font-size:12.5px}
+  .sheet.full .row{min-height:56px;padding:12px 18px;font-size:15.5px}
+  .sheet.full .theme-tiles{gap:14px;padding:18px}
+  .sheet.full .group-foot{padding-inline:6px}
+}
+/* 面板在侧栏和全屏之间切换时，左右留白也一起平滑过渡，不是瞬间跳变 */
+.sheet-head,.sheet-body{transition:padding .45s var(--ease)}
 
 /* 收藏星标 */
 .star{position:relative;margin-left:auto;align-self:flex-start;flex:none;width:32px;height:32px;display:grid;place-items:center;border:0;background:none;color:var(--muted);
