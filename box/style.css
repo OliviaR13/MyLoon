@@ -205,8 +205,9 @@ a{color:var(--accent-text)}
 
 /* 提示条（灵动岛式）：药丸的宽、高、圆角由 JS 量好内容后写进 --tw / --th / --tr，
    一组弹簧过渡一起长大；内容单独带模糊淡入，药丸先动、字后到 */
-.toast{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top));right:auto;bottom:auto;margin:0;padding:0;border:0;display:block;
-  transform:translateX(-50%);width:var(--tw,96px);height:var(--th,32px);border-radius:var(--tr,16px);overflow:hidden;
+.toast{position:fixed;left:0;right:0;top:calc(10px + env(safe-area-inset-top));bottom:auto;margin:0 auto;padding:0;border:0;display:block;
+  /* 水平居中改用 left/right:0 + margin:auto：宽度怎么变，中心都不动，缩放时两边对称收放 */
+  width:var(--tw,96px);height:var(--th,32px);border-radius:var(--tr,16px);overflow:hidden;
   opacity:0;visibility:hidden;z-index:var(--z-toast);pointer-events:none; /* 药丸只是显示，手势穿过它落到页面上，下拉刷新才不会被它截住 */
   background:var(--text);color:var(--bg);font-size:13.5px;line-height:1.4;box-shadow:0 8px 24px rgb(var(--shadow) / .22);
   transition:width .5s var(--spring),height .5s var(--spring),border-radius .5s var(--spring),opacity .2s,visibility .2s,background-color .25s,color .25s}
