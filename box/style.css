@@ -363,6 +363,14 @@ html[data-reduce-motion] #settingsFull svg{animation:none}
   .sheet.full .row{min-height:56px;padding:12px 18px;font-size:15.5px}
   .sheet.full .theme-tiles{gap:14px;padding:18px}
   .sheet.full .group-foot{padding-inline:6px}
+  /* 双列（设置里的「全屏布局」，仅桌面端会写 <html data-full-cols>）：
+     用多栏排版让各组设置从左列流到右列；标题不与下面的分组拆开，分组和脚注都不跨栏断开 */
+  html[data-full-cols="2"] .sheet.full{--full-col:1120px}
+  html[data-full-cols="2"] .sheet.full .sheet-body{column-count:2;column-gap:32px}
+  html[data-full-cols="2"] .sheet.full .group-title{break-after:avoid}
+  html[data-full-cols="2"] .sheet.full .group,
+  html[data-full-cols="2"] .sheet.full .group-foot{break-inside:avoid}
+  html[data-full-cols="2"] .sheet.full .group-foot{break-before:avoid}
 }
 /* 面板在侧栏和全屏之间切换时，左右留白也一起平滑过渡，不是瞬间跳变 */
 .sheet-head,.sheet-body{transition:padding .45s var(--ease)}
@@ -402,7 +410,7 @@ html[data-reduce-motion] .star-burst{display:none}
 .opt2{flex:none;position:relative;isolation:isolate;display:inline-grid;grid-template-columns:1fr 1fr;padding:2px;border-radius:var(--r-md);background:var(--chip);box-shadow:inset 0 0 0 1px var(--line)}
 .opt2::before{content:"";position:absolute;z-index:-1;top:2px;bottom:2px;left:2px;width:calc(50% - 2px);border-radius:calc(var(--r-md) - 2px);
   background:var(--card);box-shadow:0 1px 3px rgb(var(--shadow) / .25);transition:transform .38s var(--spring)}
-.opt2[data-mode="or"]::before{transform:translateX(100%)}
+.opt2[data-mode="or"]::before,.opt2[data-mode="2"]::before{transform:translateX(100%)}
 .opt2 button{border:0;background:none;font:inherit;font-size:13px;font-weight:600;letter-spacing:.04em;color:var(--muted);padding:6px 16px;min-width:56px;text-align:center;border-radius:calc(var(--r-md) - 2px);cursor:pointer;
   transition:color .2s}
 .opt2 button[aria-pressed="true"]{color:var(--text)}

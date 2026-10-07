@@ -19,6 +19,17 @@
     return out;
   }
   let settings = load();
+
+  /* 全屏布局（单列 / 双列）：只在桌面端出现，只保存在本机 localStorage。
+     刻意不放进 settings 对象：settings 会被 account.js 同步到云端，而「这台设备的屏幕适合几列」是设备属性，
+     不该被别的设备覆盖；同样不参与「恢复默认设置」。 */
+  const COLS_KEY = "myloon_box_full_cols";
+  const UA = navigator.userAgent;
+  // 以 UA 判断是否桌面端：排除手机 / 平板 / 鸿蒙；iPadOS 的桌面版 UA 自称 Macintosh，用触点数再排除一次
+  const IS_PC = !/Android|iPhone|iPad|iPod|Mobile|Windows Phone|HarmonyOS|OpenHarmony/i.test(UA)
+    && !(/Macintosh/.test(UA) && navigator.maxTouchPoints > 1);
+  let fullCols = "1";
+  try { if (localStorage.getItem(COLS_KEY) === "2") fullCols = "2"; } catch {}
   const save = () => {
     try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch {}
     document.dispatchEvent(new Event("settings:change")); // account.js 据此同步到云端
@@ -38,7 +49,14 @@
     root.toggleAttribute("data-reduce-motion", settings.reduceMotion || forced);
     root.toggleAttribute("data-search-collapse", settings.collapseSearch);
     sheet.querySelectorAll("[data-mode-opt]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.modeOpt === settings.searchMode)));
-    sheet.querySelector(".opt2")?.setAttribute("data-mode", settings.searchMode);
+    $("searchModeOpt")?.setAttribute("data-mode", settings.searchMode);
+    // 全屏布局：非桌面端整行隐藏，也不写 <html data-full-cols>，样式不会生效
+    $("fullColsRow").hidden = !IS_PC;
+    if (IS_PC) {
+      root.dataset.fullCols = fullCols;
+      $("fullColsOpt").dataset.mode = fullCols;
+      sheet.querySelectorAll("[data-cols-opt]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.colsOpt === fullCols)));
+    } else delete root.dataset.fullCols;
     $("searchModeSub").textContent = settings.searchMode === "or" ? "OR：命中任一关键词即显示（取并集）" : "AND：须同时命中全部关键词（取交集）";
     sheet.querySelectorAll("[data-theme-opt]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.themeOpt === settings.theme)));
     // 所有开关的状态都经 setSwitch：点击、云端同步、恢复默认走的是同一条路，动效一致
@@ -109,6 +127,14 @@
   sheet.addEventListener("click", (e) => {
     const t = e.target.closest("[data-theme-opt]");
     if (t) { settings.theme = t.dataset.themeOpt; save(); apply(); return; }
+    const c = e.target.closest("[data-cols-opt]");
+    if (c) {
+      if (fullCols === c.dataset.colsOpt) return;
+      fullCols = c.dataset.colsOpt === "2" ? "2" : "1";
+      try { localStorage.setItem(COLS_KEY, fullCols); } catch {}
+      apply(); // 不调用 save()：不派发 settings:change，也就不会上云
+      return;
+    }
     const m = e.target.closest("[data-mode-opt]");
     if (m) {
       if (settings.searchMode === m.dataset.modeOpt) return;

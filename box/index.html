@@ -131,7 +131,9 @@
         </div>
         <div class="row"><span class="row-text"><span>收起搜索框</span><span class="sub">默认仅显示搜索图标，点按后展开；未输入内容时，离开搜索框会自动收起</span></span><button class="switch" type="button" role="switch" data-switch="collapseSearch" aria-label="收起搜索框"></button></div>
         <div class="row"><span class="row-text"><span>多关键词逻辑</span><span class="sub" id="searchModeSub"></span></span>
-          <span class="opt2" role="group" aria-label="多关键词匹配逻辑" data-mode="and"><button type="button" data-mode-opt="and" aria-pressed="true">AND</button><button type="button" data-mode-opt="or" aria-pressed="false">OR</button></span></div>
+          <span class="opt2" id="searchModeOpt" role="group" aria-label="多关键词匹配逻辑" data-mode="and"><button type="button" data-mode-opt="and" aria-pressed="true">AND</button><button type="button" data-mode-opt="or" aria-pressed="false">OR</button></span></div>
+        <div class="row" id="fullColsRow" hidden><span class="row-text"><span>全屏布局</span><span class="sub">设置页全屏时的内容排版。仅保存在本设备，不同步到云端</span></span>
+          <span class="opt2" id="fullColsOpt" role="group" aria-label="设置页全屏布局" data-mode="1"><button type="button" data-cols-opt="1" aria-pressed="true">单列</button><button type="button" data-cols-opt="2" aria-pressed="false">双列</button></span></div>
       </div>
       <p class="group-foot">「跟随系统」会随手机的深色模式自动切换。</p>
 
