@@ -113,7 +113,6 @@ App 发出请求
 | 节点类型 | 建议选择固定的单一节点（`select` 类型策略组）。`url-test` 等自动测速类型发生节点切换时，可能中断已建立的连接 |
 | 规则顺序 | 插件须排在主配置的 `GEOIP,CN,DIRECT` 等国内直连规则之前 |
 | MITM | 带脚本的插件（如微博增强）需在 Loon 中安装并信任 MITM 证书，并开启 MITM |
-| 微博机型 | 切换机型后，请到微博「微博来源」中重新选择一次 |
 | 插件叠加 | 若同时启用对相同域名做 MITM 解密或响应体改写的其他插件（如去广告类），各插件独立生效；出现异常时需分别排查 |
 
 <a id="zh-faq"></a>
@@ -309,7 +308,6 @@ Rules are matched top to bottom and the first match wins, so plugins must sit ab
 | Node type | Use a fixed single node (a `select`-type policy group). Automatic types such as `url-test` may interrupt established connections when the node switches |
 | Rule order | Plugins must sit above domestic-direct rules such as `GEOIP,CN,DIRECT` in your main configuration |
 | MITM | Plugins with scripts (such as Weibo Plus) require the MITM certificate to be installed and trusted in Loon, with MITM enabled |
-| Weibo device | After switching the device model, reselect it once under "Source" in Weibo |
 | Plugin overlap | If another plugin (for example an ad blocker) also decrypts the same domains with MITM or rewrites response bodies, each plugin takes effect independently; troubleshoot them separately if anything misbehaves |
 
 <a id="en-faq"></a>
