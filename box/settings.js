@@ -3,7 +3,7 @@
    依赖 app.js 中的全局：state、render、readSort、syncSort、toast、SORT_KEY。 */
 (() => {
   const KEY = "myloon_box_settings";
-  const DEFAULTS = { theme: "system", showDesc: true, showVer: true, showCat: true, pinFavs: false, compact: false, reduceMotion: false, collapseSearch: false, searchMode: "and" };
+  const DEFAULTS = { theme: "system", showDesc: true, showVer: true, showCat: true, pinFavs: false, compact: false, reduceMotion: false, collapseSearch: false, fullDefault: false, searchMode: "and" };
   const root = document.documentElement;
   const sheet = document.getElementById("settings");
   const $ = (id) => document.getElementById(id);
@@ -30,10 +30,6 @@
     && !(/Macintosh/.test(UA) && navigator.maxTouchPoints > 1);
   let fullCols = "1";
   try { if (localStorage.getItem(COLS_KEY) === "2") fullCols = "2"; } catch {}
-  // 「设置页默认全屏」同样是设备属性（手机和电脑想要的不一样），单独存一个键，不进 settings、不上云、不参与恢复默认
-  const FULL_DEFAULT_KEY = "myloon_box_full_default";
-  let fullDefault = false;
-  try { fullDefault = localStorage.getItem(FULL_DEFAULT_KEY) === "1"; } catch {}
   const save = () => {
     try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch {}
     document.dispatchEvent(new Event("settings:change")); // account.js 据此同步到云端
@@ -69,7 +65,6 @@
       setSwitch(b, settings[b.dataset.switch] || lock);
       b.disabled = lock;
     });
-    setSwitch($("fullDefaultSwitch"), fullDefault);
     $("reduceMotionSub").textContent = forced ? "系统已开启「减少动态效果」，已自动生效" : REDUCE_HINT;
     if (typeof syncSort === "function") syncSort(); // 排序菜单里的「收藏置顶」状态跟着同步
     if (typeof syncSearch === "function") syncSearch(); // 搜索框收起 / 展开跟着设置走
@@ -122,8 +117,10 @@
     b.setAttribute("aria-pressed", String(on));
     b.setAttribute("aria-label", on ? "退出全屏" : "全屏显示");
   }
-  $("settingsFull").addEventListener("click", () => setFull(!sheet.classList.contains("full")));
-  setFull(fullDefault); // 每次进入页面，设置页的初始状态 = 默认值（之后在本次访问内手动展开 / 收起仍然照旧）
+  // fullTouched：本次访问内手动切换过全屏。没切换过、设置页也关着时，云端带来的新「默认全屏」才会直接生效
+  let fullTouched = false;
+  $("settingsFull").addEventListener("click", () => { fullTouched = true; setFull(!sheet.classList.contains("full")); });
+  setFull(settings.fullDefault); // 每次进入页面，设置页的初始状态 = 默认值（之后在本次访问内手动展开 / 收起仍然照旧）
 
   // Windows 等常驻滚动条的系统：内容区被滚动条占掉一截，顶栏却是整宽，右边缘对不齐。
   // 把滚动条宽度量出来写成 --sbw，顶栏右侧留白加上它（macOS / 手机上是浮层滚动条，量出来是 0）
@@ -139,14 +136,6 @@
   sheet.addEventListener("click", (e) => {
     const t = e.target.closest("[data-theme-opt]");
     if (t) { settings.theme = t.dataset.themeOpt; save(); apply(); return; }
-    const fd = e.target.closest("#fullDefaultSwitch");
-    if (fd) {
-      fullDefault = !fullDefault;
-      try { localStorage.setItem(FULL_DEFAULT_KEY, fullDefault ? "1" : "0"); } catch {}
-      setSwitch(fd, fullDefault);
-      if (fullDefault) setFull(true); // 打开：马上全屏，看得到效果；关闭：只改默认值，不把正在看的页面突然缩回去
-      return;
-    }
     const c = e.target.closest("[data-cols-opt]");
     if (c) {
       if (fullCols === c.dataset.colsOpt) return;
@@ -172,6 +161,7 @@
       // 描述重新显示后，重新计算「展开」按钮；收藏置顶会改变排序结果。都等开关动效起步后再重建列表
       if ((k === "showDesc" || k === "compact") && state.plugins.length) afterPaint(() => render());
       if (k === "pinFavs" && state.plugins.length) afterPaint(() => render({ animate: true }));
+      if (k === "fullDefault" && settings.fullDefault) { fullTouched = true; setFull(true); } // 打开：马上全屏，看得到效果；关闭：只改默认值，不把正在看的页面突然缩回去
     }
   });
 
@@ -234,10 +224,11 @@
   window.MLB_settings = {
     get: () => ({ ...settings }),
     set(next) {
-      const prev = settings.showDesc, prevMode = settings.searchMode;
+      const prev = settings.showDesc, prevMode = settings.searchMode, prevFull = settings.fullDefault;
       settings = { ...settings, ...next };
       try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch {}
       apply();
+      if (prevFull !== settings.fullDefault && !sheet.open && !fullTouched) setFull(settings.fullDefault); // 云端同步来的默认值
       if ((prev !== settings.showDesc || prevMode !== settings.searchMode) && state.plugins.length) render();
     },
   };

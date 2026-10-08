@@ -1,7 +1,7 @@
 /* GitHub 账号：登录后把收藏和设置同步到云端（/api/me）。
    本机数据始终是第一份；未登录时一切照常工作。
-   同步有三个开关：总开关（关了什么都不同步）、同步外观、同步插件卡片设置。
-   两组设置各记各的「最后修改时间」，互不影响。
+   同步有四个开关：总开关（关了什么都不同步）、同步外观、同步插件卡片设置、同步设置页选项。
+   三组设置各记各的「最后修改时间」，互不影响。
    依赖：app.js（state、SORTS、SORT_KEY、setFavorites、syncSort、render、toast）、settings.js（MLB_settings）。 */
 (() => {
   const $ = (id) => document.getElementById(id);
@@ -45,14 +45,14 @@
     // 收藏不挂在任何子开关上：只要总开关开着就一直同步；总开关关了才暂停
     $("syncFavsRow").dataset.off = String(!m);
     $("syncFavsState").textContent = m ? "始终同步" : "已暂停";
-    for (const [g, id] of [["look", "syncLook"], ["cards", "syncCards"]]) {
-      $(id + "Row").dataset.off = String(!m); // 总开关关了，两个子开关变灰
+    for (const [g, id] of [["look", "syncLook"], ["cards", "syncCards"], ["panel", "syncPanel"]]) {
+      $(id + "Row").dataset.off = String(!m); // 总开关关了，子开关变灰
       const sw = $(id + "Switch");
       setSwitch(sw, own(g));
       sw.disabled = !m;
     }
     $("syncFoot").textContent = m
-      ? "收藏会始终同步。外观和插件卡片可以分别关闭，关闭后只保存在这台设备。如果多台设备修改了同一项，以最后一次修改为准。"
+      ? "收藏会始终同步。外观、插件卡片和设置页选项可以分别关闭，关闭后只保存在这台设备。如果多台设备修改了同一项，以最后一次修改为准。"
       : "云端同步已关闭：收藏和设置只保存在这台设备，不会上传，也不会读取云端的内容。";
     if (user) {
       $("acctName").textContent = user.login;
@@ -61,12 +61,13 @@
     refreshSync();
   }
 
-  /* ---------- 三个同步开关 ----------
+  /* ---------- 同步开关 ----------
      master：总开关。关了以后既不上传也不采用云端的任何东西（收藏和设置都只留在本机）。
      look：外观（主题、减少动画、搜索框样式）。
      cards：插件卡片设置（显示项、紧凑模式、收藏置顶、排序）。
+     panel：设置页选项（设置页默认全屏）。
      look 沿用旧的「同步外观与显示」那个键，所以以前关掉它的人，外观和卡片设置都保持关闭。 */
-  const SYNC_KEYS = { master: "myloon_box_sync", look: "myloon_box_sync_look", cards: "myloon_box_sync_cards" };
+  const SYNC_KEYS = { master: "myloon_box_sync", look: "myloon_box_sync_look", cards: "myloon_box_sync_cards", panel: "myloon_box_sync_panel" };
   const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
   const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
   const ownMaster = () => lsGet(SYNC_KEYS.master) !== "0";
@@ -77,12 +78,14 @@
   const GROUPS = {
     look: { keys: ["theme", "reduceMotion", "collapseSearch", "searchMode"], at: "myloon_box_look_at", cloud: "lookAt", label: "外观" },
     cards: { keys: ["showDesc", "showVer", "showCat", "compact", "pinFavs"], sort: true, at: "myloon_box_cards_at", cloud: "cardsAt", label: "插件卡片设置" },
+    // noLegacy：新增的一组，云端旧数据里没有它，不能拿旧的统一时间戳顶替
+    panel: { keys: ["fullDefault"], at: "myloon_box_panel_at", cloud: "panelAt", label: "设置页选项", noLegacy: true },
   };
   // 每组设置的「最后修改时间」，同步时用它判断本机和云端谁更新；没有时回退到旧的统一时间戳
   const LEGACY_AT = "myloon_box_settings_at";
-  const getAt = (g) => { const v = lsGet(GROUPS[g].at); return v !== null ? Number(v) || 0 : Number(lsGet(LEGACY_AT)) || 0; };
+  const getAt = (g) => { const v = lsGet(GROUPS[g].at); return v !== null ? Number(v) || 0 : GROUPS[g].noLegacy ? 0 : Number(lsGet(LEGACY_AT)) || 0; };
   const setAt = (g, t) => lsSet(GROUPS[g].at, String(t));
-  const settingsDirty = { look: false, cards: false }; // 本次会话本地改过这一组，merge 时据此决定谁听谁的
+  const settingsDirty = { look: false, cards: false, panel: false }; // 本次会话本地改过这一组，merge 时据此决定谁听谁的
 
   const groupValues = (g) => {
     const s = window.MLB_settings.get();
@@ -235,7 +238,7 @@
       if (!on(g) || !remote?.settings) continue;
       const { keys, sort, cloud } = GROUPS[g];
       // 云端旧数据只有统一的 settingsAt，两组都按它算
-      const remoteAt = Number(remote[cloud] ?? remote.settingsAt) || 0;
+      const remoteAt = Number(remote[cloud] ?? (GROUPS[g].noLegacy ? 0 : remote.settingsAt)) || 0;
       const localAt = getAt(g);
       // 旧数据没有时间戳：两边都没记录时，沿用「本次会话没改过就听云端的」
       const useRemote = remoteAt > localAt || (remoteAt === 0 && localAt === 0 && !settingsDirty[g]);
@@ -301,8 +304,8 @@
     }
   });
 
-  // 两个子开关：开启时，以这台设备当前的这一组为准上传；关闭时只记下选择
-  for (const [g, id] of [["look", "syncLookSwitch"], ["cards", "syncCardsSwitch"]]) {
+  // 子开关：开启时，以这台设备当前的这一组为准上传；关闭时只记下选择
+  for (const [g, id] of [["look", "syncLookSwitch"], ["cards", "syncCardsSwitch"], ["panel", "syncPanelSwitch"]]) {
     $(id).addEventListener("click", () => {
       if (!ownMaster()) return;
       const next = !own(g);
