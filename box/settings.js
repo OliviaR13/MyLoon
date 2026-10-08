@@ -95,6 +95,8 @@
   }
   function open() {
     cancelClose(); // 退场动画还没播完就又点开：直接接回来
+    // 必须在 showModal 之前量：之后页面已经 overflow:hidden，滚动条没了，量出来是 0。已经开着（退场中途又点开）时沿用上一次的值
+    if (!sheet.open) document.documentElement.style.setProperty("--page-sbw", window.innerWidth - document.documentElement.clientWidth + "px");
     renderAbout();
     endClear();
     if (!sheet.open) sheet.showModal();

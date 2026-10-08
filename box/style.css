@@ -261,7 +261,9 @@ html[data-hide-cat] .chip-cat{display:none}
   height:calc(88dvh + var(--bleed));transition:transform .4s var(--ease),height .45s var(--ease),width .45s var(--ease),border-radius .45s var(--ease);box-shadow:0 -8px 40px rgb(var(--shadow) / .25)}
 .sheet.open{transform:none}
 .sheet[open]{display:flex;flex-direction:column}
-.sheet.closing{transition-duration:.3s;transition-timing-function:cubic-bezier(.4,0,1,1)}
+.sheet.closing{transition-duration:.3s;transition-timing-function:cubic-bezier(.4,0,1,1);pointer-events:none} /* 退场中不再响应点按：滑出去的过程中碰到开关会误触，也不该出现悬停效果 */
+/* 全屏的设置页要滑过整个屏幕，末段速度很大，到头就消失显得生硬：滑出的同时淡出，收尾更柔和（透明度比位移略早结束） */
+.sheet.full.closing{opacity:0;transition:transform .3s cubic-bezier(.4,0,1,1),opacity .24s cubic-bezier(.4,0,1,1)}
 /* ::backdrop 在较旧的 Safari 里不继承自定义属性，曲线直接写字面量 */
 .sheet::backdrop{background:rgb(var(--shadow) / .45);opacity:0;transition:opacity .4s cubic-bezier(.2,.8,.2,1)}
 .sheet.open::backdrop{opacity:1}
@@ -304,7 +306,11 @@ html[data-hide-cat] .chip-cat{display:none}
 .sheet-head::after{
   background:linear-gradient(to bottom,var(--bg) 3px,color-mix(in srgb,var(--bg) 97%,transparent) calc(3px + var(--sheet-fade-top) * 0.12),color-mix(in srgb,var(--bg) 88%,transparent) calc(3px + var(--sheet-fade-top) * 0.25),color-mix(in srgb,var(--bg) 74%,transparent) calc(3px + var(--sheet-fade-top) * 0.38),color-mix(in srgb,var(--bg) 58%,transparent) calc(3px + var(--sheet-fade-top) * 0.5),color-mix(in srgb,var(--bg) 42%,transparent) calc(3px + var(--sheet-fade-top) * 0.62),color-mix(in srgb,var(--bg) 26%,transparent) calc(3px + var(--sheet-fade-top) * 0.75),color-mix(in srgb,var(--bg) 10%,transparent) calc(3px + var(--sheet-fade-top) * 0.88),transparent calc(3px + var(--sheet-fade-top) * 1))}
 /* 设置面板打开时锁住后面的页面：不让背景列表跟着滚，iOS 的底部工具栏也就不会在面板打开时反复收放 */
-html:has(.sheet[open]){overflow:hidden}
+/* 设置页打开时页面不再滚动（overflow:hidden）。Windows 等常驻滚动条的系统上，滚动条一消失页面就整体变宽 15px，
+   关闭后又弹回来——退场动画结束、遮罩淡完的那一刻，背后的卡片会突然横跳一下。
+   （scrollbar-gutter: stable 在根元素 + overflow:hidden 时 Chrome 不预留，试过了，没用。）
+   所以由 settings.js 在打开前量出滚动条宽度写成 --page-sbw，这里用等宽的右内边距把位置占住，页面就不会动。浮层滚动条的系统上它是 0 */
+html:has(.sheet[open]){overflow:hidden;padding-right:var(--page-sbw,0px)}
 /* 主题卡片区不是 .row，上面的「.row + .row」分割线管不到它，单独补一条。
    「跟随系统」的说明只和主题有关，放在主题卡片下面，不放在整个「外观」组的脚注里（这个组里还有搜索框、多关键词等别的设置） */
 .tiles-note{margin:-4px 0 0;/* 左右留白和下面的 .row 一致（14px / 全屏 18px），文字左边缘才能对齐 */ padding:0 14px 14px;font-size:12.5px;line-height:1.5;color:var(--muted)}
