@@ -385,6 +385,10 @@ html[data-reduce-motion] #settingsFull svg{animation:none}
 }
 /* 面板在侧栏和全屏之间切换时，左右留白也一起平滑过渡，不是瞬间跳变 */
 .sheet-head,.sheet-body{transition:padding .45s var(--ease)}
+/* 切换全屏 / 单双列时，面板在 .45s 里变宽变窄，内容每一帧都在重新排版（双列还会在一开始被挤成两条窄栏）。
+   与其让用户看着文字来回折行，不如内容先快速淡出，尺寸变完再淡入（settings.js 的 beginResize 加 / 去 .resizing） */
+.sheet-body{opacity:1;transition:padding .45s var(--ease),opacity .25s var(--ease)}
+.sheet.resizing .sheet-body{opacity:0;transition:padding .45s var(--ease),opacity .1s linear}
 
 /* 收藏星标 */
 .star{position:relative;margin-left:auto;align-self:flex-start;flex:none;width:32px;height:32px;display:grid;place-items:center;border:0;background:none;color:var(--muted);
@@ -568,7 +572,8 @@ html{overscroll-behavior-y:contain}
    放大镜离盒子左边缘固定 12px（+1px 边框 = 13px）：收起（43px）时恰好居中，展开后就是它在盒子里的位置。
    盒子 overflow:hidden、宽度固定，里面的输入框、关键词、按钮再宽也撑不开它；收起时它们只是淡出。 */
 /* 收起时搜索在最左，排序按钮靠右；展开时搜索从左边长出来，吃掉中间的空位 */
-html[data-search-collapse] .search{flex:none;width:var(--sw,43px);transition:width .5s var(--spring),border-color .15s,box-shadow .15s}
+/* max-width：弹簧曲线会冲过终点，冲出去的那几 px 会把右边的排序按钮顶出工具栏（实测 11px），--room 是 JS 量出来的可用宽度，封个顶 */
+html[data-search-collapse] .search{flex:none;width:var(--sw,43px);max-width:var(--room,100%);transition:width .5s var(--spring),border-color .15s,box-shadow .15s}
 html[data-search-collapse] .sortwrap{margin-left:auto}
 html[data-search-collapse] .search :is(.search-field,.search-clear,.search-go){transition:opacity .15s}
 html[data-search-collapse] .search[data-open] :is(.search-field,.search-clear,.search-go){transition-delay:.15s}

@@ -113,7 +113,16 @@
   }
   // 全屏切换：状态只记在内存里（sheet 上的 .full 类）。
   // 本次访问内关闭再打开设置页会保持上次的展开状态；刷新或重新进入页面后恢复默认，不写入 localStorage、也不同步到云端
+  // 面板变宽变窄的 .45s 里内容先淡出，变完再淡入（样式见 style.css 的 .resizing）。关着、减少动画时不需要
+  let resizeTimer = 0;
+  function beginResize() {
+    if (!sheet.open || motionOff()) return;
+    sheet.classList.add("resizing");
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => sheet.classList.remove("resizing"), 320);
+  }
   function setFull(on) {
+    if (sheet.classList.contains("full") !== on) beginResize();
     sheet.classList.toggle("full", on);
     const b = $("settingsFull");
     b.setAttribute("aria-pressed", String(on));
@@ -143,6 +152,7 @@
       if (fullCols === c.dataset.colsOpt) return;
       fullCols = c.dataset.colsOpt === "2" ? "2" : "1";
       try { localStorage.setItem(COLS_KEY, fullCols); } catch {}
+      if (sheet.classList.contains("full")) beginResize(); // 非全屏时单双列没有任何可见变化，不用淡出
       apply(); // 不调用 save()：不派发 settings:change，也就不会上云
       // 单列 ↔ 双列整页重排：每个分组的位置都变了，原来的滚动位置没有意义（浏览器会硬把按钮留在原地，页面跟着乱跳），回到顶部从头看
       sheet.querySelector(".sheet-body").scrollTop = 0;

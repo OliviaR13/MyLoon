@@ -612,14 +612,15 @@ function syncSearch() {
   if (!document.documentElement.hasAttribute("data-search-collapse")) {
     searchBox.removeAttribute("data-open");
     searchBox.style.removeProperty("--sw");
+    searchBox.style.removeProperty("--room");
     return;
   }
   const open = searchBox.contains(document.activeElement) || has;
   searchBox.toggleAttribute("data-open", open);
-  if (open) {
-    const room = searchBox.parentElement.clientWidth - (els.sort ? els.sort.offsetWidth : 0) - 8; // 8 是工具栏的 gap
-    searchBox.style.setProperty("--sw", Math.max(120, room) + "px");
-  } else searchBox.style.removeProperty("--sw");
+  const room = Math.max(120, searchBox.parentElement.clientWidth - (els.sort ? els.sort.offsetWidth : 0) - 8); // 8 是工具栏的 gap
+  searchBox.style.setProperty("--room", room + "px"); // 收起时也要有：它是展开动画（弹簧过冲）的上限
+  if (open) searchBox.style.setProperty("--sw", room + "px");
+  else searchBox.style.removeProperty("--sw");
 }
 els.search.addEventListener("focus", syncSearch);
 els.search.addEventListener("blur", syncSearch);
