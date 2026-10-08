@@ -1,6 +1,6 @@
 /* GitHub 账号：登录后把收藏和设置同步到云端（/api/me）。
    本机数据始终是第一份；未登录时一切照常工作。
-   同步有四个开关：总开关（关了什么都不同步）、同步外观、同步插件卡片设置、同步设置页选项。
+   同步有四个开关：总开关（关了什么都不同步）、同步外观、同步插件卡片设置、同步设置页偏好。
    三组设置各记各的「最后修改时间」，互不影响。
    依赖：app.js（state、SORTS、SORT_KEY、setFavorites、syncSort、render、toast）、settings.js（MLB_settings）。 */
 (() => {
@@ -52,7 +52,7 @@
       sw.disabled = !m;
     }
     $("syncFoot").textContent = m
-      ? "收藏会始终同步。外观、插件卡片和设置页选项可以分别关闭，关闭后只保存在这台设备。如果多台设备修改了同一项，以最后一次修改为准。"
+      ? "收藏会始终同步。外观、插件卡片和设置页偏好可以分别关闭，关闭后只保存在这台设备。如果多台设备修改了同一项，以最后一次修改为准。"
       : "云端同步已关闭：收藏和设置只保存在这台设备，不会上传，也不会读取云端的内容。";
     if (user) {
       $("acctName").textContent = user.login;
@@ -65,7 +65,7 @@
      master：总开关。关了以后既不上传也不采用云端的任何东西（收藏和设置都只留在本机）。
      look：外观（主题、减少动画、搜索框样式）。
      cards：插件卡片设置（显示项、紧凑模式、收藏置顶、排序）。
-     panel：设置页选项（设置页默认全屏）。
+     panel：设置页偏好（默认是否全屏）。
      look 沿用旧的「同步外观与显示」那个键，所以以前关掉它的人，外观和卡片设置都保持关闭。 */
   const SYNC_KEYS = { master: "myloon_box_sync", look: "myloon_box_sync_look", cards: "myloon_box_sync_cards", panel: "myloon_box_sync_panel" };
   const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
@@ -79,7 +79,7 @@
     look: { keys: ["theme", "reduceMotion", "collapseSearch", "searchMode"], at: "myloon_box_look_at", cloud: "lookAt", label: "外观" },
     cards: { keys: ["showDesc", "showVer", "showCat", "compact", "pinFavs"], sort: true, at: "myloon_box_cards_at", cloud: "cardsAt", label: "插件卡片设置" },
     // noLegacy：新增的一组，云端旧数据里没有它，不能拿旧的统一时间戳顶替
-    panel: { keys: ["fullDefault"], at: "myloon_box_panel_at", cloud: "panelAt", label: "设置页选项", noLegacy: true },
+    panel: { keys: ["fullDefault"], at: "myloon_box_panel_at", cloud: "panelAt", label: "设置页偏好", noLegacy: true },
   };
   // 每组设置的「最后修改时间」，同步时用它判断本机和云端谁更新；没有时回退到旧的统一时间戳
   const LEGACY_AT = "myloon_box_settings_at";
