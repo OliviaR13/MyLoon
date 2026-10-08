@@ -118,6 +118,12 @@
     b.setAttribute("aria-label", on ? "退出全屏" : "全屏显示");
   }
   $("settingsFull").addEventListener("click", () => setFull(!sheet.classList.contains("full")));
+
+  // Windows 等常驻滚动条的系统：内容区被滚动条占掉一截，顶栏却是整宽，右边缘对不齐。
+  // 把滚动条宽度量出来写成 --sbw，顶栏右侧留白加上它（macOS / 手机上是浮层滚动条，量出来是 0）
+  const sheetBody = sheet.querySelector(".sheet-body");
+  const syncScrollbar = () => sheet.style.setProperty("--sbw", sheetBody.offsetWidth - sheetBody.clientWidth + "px");
+  if (window.ResizeObserver) new ResizeObserver(syncScrollbar).observe(sheetBody); // 内容变长 / 变短导致滚动条出现或消失时也会触发
   $("settingsBtn").addEventListener("click", open);
   $("settingsClose").addEventListener("click", close);
   sheet.addEventListener("cancel", (e) => { e.preventDefault(); close(); }); // Esc
@@ -133,6 +139,8 @@
       fullCols = c.dataset.colsOpt === "2" ? "2" : "1";
       try { localStorage.setItem(COLS_KEY, fullCols); } catch {}
       apply(); // 不调用 save()：不派发 settings:change，也就不会上云
+      // 单列 ↔ 双列整页重排：每个分组的位置都变了，原来的滚动位置没有意义（浏览器会硬把按钮留在原地，页面跟着乱跳），回到顶部从头看
+      sheet.querySelector(".sheet-body").scrollTop = 0;
       return;
     }
     const m = e.target.closest("[data-mode-opt]");

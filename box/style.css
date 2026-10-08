@@ -286,7 +286,7 @@ html[data-hide-cat] .chip-cat{display:none}
      避免标题栏高度带小数时露出一条没被盖住的细线。
    ■ body 的内边距跟着留足，滚到底 / 回到顶时内容不会被盖住。 */
 .sheet{--sheet-fade:64px;--sheet-fade-top:36px;--bleed:120px}
-.sheet-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+.sheet-body{flex:1;min-height:0;overflow-y:auto;overflow-anchor:none;overscroll-behavior:contain;
   padding:calc(var(--sheet-fade-top) - 18px) 16px calc(var(--bleed) + var(--sheet-fade) + env(safe-area-inset-bottom))}
 .sheet::before,.sheet::after,.sheet-head::before,.sheet-head::after{content:"";position:absolute;left:0;right:0;z-index:2;pointer-events:none}
 .sheet::before{bottom:var(--bleed);height:var(--sheet-fade);
@@ -358,6 +358,7 @@ html[data-reduce-motion] #settingsFull svg{animation:none}
   .sheet.full{--full-col:760px}
   .sheet.full .sheet-head{padding-inline:max(24px,calc((100% - var(--full-col)) / 2))}
   .sheet.full .sheet-body{padding-inline:max(24px,calc((100% - var(--full-col)) / 2))}
+  .sheet.full .sheet-head{padding-inline-end:calc(max(24px,calc((100% - var(--full-col)) / 2)) + var(--sbw,0px))} /* 常驻滚动条占掉的宽度，让标题右边缘和内容列右边缘对齐 */
   .sheet.full .sheet-head h2{font-size:30px}
   .sheet.full .group-title{margin-top:26px;font-size:12.5px}
   .sheet.full .row{min-height:56px;padding:12px 18px;font-size:15.5px}
@@ -366,7 +367,7 @@ html[data-reduce-motion] #settingsFull svg{animation:none}
   /* 双列（设置里的「全屏布局」，仅桌面端会写 <html data-full-cols>）：
      用多栏排版让各组设置从左列流到右列；标题不与下面的分组拆开，分组和脚注都不跨栏断开 */
   html[data-full-cols="2"] .sheet.full{--full-col:1120px}
-  html[data-full-cols="2"] .sheet.full .sheet-body{column-count:2;column-gap:32px}
+  html[data-full-cols="2"] .sheet.full .sheet-cols{column-count:2;column-gap:32px}
   /* 分栏会吃掉每一栏顶部的 margin，右栏标题会比左栏高一截；改用 padding 撑开间距，两栏起点才对齐 */
   html[data-full-cols="2"] .sheet.full .group-title{break-after:avoid;margin-top:0;padding-top:26px}
   html[data-full-cols="2"] .sheet.full .group,

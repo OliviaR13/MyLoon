@@ -82,6 +82,9 @@
       <h2 id="settingsTitle" tabindex="-1" autofocus>设置</h2>
     </div>
     <div class="sheet-body">
+      <!-- 双列的多栏排版放在这一层：它的高度跟着内容走，滚动交给外面的 .sheet-body。
+           多栏容器自己高度固定时，Safari / Firefox 放不下的内容会向右多长出几栏（横向溢出），双列就散了 -->
+      <div class="sheet-cols">
       <h3 class="group-title">账号</h3>
       <div class="group">
         <div class="row" id="loginRow">
@@ -182,6 +185,7 @@
         </a>
       </div>
       <p class="group-foot privacy">本站不接入统计分析，不追踪用户，也不收集浏览记录等个人隐私数据。未登录时，收藏和设置仅保存在本机浏览器。登录仅通过 GitHub 授权读取公开资料（用户名、头像），不申请其他权限，也不保存 GitHub 访问令牌；登录后，收藏与已开启同步的偏好设置会按账号 ID 保存到云端，用于多设备同步。人机验证由 Cloudflare Turnstile 提供。</p>
+      </div>
     </div>
   </dialog>
 
