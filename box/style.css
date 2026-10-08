@@ -307,7 +307,7 @@ html[data-hide-cat] .chip-cat{display:none}
 html:has(.sheet[open]){overflow:hidden}
 /* 主题卡片区不是 .row，上面的「.row + .row」分割线管不到它，单独补一条。
    「跟随系统」的说明只和主题有关，放在主题卡片下面，不放在整个「外观」组的脚注里（这个组里还有搜索框、多关键词等别的设置） */
-.tiles-note{margin:-4px 0 0;padding:0 14px 14px;font-size:12.5px;line-height:1.5;color:var(--muted);text-align:center}
+.tiles-note{margin:-4px 0 0;/* 左右留白和下面的 .row 一致（14px / 全屏 18px），文字左边缘才能对齐 */ padding:0 14px 14px;font-size:12.5px;line-height:1.5;color:var(--muted)}
 .tiles-note + .row{border-top:1px solid var(--line)}
 .group-title{margin:18px 4px 6px;font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em}
 .group{border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card);overflow:hidden}
