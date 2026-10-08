@@ -305,8 +305,10 @@ html[data-hide-cat] .chip-cat{display:none}
   background:linear-gradient(to bottom,var(--bg) 3px,color-mix(in srgb,var(--bg) 97%,transparent) calc(3px + var(--sheet-fade-top) * 0.12),color-mix(in srgb,var(--bg) 88%,transparent) calc(3px + var(--sheet-fade-top) * 0.25),color-mix(in srgb,var(--bg) 74%,transparent) calc(3px + var(--sheet-fade-top) * 0.38),color-mix(in srgb,var(--bg) 58%,transparent) calc(3px + var(--sheet-fade-top) * 0.5),color-mix(in srgb,var(--bg) 42%,transparent) calc(3px + var(--sheet-fade-top) * 0.62),color-mix(in srgb,var(--bg) 26%,transparent) calc(3px + var(--sheet-fade-top) * 0.75),color-mix(in srgb,var(--bg) 10%,transparent) calc(3px + var(--sheet-fade-top) * 0.88),transparent calc(3px + var(--sheet-fade-top) * 1))}
 /* 设置面板打开时锁住后面的页面：不让背景列表跟着滚，iOS 的底部工具栏也就不会在面板打开时反复收放 */
 html:has(.sheet[open]){overflow:hidden}
-/* 主题卡片区不是 .row，上面的「.row + .row」分割线管不到它，单独补一条 */
-.theme-tiles + .row{border-top:1px solid var(--line)}
+/* 主题卡片区不是 .row，上面的「.row + .row」分割线管不到它，单独补一条。
+   「跟随系统」的说明只和主题有关，放在主题卡片下面，不放在整个「外观」组的脚注里（这个组里还有搜索框、多关键词等别的设置） */
+.tiles-note{margin:-4px 0 0;padding:0 14px 14px;font-size:12.5px;line-height:1.5;color:var(--muted);text-align:center}
+.tiles-note + .row{border-top:1px solid var(--line)}
 .group-title{margin:18px 4px 6px;font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em}
 .group{border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card);overflow:hidden}
 .row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:50px;padding:10px 14px;font-size:15px}
@@ -363,6 +365,7 @@ html[data-reduce-motion] #settingsFull svg{animation:none}
   .sheet.full .group-title{margin-top:26px;font-size:12.5px}
   .sheet.full .row{min-height:56px;padding:12px 18px;font-size:15.5px}
   .sheet.full .theme-tiles{gap:14px;padding:18px}
+  .sheet.full .tiles-note{margin-top:-6px;padding:0 18px 16px}
   .sheet.full .group-foot{padding-inline:6px}
   /* 双列（设置里的「全屏布局」，仅桌面端会写 <html data-full-cols>）：
      用多栏排版让各组设置从左列流到右列；标题不与下面的分组拆开，分组和脚注都不跨栏断开 */
