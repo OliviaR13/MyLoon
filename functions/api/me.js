@@ -31,13 +31,15 @@ function clean(d) {
   const legacyAt = !hasGroupAt && Number.isFinite(d?.settingsAt) ? settingsAt : null;
   const lookAt = Number.isFinite(d?.lookAt) ? Math.floor(d.lookAt) : legacyAt;
   const cardsAt = Number.isFinite(d?.cardsAt) ? Math.floor(d.cardsAt) : legacyAt;
+  // 设置页选项是后加的一组，旧客户端和旧数据都没有它：没带就是 null（PUT 里保留云端原值），不用统一时间戳顶替
+  const panelAt = Number.isFinite(d?.panelAt) ? Math.floor(d.panelAt) : null;
   const s = d?.settings || {};
   const settings = {};
   if (["system", "light", "dark"].includes(s.theme)) settings.theme = s.theme;
   if (["and", "or"].includes(s.searchMode)) settings.searchMode = s.searchMode;
-  for (const k of ["showDesc", "showVer", "showCat", "pinFavs", "compact", "reduceMotion", "collapseSearch"]) if (typeof s[k] === "boolean") settings[k] = s[k];
+  for (const k of ["showDesc", "showVer", "showCat", "pinFavs", "compact", "reduceMotion", "collapseSearch", "fullDefault"]) if (typeof s[k] === "boolean") settings[k] = s[k];
   if (typeof s.sort === "string" && /^(date|name):(asc|desc)$/.test(s.sort)) settings.sort = s.sort;
-  return { favorites, favMeta, settings, settingsAt, lookAt, cardsAt, updatedAt: Date.now() };
+  return { favorites, favMeta, settings, settingsAt, lookAt, cardsAt, panelAt, updatedAt: Date.now() };
 }
 
 export async function onRequestGet({ request, env }) {
@@ -64,6 +66,7 @@ export async function onRequestPut({ request, env }) {
   const prevAt = Number(prev?.settingsAt) || 0;
   data.lookAt = data.lookAt ?? Number(prev?.lookAt ?? prevAt) ?? 0;
   data.cardsAt = data.cardsAt ?? Number(prev?.cardsAt ?? prevAt) ?? 0;
+  data.panelAt = data.panelAt ?? (Number(prev?.panelAt) || 0);
   data.settingsAt = Math.max(data.settingsAt, data.lookAt || 0, data.cardsAt || 0);
   await env.MLB_KV.put(`u:${user.id}`, JSON.stringify(data));
   return json({ ok: true, updatedAt: data.updatedAt });
