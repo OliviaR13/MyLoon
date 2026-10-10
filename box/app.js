@@ -575,8 +575,9 @@ function buildCard(p, terms = []) {
   p.tags.forEach((t) => tags.append(el("span", "chip", t)));
   // 使用前需要知道的几件事：要不要开 MITM、有没有脚本、安装后能不能改参数
   [[p.mitm, "需 MITM"], [p.script, "含脚本"], [p.args, "可配置"]].forEach(([on, label]) => { if (on) tags.append(el("span", "chip chip-cap", label)); });
-  if (p.author) tags.append(el("span", "chip", p.author));
-  if (p.date) tags.append(el("span", "chip", p.date));
+  // 作者和更新日期不是标签，单独放在标签下面一行弱化显示（不再和分类、运行要求抢同一种胶囊样式）
+  const meta = [p.author, p.date && "更新于 " + p.date].filter(Boolean);
+  if (meta.length) tags.after(el("p", "card-meta", meta.join(" · ")));
 
   const more = card.querySelector(".more");
   more.addEventListener("click", () => {

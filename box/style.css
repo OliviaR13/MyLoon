@@ -785,3 +785,9 @@ html[data-full-cols] .sheet.full.detail{--full-col:760px}
 .detail.closing .detail-actions{opacity:0;translate:0 14px;transition:opacity .14s ease-in,translate .2s ease-in}
 .detail.closing .sheet-body{opacity:0;translate:0 10px;transition:opacity .16s ease-in .03s,translate .2s ease-in .03s}
 .detail.closing .sheet-head{opacity:0;transition:opacity .14s ease-in}
+
+/* 卡片标签分组：分类（实心）→ 运行要求 / 配置（描边）→ 作者与日期（弱化的一行文字，不是胶囊）。
+   描边标签的字色略淡一点，和分类拉开层级；「需 MITM」是运行条件不是风险，所以不用警告色 */
+.tags .chip-cap{color:color-mix(in srgb,var(--text) 80%,var(--muted))}
+.card-meta{margin-top:8px;font-size:12.5px;line-height:1.4;color:var(--muted);overflow-wrap:anywhere}
+html[data-compact] .card-meta{margin-top:6px}
