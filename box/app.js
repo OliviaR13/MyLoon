@@ -676,6 +676,7 @@ function syncSearch() {
   }
   const open = searchBox.contains(document.activeElement) || has;
   searchBox.toggleAttribute("data-open", open);
+  if (open) searchBox.removeAttribute("data-press");
   const room = Math.max(120, searchBox.parentElement.clientWidth - (els.sort ? els.sort.offsetWidth : 0) - 8); // 8 是工具栏的 gap
   searchBox.style.setProperty("--room", room + "px"); // 收起时也要有：它是展开动画（弹簧过冲）的上限
   if (open) searchBox.style.setProperty("--sw", room + "px");
@@ -694,6 +695,12 @@ els.search.addEventListener("keydown", (e) => {
     applySearch();
   }
 });
+// 收起状态下按住搜索图标：盒子缩一点（按压），松手 / 移开 / 被系统打断时复原。展开后不再有这个效果
+const pressOff = () => searchBox.removeAttribute("data-press");
+searchBox.addEventListener("pointerdown", () => {
+  if (document.documentElement.hasAttribute("data-search-collapse") && !searchBox.hasAttribute("data-open")) searchBox.setAttribute("data-press", "");
+});
+["pointerup", "pointercancel", "pointerleave"].forEach((t) => searchBox.addEventListener(t, pressOff));
 searchBox.addEventListener("mousedown", (e) => { if (e.target.closest("button")) e.preventDefault(); }); // 点按钮时输入框别失焦，不然收起的搜索框会先缩回去、点击落空
 searchBox.addEventListener("click", (e) => {
   const x = e.target.closest(".kw-x");

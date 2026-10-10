@@ -580,12 +580,26 @@ html{overscroll-behavior-y:contain}
    盒子 overflow:hidden、宽度固定，里面的输入框、关键词、按钮再宽也撑不开它；收起时它们只是淡出。 */
 /* 收起时搜索在最左，排序按钮靠右；展开时搜索从左边长出来，吃掉中间的空位 */
 /* max-width：弹簧曲线会冲过终点，冲出去的那几 px 会把右边的排序按钮顶出工具栏（实测 11px），--room 是 JS 量出来的可用宽度，封个顶 */
-html[data-search-collapse] .search{flex:none;width:var(--sw,43px);max-width:var(--room,100%);transition:width .5s var(--spring),border-color .15s,box-shadow .15s}
+/* 展开 / 收起的动画（参考 Bencho 的 Seek：一个盒子，宽度就是状态）：
+   · 宽度全程用「只减速、不回弹」的曲线。以前用的弹簧曲线会让收起时宽度先缩到比图标本身还小（量到 31px，图标是 43px）再弹回去，
+     展开时的过冲又被 max-width 截平，看起来像撞墙；盒子右边是排序按钮，本来也没有地方可以冲过去。
+   · 「弹」放在缩放上：按下去盒子缩一点（按压），松手后带回弹地回到原大小，和宽度展开同时进行，不碰布局。
+   · 内容（输入框、红叉、搜索按钮）在宽度走到一半以后才淡入，输入框同时从左边滑进来 8px；
+     收起时内容先淡出（.12s），宽度晚 .05s 再开始收，所以不会看到内容被越收越窄的盒子挤扁。 */
+html[data-search-collapse] .search{flex:none;width:var(--sw,43px);max-width:var(--room,100%);
+  transition:width .38s cubic-bezier(.32,.72,0,1) .05s,border-color .15s,box-shadow .3s,transform .45s var(--spring)}
+html[data-search-collapse] .search[data-open]{transition:width .5s cubic-bezier(.22,1,.36,1),border-color .15s,box-shadow .3s,transform .45s var(--spring)}
+html[data-search-collapse] .search[data-press]{transform:scale(.93);transition:transform .11s ease-out,border-color .15s,box-shadow .3s} /* 要写在 [data-open] 之后：同一优先级，后写的生效 */
 html[data-search-collapse] .sortwrap{margin-left:auto}
-html[data-search-collapse] .search :is(.search-field,.search-clear,.search-go){transition:opacity .15s}
-html[data-search-collapse] .search[data-open] :is(.search-field,.search-clear,.search-go){transition-delay:.15s}
+html[data-search-collapse] .search-field{transition:opacity .12s ease-in,transform .3s var(--ease)}
+html[data-search-collapse] .search-clear{transition:opacity .12s ease-in}
+html[data-search-collapse] .search-go{transition:opacity .12s ease-in,filter .15s,transform .35s var(--spring)} /* filter / transform 是它自己的悬停和按下反馈，别在这里丢掉 */
+html[data-search-collapse] .search[data-open] .search-field{transition:opacity .24s ease-out .12s,transform .46s var(--ease) .08s}
+html[data-search-collapse] .search[data-open] .search-clear{transition:opacity .24s ease-out .12s}
+html[data-search-collapse] .search[data-open] .search-go{transition:opacity .24s ease-out .12s,filter .15s,transform .35s var(--spring)}
 html[data-search-collapse] .search:not([data-open]){cursor:pointer}
 html[data-search-collapse] .search:not([data-open]) :is(.search-field,.search-clear,.search-go){opacity:0;pointer-events:none}
+html[data-search-collapse] .search:not([data-open]) .search-field{transform:translateX(-8px)}
 @media (hover:hover){html[data-search-collapse] .search:not([data-open]):hover{border-color:var(--muted)}}
 
 /* 同步总开关关闭时，两个子开关变灰 */
