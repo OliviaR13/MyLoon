@@ -603,7 +603,7 @@ function buildCard(p, terms = []) {
    所有内容都来自 manifest.json 里已有的字段，不新增数据，也不在本地或云端存任何新东西：
    · 收藏：复用 toggleFav，和列表里的星标走同一条路（favMeta + favs:change），云端同步自然生效；
    · 不读也不写 settings，所以「显示描述 / 显示版本号 / 显示分类标签」这些卡片显示开关不影响详情；
-   · 外壳是 index.html 里的 <dialog class="sheet detail">，外观和动效沿用设置页的 .sheet（手机底部抽屉，≥600px 右侧面板）。
+   · 外壳是 index.html 里的 <dialog class="sheet full detail">，全屏显示，外观和动效沿用设置页的 .sheet.full。
    所有字段都用 textContent 写入，不当作 HTML 解析。 */
 const detailEls = {
   dlg: $("#detail"), body: $("#detailBody"), icon: $("#detailIcon"), name: $("#detailName"), sub: $("#detailSub"),
@@ -622,10 +622,15 @@ function svgIcon(d, extra = {}) { // 单路径线条图标，按钮和卡片里�
   return svg;
 }
 function infoIcon() {
-  const svg = svgIcon("M12 11v5.2M12 7.8h.01");
-  const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  // 圆圈 + 竖线 + 实心小点。小点不能用「零长度的线 + 圆头」画：.star 的 svg 没设 linecap，Safari 里会直接消失
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = svgIcon("M12 11.2v5");
+  const c = document.createElementNS(ns, "circle");
   for (const [k, v] of Object.entries({ cx: 12, cy: 12, r: 8.5 })) c.setAttribute(k, v);
+  const dot = document.createElementNS(ns, "circle");
+  for (const [k, v] of Object.entries({ cx: 12, cy: 7.9, r: 1, fill: "currentColor", stroke: "none" })) dot.setAttribute(k, v);
   svg.prepend(c);
+  svg.append(dot);
   return svg;
 }
 

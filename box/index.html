@@ -210,14 +210,14 @@
     </div>
   </dialog>
 
-  <!-- 插件详情：手机是底部抽屉，桌面是右侧面板（和设置页共用 .sheet 的外观与动效）。
+  <!-- 插件详情：全屏页（带 .full，和设置页全屏时同一套外观与动效：手机从底部滑上来铺满，桌面居中成一列）。
        内容全部由 app.js 的「插件详情」一节按 manifest.json 的字段填充，这里只放骨架。
        排布顺序：标识 → 插件介绍 → 安装前须知 → 插件信息，操作按钮固定在底部。 -->
-  <dialog class="sheet detail" id="detail" aria-labelledby="detailName">
+  <dialog class="sheet full detail" id="detail" aria-labelledby="detailName">
     <div class="sheet-head">
       <div class="sheet-nav">
-        <button class="btn btn-ghost btn-icon" id="detailClose" type="button" aria-label="关闭详情">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        <button class="btn btn-ghost btn-icon" id="detailClose" type="button" aria-label="返回">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
         </button>
       </div>
       <!-- 收藏星标由 app.js 放进来，复用列表里同一个 toggleFav，所以云端同步不需要任何改动 -->

@@ -710,9 +710,8 @@ html[data-search-collapse] .search:not([data-open]) .search-field{transform:tran
 .row[data-off="true"]{opacity:.5}
 .switch:disabled{cursor:default}
 
-/* ---------- 插件详情（手机底部抽屉 / 桌面右侧面板） ----------
-   外壳是 <dialog class="sheet detail">，尺寸、遮罩、滑入滑出、顶底渐隐全部沿用上面的 .sheet（和设置页同一套，
-   ≥600px 时同样切成右侧 400px 面板）。这里只补详情自己的内容排版。
+/* ---------- 插件详情（全屏） ----------
+   外壳是 <dialog class="sheet full detail">，铺满视口；遮罩、滑入滑出、顶底渐隐、桌面端居中内容列都沿用 .sheet / .sheet.full（和设置页全屏同一套）。这里只补详情自己的内容排版。
    不用 .chip-ver / .card-desc 这些类：它们受「显示版本号 / 显示描述」开关控制（html[data-hide-*]），详情里不该被一起隐藏。 */
 .card{cursor:pointer}
 .card :is(button,a){cursor:pointer}
@@ -753,7 +752,7 @@ html[data-search-collapse] .search:not([data-open]) .search-field{transform:tran
 /* 操作按钮固定在抽屉底部，长介绍滚动时「安装到 Loon」始终在手边。
    z-index 比 .sheet::before / ::after（底部渐隐）高，所以按钮不会被渐隐盖住、也不会被模糊；
    bottom 要加上出血 --bleed（出血是屏幕外那一段纯底色），否则按钮会掉到屏幕外面去 */
-.detail-actions{position:absolute;z-index:3;left:16px;right:16px;bottom:calc(var(--bleed) + max(14px,env(safe-area-inset-bottom)));
+.detail-actions{position:absolute;z-index:3;left:max(16px,calc((100% - 760px) / 2));right:max(16px,calc((100% - 760px) / 2));bottom:calc(var(--bleed) + max(14px,env(safe-area-inset-bottom)));
   display:grid;grid-template-columns:1fr 1.45fr;gap:10px}
 .detail-actions .btn{padding:12px 14px;font-size:15px;justify-content:center;box-shadow:0 2px 10px rgb(var(--shadow) / .08)}
 .detail-actions a.btn{display:inline-flex;align-items:center;gap:7px;background:var(--card)}
