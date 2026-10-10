@@ -36,6 +36,8 @@
       </button>
     </header>
 
+    <!-- 吸顶栏：页签、搜索 / 排序、分类筛选一起固定在屏幕顶部，见 style.css 的 .dock 和 app.js 的「吸顶栏」 -->
+    <div class="dock" id="dock">
     <div class="tabs" id="tabs" role="group" aria-label="切换视图">
       <button class="tab" type="button" data-view="all" aria-pressed="true">全部插件</button>
       <button class="tab" type="button" data-view="fav" aria-pressed="false">我的收藏<small id="favCount">0</small></button>
@@ -55,6 +57,7 @@
     </div>
     <div class="search-hint" id="searchHint" aria-live="polite"><div><span id="searchHintText"></span></div></div>
     <div class="filters" id="filters" role="group" aria-label="按分类筛选"></div>
+    </div>
 
 
     <p class="meta"><span id="countText">请完成人机验证以加载插件列表</span><span id="updatedText"></span></p>

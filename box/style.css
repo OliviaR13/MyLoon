@@ -125,7 +125,23 @@ mark.hit{padding:0 .08em;border-radius:3px;background:color-mix(in srgb,var(--ac
 }
 
 /* 分类筛选 */
-.filters{display:flex;gap:8px;overflow-x:auto;padding:12px 0 4px;scrollbar-width:none}
+/* 吸顶栏（#dock）：页签、搜索 / 排序、分类筛选一起固定在顶部。
+   · 背景在 ::before 上，没吸住时完全透明（不然会在标题下面多出一条色带），吸住后淡入毛玻璃和底部细线；
+     它往上多伸出一截安全区（刘海 / 灵动岛 / 状态栏），滚动的内容不会从状态栏文字底下透出来。
+   · 左右各伸出 16px 抵消 .shell 的内边距，毛玻璃横向铺满。
+   · 手指往下滑（读列表）时，分类筛选这一行收起，往上滑时回来（data-slim，逻辑在 app.js），
+     否则三层固定下来占掉手机屏幕将近四分之一。
+   · 排序菜单是 dock 里面的绝对定位元素，会盖到下面的列表上，所以 dock 的层级要比列表高。 */
+.dock{position:sticky;top:env(safe-area-inset-top);z-index:6;margin:0 -16px;padding:0 16px}
+.dock::before{content:"";position:absolute;z-index:-1;left:0;right:0;bottom:0;top:calc(-1 * env(safe-area-inset-top));pointer-events:none;
+  background:color-mix(in srgb,var(--bg) 78%,transparent);-webkit-backdrop-filter:blur(16px) saturate(1.5);backdrop-filter:blur(16px) saturate(1.5);
+  border-bottom:1px solid var(--line);opacity:0;transition:opacity .25s}
+.dock[data-stuck]::before{opacity:1}
+html{overflow-anchor:none} /* 筛选行收起会让下面的内容上移，不能让浏览器为此自动改滚动位置，否则会被当成「往上滑」又把它展开 */
+.filters{display:flex;gap:8px;overflow-x:auto;padding:12px 0 4px;scrollbar-width:none;max-height:80px;
+  transition:max-height .3s var(--ease),padding .3s var(--ease),opacity .2s,visibility 0s}
+.dock[data-slim] .filters{max-height:0;padding-top:0;padding-bottom:0;opacity:0;visibility:hidden;pointer-events:none;
+  transition:max-height .3s var(--ease),padding .3s var(--ease),opacity .2s,visibility 0s .3s}
 .filters::-webkit-scrollbar{display:none}
 .chip-filter{flex:none;font:inherit;font-size:13px;border:1px solid var(--line);background:transparent;color:var(--text);border-radius:var(--r-md);
   padding:5px 12px;cursor:pointer;transition:background-color .2s,border-color .2s,color .2s,transform .12s}
