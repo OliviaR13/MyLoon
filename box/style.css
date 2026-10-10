@@ -773,13 +773,15 @@ html[data-full-cols] .sheet.full.detail{--full-col:760px}
 .detail.enter .detail-actions{animation:intro-up .5s var(--ease) .3s backwards}
 .detail.enter .sheet-head .btn,.detail.enter .sheet-head .star{animation:intro-up .5s var(--ease) .1s backwards}
 
-/* 详情的退场：先收内容，再收整页，三层错开，不是整块一起硬滑出去——
-   ① 底部按钮栏最先离开（淡出并下沉），顶栏和正文紧跟着淡出、略微下沉（.14–.22s，先快后慢的收尾曲线）；
-   ② 整页同时向下（桌面端向右）滑走，曲线比设置页柔和一点，.06s 后开始淡出，淡出比位移早一点结束；
-   ③ JS 仍然等 transform 过渡真正结束才 close()，所以这里的时长就是真实的退场时长。
+/* 详情的退场：内容先收，页面后走，两段分开，肉眼能看出先后——
+   上一版内容淡出和整页滑走同时开始，而整页是全屏、滑得很快（150ms 就走掉大半），内容的淡出根本来不及被看见，等于没变。
+   现在：
+   ① 0 – .2s：底部按钮栏淡出并下沉，顶栏和正文随后淡出、略微下沉。此时整页还留在原位；
+   ② .12s 起：整页向下（桌面端向右）滑走，.34s，起步平缓、收尾减速；.2s 起开始淡出，滑完时已经透明；
+   ③ JS 仍然等 transform 过渡真正结束才 close()（总共约 .46s，在 app.js 600ms 的兜底之内）。
    用 translate / opacity 这类独立属性，不动 transform，避免和面板自己的滑动、入场动画互相覆盖。
    「减少动画」由全局的 html[data-reduce-motion] 清零，不用另写。 */
-.sheet.full.detail.closing{opacity:0;transition:transform .34s cubic-bezier(.4,0,.2,1),opacity .26s ease-in .06s}
+.sheet.full.detail.closing{opacity:0;transition:transform .34s cubic-bezier(.3,0,.2,1) .12s,opacity .24s ease-in .2s}
 .detail.closing .detail-actions{opacity:0;translate:0 14px;transition:opacity .14s ease-in,translate .2s ease-in}
-.detail.closing .sheet-body{opacity:0;translate:0 10px;transition:opacity .18s ease-in .02s,translate .22s ease-in .02s}
-.detail.closing .sheet-head{opacity:0;transition:opacity .16s ease-in}
+.detail.closing .sheet-body{opacity:0;translate:0 10px;transition:opacity .16s ease-in .03s,translate .2s ease-in .03s}
+.detail.closing .sheet-head{opacity:0;transition:opacity .14s ease-in}
