@@ -772,3 +772,14 @@ html[data-full-cols] .sheet.full.detail{--full-col:760px}
 .detail.enter .sheet-body > :nth-child(6),.detail.enter .sheet-body > :nth-child(7){animation-delay:.36s}
 .detail.enter .detail-actions{animation:intro-up .5s var(--ease) .3s backwards}
 .detail.enter .sheet-head .btn,.detail.enter .sheet-head .star{animation:intro-up .5s var(--ease) .1s backwards}
+
+/* 详情的退场：先收内容，再收整页，三层错开，不是整块一起硬滑出去——
+   ① 底部按钮栏最先离开（淡出并下沉），顶栏和正文紧跟着淡出、略微下沉（.14–.22s，先快后慢的收尾曲线）；
+   ② 整页同时向下（桌面端向右）滑走，曲线比设置页柔和一点，.06s 后开始淡出，淡出比位移早一点结束；
+   ③ JS 仍然等 transform 过渡真正结束才 close()，所以这里的时长就是真实的退场时长。
+   用 translate / opacity 这类独立属性，不动 transform，避免和面板自己的滑动、入场动画互相覆盖。
+   「减少动画」由全局的 html[data-reduce-motion] 清零，不用另写。 */
+.sheet.full.detail.closing{opacity:0;transition:transform .34s cubic-bezier(.4,0,.2,1),opacity .26s ease-in .06s}
+.detail.closing .detail-actions{opacity:0;translate:0 14px;transition:opacity .14s ease-in,translate .2s ease-in}
+.detail.closing .sheet-body{opacity:0;translate:0 10px;transition:opacity .18s ease-in .02s,translate .22s ease-in .02s}
+.detail.closing .sheet-head{opacity:0;transition:opacity .16s ease-in}
