@@ -151,7 +151,7 @@ App 发出请求
 
 向 `main` 分支推送 `plugin/*.plugin` 或工作流本身的变更后，GitHub Actions 将：
 
-1. 扫描 `plugin/` 下全部 `.plugin` 文件，解析头部元数据（`#!name`、`#!desc`、`#!tag`、`#!version` 等）；
+1. 扫描 `plugin/` 下全部 `.plugin` 文件，解析头部元数据（`#!name`、`#!desc`、`#!tag`、`#!version` 等），并根据 `[MITM]`、`[Script]`、`[Argument]` 段判断是否需要 MITM、是否含脚本、是否可配置，Loon Box 据此在卡片上显示「需 MITM」「含脚本」「可配置」标签；
 2. 重新生成 `manifest.json`，使用默认 `GITHUB_TOKEN` 提交回仓库（避免触发循环）；
 3. Cloudflare Pages 检测到仓库更新后自动重新部署 Loon Box。
 
