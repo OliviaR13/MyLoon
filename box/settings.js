@@ -57,7 +57,7 @@
       $("fullColsOpt").dataset.mode = fullCols;
       sheet.querySelectorAll("[data-cols-opt]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.colsOpt === fullCols)));
     } else delete root.dataset.fullCols;
-    $("searchModeSub").textContent = settings.searchMode === "or" ? "OR：命中任一关键词即显示（取并集）" : "AND：须同时命中全部关键词（取交集）";
+    $("searchModeSub").textContent = settings.searchMode === "or" ? "OR：名称或描述中包含任意一个关键词即显示" : "AND：名称或描述中须同时包含全部关键词";
     sheet.querySelectorAll("[data-theme-opt]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.themeOpt === settings.theme)));
     // 所有开关的状态都经 setSwitch：点击、云端同步、恢复默认走的是同一条路，动效一致
     sheet.querySelectorAll("[data-switch]").forEach((b) => {

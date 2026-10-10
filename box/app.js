@@ -6,6 +6,7 @@ const CONFIG = {
   manifest: "api/manifest",        // 服务端校验令牌后返回清单（Pages Function）
   staticManifest: "manifest.json", // 不启用人机验证时直接读取的静态清单
   rawBase: "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
+  recentDays: 7,                                              // 日期在这个天数以内的插件显示「近期更新」
   all: "全部",
   turnstile: {
     siteKey: "0x4AAAAAAFM6TQJfkewCeO_g", // 留空则不启用人机验证
@@ -34,6 +35,11 @@ const dateValue = (p) => {
     p._ts = m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) : NaN;
   }
   return p._ts;
+};
+// 插件日期（#!date）在最近 CONFIG.recentDays 天内 → 「近期更新」。日期比今天晚一天以上的不算，免得填错日期一直挂着
+const isRecent = (p) => {
+  const age = Date.now() - dateValue(p);
+  return age >= -864e5 && age <= CONFIG.recentDays * 864e5;
 };
 const SORTS = {
   date: { label: "时间", defaultDir: "desc", hint: { desc: "新到旧", asc: "旧到新" }, short: { desc: "最新", asc: "最早" }, compare: (a, b) => dateValue(a) - dateValue(b) },
@@ -323,6 +329,10 @@ function normalize(raw) {
     icon: safeIcon(raw.icon || ""),
     description: String(raw.description || ""),
     date: raw.date ? String(raw.date).trim() : "",
+    // 由 workflow 从插件的 [MITM] / [Script] / [Argument] 段解析出来；旧清单里没有这些字段时都按 false 处理
+    mitm: raw.mitm === true,
+    script: raw.script === true,
+    args: raw.args === true,
   };
 }
 
@@ -349,7 +359,7 @@ function sortPlugins(list, terms = searchTerms()) {
 }
 
 // 当前生效的搜索词 = 已确认的关键词 + 还在输入的那一段（边输入边筛）。
-// 多个词之间怎么算由设置里的「多个关键词」决定：交（默认）= 每个词都要命中；并 = 命中任意一个就行
+// 多个词之间怎么算由设置里的「多关键词逻辑」决定：AND（默认）= 每个词都要命中；OR = 命中任意一个就行
 const termsHit = (terms, text) => (window.MLB_settings?.get().searchMode === "or" ? terms.some((t) => text.includes(t)) : terms.every((t) => text.includes(t)));
 const searchTerms = () => {
   const draft = state.query.trim().toLowerCase();
@@ -410,6 +420,7 @@ function buildCard(p) {
   card.querySelector(".card-title").append(star);
   const ver = card.querySelector(".chip-ver");
   if (p.version) ver.textContent = p.version; else ver.remove();
+  if (isRecent(p)) card.querySelector(".card-name").append(" ", el("span", "chip chip-new", "近期更新")); // 不依赖版本号标签，版本号缺失或被隐藏时照常显示
 
   const desc = card.querySelector(".card-desc");
   desc.replaceChildren(...splitDescription(p.description).map((s) => el("span", "seg", s)));
@@ -417,6 +428,8 @@ function buildCard(p) {
   const tags = card.querySelector(".tags");
   tags.append(el("span", "chip chip-cat", p.category));
   p.tags.forEach((t) => tags.append(el("span", "chip", t)));
+  // 使用前需要知道的几件事：要不要开 MITM、有没有脚本、安装后能不能改参数
+  [[p.mitm, "需 MITM"], [p.script, "含脚本"], [p.args, "可配置"]].forEach(([on, label]) => { if (on) tags.append(el("span", "chip chip-cap", label)); });
   if (p.author) tags.append(el("span", "chip", p.author));
   if (p.date) tags.append(el("span", "chip", p.date));
 
@@ -606,7 +619,7 @@ function syncSearch() {
   const hint = $("#searchHint");
   if (hint) {
     const or = window.MLB_settings?.get().searchMode === "or";
-    $("#searchHintText").textContent = "回车确认为关键词；多个关键词" + (or ? "命中任一即显示（OR）" : "须同时命中（AND）");
+    $("#searchHintText").textContent = "回车添加关键词；" + (or ? "包含任意一个关键词即可（OR）" : "需同时包含全部关键词（AND）");
     hint.toggleAttribute("data-show", hintOn);
   }
   if (!document.documentElement.hasAttribute("data-search-collapse")) {
