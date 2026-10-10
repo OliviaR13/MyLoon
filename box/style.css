@@ -720,6 +720,8 @@ html[data-search-collapse] .search:not([data-open]) .search-field{transform:tran
 .detail-btn svg{width:18px;height:18px}
 @media (hover:hover){.detail-btn:hover{opacity:1;color:var(--text)}}
 
+/* 设置里的「双列」会把 .sheet.full 的内容列加宽到 1120px；详情只有一列内容，固定 760px，免得顶栏、正文、底部按钮三者对不齐 */
+html[data-full-cols] .sheet.full.detail{--full-col:760px}
 .detail .sheet-head{padding-bottom:6px}
 .detail .star{width:40px;height:40px}
 .detail .star svg{width:21px;height:21px}

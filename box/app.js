@@ -745,6 +745,8 @@ function closeDetail() {
   detailEnd = { fn, timer: setTimeout(finish, 600) };
   dlg.addEventListener("transitionend", fn);
 }
+// Windows 等常驻滚动条的系统：把滚动条宽度写成 --sbw，顶栏右边缘才能和内容列对齐（和设置页同一做法；浮层滚动条上是 0）
+if (window.ResizeObserver) new ResizeObserver(() => detailEls.dlg.style.setProperty("--sbw", detailEls.body.offsetWidth - detailEls.body.clientWidth + "px")).observe(detailEls.body);
 detailEls.close.addEventListener("click", closeDetail);
 detailEls.dlg.addEventListener("cancel", (e) => { e.preventDefault(); closeDetail(); }); // Esc
 detailEls.dlg.addEventListener("click", (e) => { if (e.target === detailEls.dlg) closeDetail(); }); // 点遮罩
