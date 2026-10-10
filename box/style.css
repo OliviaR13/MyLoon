@@ -571,20 +571,50 @@ html[data-compact] .tags{margin-top:7px}
    · 只用 animation-fill-mode: backwards：动画开始前（延迟期间）是起始帧，播完后就是元素本来的样子，
      不会在元素上留下 transform，也就不会影响吸顶（.dock 本身不动，只动它里面的层）、排序菜单、下拉刷新这些依赖层叠和定位的东西。
    · 列表容器淡入的同时，骨架屏 / 卡片仍然各自按顺序浮上来（在上面的 .sk-card / .list.enter .card 里），两层叠在一起不冲突。
-   · 开了「减少动画」时，下面那段 html[data-reduce-motion] 会把时长和延迟都清零，开场动画等于没有。 */
+   · 开了「减少动画」时，下面那段 html[data-reduce-motion] 会把时长和延迟都清零，开场动画等于没有。
+   · 启动页在显示中（html[data-splash="on"]）时这些规则都不生效，页面各层先安静地待在启动页后面；
+     启动页开始退场（属性变成 leaving）的那一刻规则才开始匹配、动画才从头播放——退场的同时页面一层层浮上来。
+     用「规则匹配了才开始」而不是「先暂停再继续」：万一脚本出问题，页面是直接可见的，不会停在透明的第一帧。 */
 @keyframes intro-up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 @keyframes intro-pop{from{opacity:0;transform:scale(.86)}to{opacity:1;transform:none}}
 @keyframes intro-glow{from{opacity:0}to{opacity:1}}
-body::after{animation:intro-glow 1.3s ease-out backwards}
-.head .logo{animation:intro-pop .7s cubic-bezier(.34,1.3,.64,1) backwards}
-.head-text{animation:intro-up .6s var(--ease) .08s backwards}
-.head .btn{animation:intro-up .6s var(--ease) .16s backwards}
-.tabs{animation:intro-up .6s var(--ease) .22s backwards}
-.toolbar{animation:intro-up .6s var(--ease) .28s backwards}
-.filters{animation:intro-up .6s var(--ease) .34s backwards}
-.meta{animation:intro-glow .5s ease-out .4s backwards}
-.list{animation:intro-up .6s var(--ease) .36s backwards}
-.foot{animation:intro-glow .5s ease-out .52s backwards}
+html:not([data-splash="on"]) body::after{animation:intro-glow 1.3s ease-out backwards}
+html:not([data-splash="on"]) .head .logo{animation:intro-pop .7s cubic-bezier(.34,1.3,.64,1) backwards}
+html:not([data-splash="on"]) .head-text{animation:intro-up .6s var(--ease) .08s backwards}
+html:not([data-splash="on"]) .head .btn{animation:intro-up .6s var(--ease) .16s backwards}
+html:not([data-splash="on"]) .tabs{animation:intro-up .6s var(--ease) .22s backwards}
+html:not([data-splash="on"]) .toolbar{animation:intro-up .6s var(--ease) .28s backwards}
+html:not([data-splash="on"]) .filters{animation:intro-up .6s var(--ease) .34s backwards}
+html:not([data-splash="on"]) .meta{animation:intro-glow .5s ease-out .4s backwards}
+html:not([data-splash="on"]) .list{animation:intro-up .6s var(--ease) .36s backwards}
+html:not([data-splash="on"]) .foot{animation:intro-glow .5s ease-out .52s backwards}
+
+/* ---------- 启动页（Android 风格）----------
+   盖住整个页面（含状态栏下面）：背景是页面同款的底色 + 光晕，居中依次出现 图标（弹出）→ 欢迎语 → 转圈（Material 风格的不确定进度圈）。
+   退场：整层淡出，同时图标放大一点并淡掉（Android 12 启动动画的退场方式）。 */
+.splash{display:none;position:fixed;inset:0;z-index:2000;place-items:center;touch-action:none;overscroll-behavior:contain;
+  background:radial-gradient(75% 46% at 50% 38%,var(--glow),transparent 72%),var(--bg)}
+html[data-splash="on"] .splash,html[data-splash="leaving"] .splash{display:grid}
+.splash-core{display:grid;justify-items:center;padding:0 28px;text-align:center}
+.splash-logo{width:88px;height:88px;border-radius:22%;box-shadow:0 0 0 1px var(--line),0 12px 32px rgb(var(--shadow) / .16);
+  animation:splash-pop .6s cubic-bezier(.34,1.3,.64,1) backwards}
+.splash-text{margin-top:22px;font-size:18px;line-height:1.4;letter-spacing:-.01em;text-wrap:balance;animation:splash-up .55s var(--ease) .18s backwards}
+.splash-text span{color:var(--muted);font-weight:500}
+.splash-text b{font-weight:700}
+.splash-spin{margin-top:30px;color:var(--accent);animation:splash-in .4s ease .45s backwards,splash-rotate 1.4s linear infinite}
+.splash-spin circle{stroke:currentColor;stroke-dasharray:1,150;stroke-dashoffset:0;animation:splash-dash 1.4s ease-in-out infinite}
+@keyframes splash-pop{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:none}}
+@keyframes splash-up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes splash-in{from{opacity:0}to{opacity:1}}
+@keyframes splash-rotate{to{transform:rotate(360deg)}}
+@keyframes splash-dash{0%{stroke-dasharray:1,150;stroke-dashoffset:0}50%{stroke-dasharray:90,150;stroke-dashoffset:-35}100%{stroke-dasharray:90,150;stroke-dashoffset:-124}}
+html[data-splash="leaving"] .splash{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .45s ease .06s,visibility 0s .52s}
+html[data-splash="leaving"] .splash-core{opacity:0;transform:scale(1.07);transition:opacity .3s ease,transform .5s var(--ease)}
+/* 兜底：不论脚本出了什么问题，启动页最多挡 6 秒 */
+html[data-splash="on"] .splash{animation:splash-failsafe .4s ease 6s forwards}
+@keyframes splash-failsafe{to{opacity:0;visibility:hidden;pointer-events:none}}
+/* 启动页还在时，卡片 / 骨架卡片的入场动画先不播，等退场时再依次浮上来 */
+html[data-splash="on"] .sk-card,html[data-splash="on"] .list.enter .card{animation:none}
 
 /* 减少动画：手动开启，或系统开启了「减少动态效果」，都由 settings.js 统一写成 <html data-reduce-motion>，
    这里只认这一个属性，不再另写一份 @media，免得两份规则慢慢变得不一致。

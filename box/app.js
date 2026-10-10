@@ -841,6 +841,30 @@ function resetFilters() {
   render({ animate: true });
 }
 
+/* 启动页（Android 风格）：盖住整个页面，清单加载好（或需要用户点验证框）时淡出退场。
+   状态写在 <html data-splash>：on（显示中）→ leaving（退场中）→ done（没了）；用户在设置里关掉就是 off（<head> 里的内联脚本在首帧之前写好）。
+   · 至少显示 MIN_SHOW 毫秒（从页面开始加载算起）：清单有缓存、一下就好的时候，启动页不会一闪而过。
+   · 开场动画（页面各层依次浮上来）和卡片的入场动画都等它退场时才开始，所以退场的同时，后面的页面正好一层层浮上来（见 style.css）。
+   · 兜底：CSS 里有一个 6 秒的保险，不论脚本出什么问题，启动页最多挡 6 秒。 */
+const splash = (() => {
+  const root = document.documentElement;
+  const MIN_SHOW = 900;
+  let called = root.getAttribute("data-splash") !== "on"; // 关掉了（或没有 JS 写的属性）：什么都不用做
+  return {
+    hide() {
+      if (called) return;
+      called = true;
+      setTimeout(() => {
+        const el = document.getElementById("splash");
+        // 网络极慢时 CSS 的 6 秒保险已经把它藏起来了：直接收尾，别让它再闪回来
+        if (!el || getComputedStyle(el).visibility === "hidden") { root.setAttribute("data-splash", "done"); return; }
+        root.setAttribute("data-splash", "leaving");
+        setTimeout(() => root.setAttribute("data-splash", "done"), 600);
+      }, Math.max(0, MIN_SHOW - performance.now()));
+    },
+  };
+})();
+
 /* 加载占位：顶部状态行（转圈 / 对勾 + 当前阶段文字）+ 与真实卡片结构一致的骨架卡片 */
 function renderLoading(text) {
   const status = el("div", "status");
@@ -926,7 +950,7 @@ async function getToken() {
       size: "flexible", // 组件宽度跟随容器，手机上不会溢出
       retry: "never",   // 出错时立即报告，不在后台反复静默重试
       callback: (token) => { clearTimeout(tsTimer); removeTurnstile(); resolve(token); },
-      "before-interactive-callback": () => { armTimer(CONFIG.turnstile.interactiveTimeout, reject); setInteractive(true); setPhase("请点击下方的复选框完成验证"); },
+      "before-interactive-callback": () => { splash.hide(); armTimer(CONFIG.turnstile.interactiveTimeout, reject); setInteractive(true); setPhase("请点击下方的复选框完成验证"); }, // 要用户点验证框了：启动页不能再挡着
       "after-interactive-callback": () => { armTimer(CONFIG.turnstile.totalTimeout, reject); setInteractive(false); setPhase("正在验证…"); },
       "expired-callback": () => turnstile.reset(tsWidget),
       "timeout-callback": () => turnstile.reset(tsWidget),
@@ -1016,6 +1040,7 @@ async function load(announce = false) {
     removeTurnstile();
     els.refresh.disabled = false;
     els.list.setAttribute("aria-busy", "false");
+    splash.hide(); // 成功、失败都要收：失败时页面上有「重试」，不能让启动页盖着
   }
 }
 

@@ -15,13 +15,25 @@
   <title>OliviaR13's Loon Box</title>
   <script>(function(d){var s={};try{s=JSON.parse(localStorage.getItem("myloon_box_settings")||"{}")}catch(e){}
     if(s.theme==="light"||s.theme==="dark")d.dataset.theme=s.theme;
-    try{if(s.reduceMotion===true||matchMedia("(prefers-reduced-motion: reduce)").matches)d.setAttribute("data-reduce-motion","")}catch(e){}})(document.documentElement)</script>
+    try{if(s.reduceMotion===true||matchMedia("(prefers-reduced-motion: reduce)").matches)d.setAttribute("data-reduce-motion","")}catch(e){}
+    /* 启动页开关只存在本机 localStorage（myloon_box_splash，不在 settings 里，也就不会同步到云端）；没存过 = 开。
+       data-splash：on = 正在显示，leaving = 正在退场，done = 已经没了，off = 用户关掉了。没有 JS 时这个属性不存在，启动页也就不会出现 */
+    var sp="on";try{if(localStorage.getItem("myloon_box_splash")==="off")sp="off"}catch(e){}d.setAttribute("data-splash",sp)})(document.documentElement)</script>
   <link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="./style.css">
   <!-- 不需要人机验证：把 app.js 里 CONFIG.turnstile.siteKey 设为空字符串，并删除下面这行 -->
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 </head>
 <body>
+  <!-- 启动页（Android 风格）：盖住整个页面，清单加载好后退场。样式见 style.css 的 .splash，控制见 app.js 的 splash。
+       只在 <html data-splash="on"> 时显示；设置里可以关闭（只存本机）。 -->
+  <div class="splash" id="splash" role="status" aria-label="正在加载">
+    <div class="splash-core">
+      <img class="splash-logo" src="./icon.png" alt="" width="88" height="88">
+      <p class="splash-text"><span>欢迎来到</span><b>OliviaR13’s Loon Box</b></p>
+      <svg class="splash-spin" viewBox="0 0 50 50" width="28" height="28" aria-hidden="true"><circle cx="25" cy="25" r="20" fill="none" stroke-width="4.5" stroke-linecap="round"/></svg>
+    </div>
+  </div>
   <a class="skip" href="#results">跳到插件列表</a>
   <main class="shell">
     <header class="head">
@@ -146,6 +158,7 @@
         <div class="row"><span class="row-text"><span>设置页默认全屏</span><span class="sub">打开设置页时直接全屏显示</span></span><button class="switch" type="button" role="switch" data-switch="fullDefault" aria-label="设置页默认全屏"></button></div>
         <div class="row" id="fullColsRow" hidden><span class="row-text"><span>全屏布局</span><span class="sub">设置页全屏时的内容排版。仅保存在本设备，不同步到云端</span></span>
           <span class="opt2" id="fullColsOpt" role="group" aria-label="设置页全屏布局" data-mode="1"><button type="button" data-cols-opt="1" aria-pressed="true">单列</button><button type="button" data-cols-opt="2" aria-pressed="false">双列</button></span></div>
+        <div class="row"><span class="row-text"><span>启动页</span><span class="sub">打开页面时先显示欢迎画面，加载好后淡出。仅保存在本设备，不同步到云端，下次打开生效</span></span><button class="switch" type="button" role="switch" id="splashSwitch" data-local-switch="splash" aria-label="启动页"></button></div>
       </div>
 
       <h3 class="group-title">插件卡片</h3>

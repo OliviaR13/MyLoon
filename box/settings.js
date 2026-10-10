@@ -30,6 +30,11 @@
     && !(/Macintosh/.test(UA) && navigator.maxTouchPoints > 1);
   let fullCols = "1";
   try { if (localStorage.getItem(COLS_KEY) === "2") fullCols = "2"; } catch {}
+  /* 启动页开关：同样刻意不放进 settings 对象——只存在本机 localStorage，不同步到云端，也不参与「恢复默认设置」。
+     只存「关」（"off"）：没有这个键 = 开，和 <head> 里内联脚本读的是同一个键。改了从下次打开页面起生效 */
+  const SPLASH_KEY = "myloon_box_splash";
+  let splashOn = true;
+  try { splashOn = localStorage.getItem(SPLASH_KEY) !== "off"; } catch {}
   const save = () => {
     try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch {}
     document.dispatchEvent(new Event("settings:change")); // account.js 据此同步到云端
@@ -60,6 +65,7 @@
     $("searchModeSub").textContent = settings.searchMode === "or" ? "OR：名称或描述中包含任意一个关键词即显示" : "AND：名称或描述中须同时包含全部关键词";
     sheet.querySelectorAll("[data-theme-opt]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.themeOpt === settings.theme)));
     // 所有开关的状态都经 setSwitch：点击、云端同步、恢复默认走的是同一条路，动效一致
+    setSwitch($("splashSwitch"), splashOn);
     sheet.querySelectorAll("[data-switch]").forEach((b) => {
       const lock = forced && b.dataset.switch === "reduceMotion";
       setSwitch(b, settings[b.dataset.switch] || lock);
@@ -156,6 +162,12 @@
       apply(); // 不调用 save()：不派发 settings:change，也就不会上云
       // 单列 ↔ 双列整页重排：每个分组的位置都变了，原来的滚动位置没有意义（浏览器会硬把按钮留在原地，页面跟着乱跳），回到顶部从头看
       sheet.querySelector(".sheet-body").scrollTop = 0;
+      return;
+    }
+    if (e.target.closest("[data-local-switch]")) {
+      splashOn = !splashOn;
+      try { if (splashOn) localStorage.removeItem(SPLASH_KEY); else localStorage.setItem(SPLASH_KEY, "off"); } catch {}
+      apply(); // 不调用 save()：不派发 settings:change，也就不会上云
       return;
     }
     const m = e.target.closest("[data-mode-opt]");
