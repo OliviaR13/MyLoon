@@ -173,7 +173,7 @@ function toggleFav(id, btn) {
   btn.setAttribute("aria-pressed", String(state.favorites.has(id)));
   if (state.favorites.has(id)) burstStar(btn);
   renderFilters();
-  if (state.category === FAV) render(); // 在「收藏」里取消收藏时，该行立即消失
+  if (state.category === FAV) render({ flip: true }); // 在「收藏」里取消收藏时，该卡片消失，下面的卡片滑上来
 }
 function starIcon() {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -375,6 +375,46 @@ function matches(p, terms = searchTerms()) {
 
 /* ---------- 渲染 ---------- */
 
+// 把命中的关键词包进 <mark>，一眼看出这条为什么出现在结果里。返回「文字 / 节点」数组，可以直接 replaceChildren(...)
+function highlight(text, terms) {
+  if (!terms.length) return [text];
+  const re = new RegExp(terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).sort((a, b) => b.length - a.length).join("|"), "gi"); // 长词优先，免得短词把长词拆开
+  const out = [];
+  let last = 0, m;
+  while ((m = re.exec(text))) {
+    if (!m[0]) { re.lastIndex++; continue; }
+    if (m.index > last) out.push(text.slice(last, m.index));
+    out.push(el("mark", "hit", m[0]));
+    last = m.index + m[0].length;
+  }
+  if (!out.length) return [text];
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
+/* 筛选 / 搜索时让列表「滑」过去，而不是整表硬切（FLIP）：
+   render 前量一次每张卡片的位置，重建后再量一次；留下来的卡片从旧位置滑到新位置，新出现的卡片淡入。
+   位置按「相对列表顶部」算，页面滚动、列表整体被顶下来都不会误触发。
+   量的时候卡片如果正处在上一次动画中间，量到的就是它当时的视觉位置，所以连续打字时动画是接着走的。 */
+const GLIDE_EASE = "cubic-bezier(.2,.8,.2,1)";
+const cardTops = () => {
+  const base = els.list.getBoundingClientRect().top;
+  return new Map([...els.list.querySelectorAll(".card")].map((c) => [c.dataset.id, c.getBoundingClientRect().top - base]));
+};
+function glide(before) {
+  const base = els.list.getBoundingClientRect().top;
+  els.list.querySelectorAll(".card").forEach((c) => {
+    const to = c.getBoundingClientRect().top - base;
+    const from = before.get(c.dataset.id);
+    if (from === undefined) {
+      if (c.getBoundingClientRect().top < innerHeight) c.animate([{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "none" }], { duration: 240, easing: GLIDE_EASE });
+      return;
+    }
+    if (Math.abs(from - to) < 2) return;
+    c.animate([{ transform: `translateY(${from - to}px)` }, { transform: "none" }], { duration: 320, easing: GLIDE_EASE });
+  });
+}
+
 /* 唤起 Loon：成功时页面会被切走，不弹任何提示；
    2 秒后页面仍在前台并保持焦点，才认为没有唤起成功，给出备用方案。
    这是根据页面状态做的判断，可能受系统弹窗影响。 */
@@ -405,12 +445,13 @@ function collapse(desc) {
   desc.dataset.open = "false";
 }
 
-function buildCard(p) {
+function buildCard(p, terms = []) {
   const card = els.tpl.content.firstElementChild.cloneNode(true);
+  card.dataset.id = p.id;
   const icon = card.querySelector(".card-icon");
   if (p.icon) icon.src = p.icon; else icon.remove();
 
-  card.querySelector("h2").textContent = p.name;
+  card.querySelector("h2").replaceChildren(...highlight(p.name, terms));
   const star = el("button", "star");
   star.type = "button";
   star.append(starIcon());
@@ -423,7 +464,7 @@ function buildCard(p) {
   if (isRecent(p)) card.querySelector(".card-name").append(" ", el("span", "chip chip-new", "近期更新")); // 不依赖版本号标签，版本号缺失或被隐藏时照常显示
 
   const desc = card.querySelector(".card-desc");
-  desc.replaceChildren(...splitDescription(p.description).map((s) => el("span", "seg", s)));
+  desc.replaceChildren(...splitDescription(p.description).map((s) => { const seg = el("span", "seg"); seg.replaceChildren(...highlight(s, terms)); return seg; }));
 
   const tags = card.querySelector(".tags");
   tags.append(el("span", "chip chip-cat", p.category));
@@ -460,7 +501,8 @@ function notice(title, body, label, onClick) {
   return box;
 }
 
-function render({ animate = false } = {}) {
+function render({ animate = false, flip = false } = {}) {
+  const before = flip && !animate && !motionOff() && els.list.animate ? cardTops() : null; // 重建前先记位置
   const terms = searchTerms();
   const visible = sortPlugins(state.plugins.filter((p) => matches(p, terms)), terms);
   const total = state.plugins.length;
@@ -481,7 +523,7 @@ function render({ animate = false } = {}) {
   els.list.classList.toggle("enter", animate);
   els.list.replaceChildren(
     ...visible.map((p, i) => {
-      const card = buildCard(p);
+      const card = buildCard(p, terms);
       card.style.setProperty("--i", Math.min(i, 8)); // 入场动画错开，最多延迟 8 档
       return card;
     })
@@ -495,6 +537,7 @@ function render({ animate = false } = {}) {
       c.querySelector(".more").hidden = !overflow;
     })
   );
+  if (before && before.size) glide(before);
 }
 
 function renderFilters() {
@@ -578,10 +621,13 @@ const crossIcon = () => {
   svg.append(path);
   return svg;
 };
+let shownKw = new Set(); // 上一次已经画出来的关键词：只有新增的才播弹入动画
 function renderKeywords() {
   searchField.querySelectorAll(".kw").forEach((n) => n.remove());
+  const prev = shownKw;
+  shownKw = new Set(state.keywords);
   state.keywords.forEach((k, i) => {
-    const chip = el("span", "kw");
+    const chip = el("span", prev.has(k) ? "kw" : "kw kw-in");
     const x = el("button", "kw-x");
     x.type = "button";
     x.dataset.i = i;
@@ -603,7 +649,7 @@ function applySearch({ animate = false } = {}) {
   clearTimeout(timer);
   renderKeywords();
   syncSearch();
-  if (state.plugins.length) render({ animate });
+  if (state.plugins.length) render({ animate, flip: !animate });
 }
 
 /* 搜索框收起（思路借自 Bencho 的 Search）：一个盒子，宽度就是状态，而不是图标和输入框互相淡入淡出。
@@ -637,7 +683,7 @@ function syncSearch() {
 }
 els.search.addEventListener("focus", syncSearch);
 els.search.addEventListener("blur", syncSearch);
-els.search.addEventListener("input", (e) => { state.query = e.target.value; syncSearch(); });
+els.search.addEventListener("input", (e) => { if (!e.isComposing) state.query = e.target.value; syncSearch(); }); // 拼音还没选字时输入框里是字母，不当成搜索词
 els.search.addEventListener("keydown", (e) => {
   if (e.isComposing || e.keyCode === 229) return; // 拼音输入法选词时的回车不算
   if (e.key === "Enter") {
@@ -869,10 +915,14 @@ async function load(announce = false) {
 /* ---------- 事件 ---------- */
 
 let timer = 0;
-els.search.addEventListener("input", (e) => {
+const filterSoon = () => {
   clearTimeout(timer);
-  timer = setTimeout(() => { if (state.plugins.length) render(); }, 120);
-});
+  timer = setTimeout(() => { if (state.plugins.length) render({ flip: true }); }, 120);
+};
+els.search.addEventListener("input", (e) => { if (!e.isComposing) filterSoon(); });
+// 中文输入法：打拼音的过程中不筛选（否则「wei」「weib」会让列表闪成「没有匹配的插件」），选定汉字后再筛。
+// 各浏览器 compositionend 和最后一次 input 的先后不一样，所以这里自己把输入框的值同步一遍
+els.search.addEventListener("compositionend", () => { state.query = els.search.value; syncSearch(); filterSoon(); });
 els.refresh.addEventListener("click", () => load(true));
 
 /* ---------- 排序菜单 ----------

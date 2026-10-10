@@ -104,11 +104,16 @@ a{color:var(--accent-text)}
 .kw{position:relative;display:inline-flex;align-items:center;gap:2px;max-width:100%;height:27px;padding:0 4px 0 10px;border-radius:999px;
   background:var(--chip);box-shadow:inset 0 0 0 1px var(--line);font-size:14px;cursor:default}
 .kw-text{min-width:0;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kw-in{transform-origin:left center;animation:kw-pop .36s var(--spring) backwards} /* 新确认的关键词：从小弹到位，其余胶囊不动 */
+@keyframes kw-pop{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:none}}
+/* 命中的关键词：浅色底，不改字色，深浅主题都读得清 */
+mark.hit{padding:0 .08em;border-radius:3px;background:color-mix(in srgb,var(--accent) 24%,transparent);color:inherit}
 .kw-x,.search-clear{flex:none;display:grid;place-items:center;border:0;padding:0;background:none;color:#e5484d;cursor:pointer}
 .kw-x{position:relative;width:20px;height:20px;border-radius:50%;transition:background-color .15s}
 .kw-x::after{content:"";position:absolute;inset:-6px} /* 把点按范围撑大，手指好点 */
 .search-clear{align-self:flex-start;width:36px;height:41px}
 .search-clear[hidden]{display:none}
+.search-clear:not([hidden]){animation:fade .18s backwards} /* 有内容时红叉淡入，而不是突然冒出来 */
 .search-go{flex:none;margin:5px 5px 5px 0;height:31px;padding:0 13px;border:0;border-radius:calc(var(--r-md) - 3px);background:var(--accent);color:var(--accent-ink);
   font:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:filter .15s,transform .35s var(--spring)}
 .search-go:active{transform:scale(.94)}
