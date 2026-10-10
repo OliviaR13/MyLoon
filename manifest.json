@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-10-07T20:39:32.154526+00:00",
+  "generatedAt": "2026-10-10T00:46:46.801935+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -15,6 +15,9 @@
       "tags": [
         "代理分流"
       ],
+      "mitm": false,
+      "script": false,
+      "args": false,
       "date": "2026-09-21",
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Google.png",
@@ -30,6 +33,9 @@
       "tags": [
         "代理分流"
       ],
+      "mitm": false,
+      "script": false,
+      "args": false,
       "date": "2026-09-20",
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Spotify.png",
@@ -45,6 +51,9 @@
       "tags": [
         "功能增强"
       ],
+      "mitm": true,
+      "script": true,
+      "args": false,
       "date": "2026-10-07",
       "homepage": "https://github.com/app2smile/rules",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Spotify.png",
@@ -60,6 +69,9 @@
       "tags": [
         "代理分流"
       ],
+      "mitm": false,
+      "script": false,
+      "args": false,
       "date": "2026-09-23",
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://www.google.com/s2/favicons?sz=128&domain=x.com",
@@ -75,6 +87,9 @@
       "tags": [
         "代理分流"
       ],
+      "mitm": false,
+      "script": false,
+      "args": false,
       "date": "2026-10-08",
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://www.google.com/s2/favicons?sz=128&domain=youtube.com",
@@ -90,6 +105,9 @@
       "tags": [
         "登录修复"
       ],
+      "mitm": false,
+      "script": false,
+      "args": false,
       "date": "2026-10-07",
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/icon/blued.png",
@@ -105,6 +123,9 @@
       "tags": [
         "IP 属地"
       ],
+      "mitm": false,
+      "script": false,
+      "args": false,
       "date": "2026-09-24",
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/TikTok_1.png",
@@ -120,6 +141,9 @@
       "tags": [
         "登录修复"
       ],
+      "mitm": false,
+      "script": false,
+      "args": false,
       "date": "2026-09-10",
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Microsoft.png",
@@ -135,6 +159,9 @@
       "tags": [
         "IP 属地"
       ],
+      "mitm": false,
+      "script": false,
+      "args": false,
       "date": "2026-09-25",
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/luestr/IconResource/main/App_icon/120px/RedPaper.png",
@@ -151,6 +178,9 @@
         "IP 属地",
         "功能增强"
       ],
+      "mitm": true,
+      "script": true,
+      "args": true,
       "date": "2026-10-03",
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png",
