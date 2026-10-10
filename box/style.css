@@ -253,6 +253,23 @@ html[data-hide-ver] .chip-ver{display:none}
 html[data-hide-cat] .chip-cat{display:none}
 
 .btn-icon{display:grid;place-items:center;width:40px;height:40px;padding:0;flex:none}
+
+/* 按钮自己当确认（借自 Bencho Notify）：两段文字叠在同一格，按钮大小不变；确认态时旧文字向上滑走、新文字从下面滑进来，按钮填色 */
+.btn.swap{display:inline-grid;grid-template-areas:"s";align-items:center;justify-items:center;overflow:hidden}
+.btn.swap>.lbl{grid-area:s;display:inline-flex;align-items:center;gap:5px;transition:transform .34s var(--ease),opacity .2s}
+.btn.swap>.lbl-alt{transform:translateY(70%);opacity:0}
+.btn.swap[data-done]>.lbl:not(.lbl-alt){transform:translateY(-70%);opacity:0}
+.btn.swap[data-done]>.lbl-alt{transform:none;opacity:1;transition-delay:.04s}
+.btn.swap .lbl svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.btn-ghost.swap[data-done]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn-primary.swap[data-done]{filter:brightness(1.12)}
+
+/* 数字滚动（借自 Bencho Like）：每位数字一个固定高度的格子，滚动时新旧两个数字上下错开。
+   高度取行高（1lh），所以格子不会改变所在那一行的高度；tabular-nums 让每位数字等宽，滚动时宽度不抖 */
+.odo{display:inline-block;position:relative;overflow:hidden;height:1.5em;height:1lh;vertical-align:top;font-variant-numeric:tabular-nums}
+.odo-cur{display:block}
+.odo-old{position:absolute;left:0;top:0;display:block}
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 #refreshBtn{height:40px;padding:0 14px;flex:none} /* 与右边的设置按钮等高 */
 #refreshBtn:disabled{opacity:.6}
 
@@ -462,18 +479,40 @@ html[data-reduce-motion] .star-burst{display:none}
 
 /* 排序：一个按钮 + 弹出菜单 */
 .sortwrap{position:relative;flex:none;height:43px}
+/* 排序按钮 → 菜单（参考 Bencho 的 Create menu：一个形状，不是两个）。
+   · 按钮不是「旁边弹出一个面板」，而是它自己长成菜单：面板（.sort-menu）和按钮叠在同一个位置，收起时和按钮一样大，
+     展开时长到内容那么大；宽、高、圆角走同一条曲线、同一个时长，而且不回弹（回弹会让圆角跟着抖一下，是最先显得廉价的地方）。
+   · 展开：按钮上的图标和文字先淡出，菜单的每一行晚一点、一行一行跟进来（90ms + 34ms × 行号）。
+     收起：每一行先一起退，面板缩回按钮大小，按钮的文字等面板快缩完才回来。
+   · 按钮本身在面板上面（z-index 2）：收起时它负责接点击，展开时变透明、不接点击，让面板的标题行接住那个位置。 */
 .sort-btn{height:100%;display:flex;align-items:center;gap:7px;padding:0 13px;font:inherit;font-size:14px;font-weight:600;color:var(--text);
-  background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);cursor:pointer;position:relative;
-  transition:border-color .15s,transform .35s var(--spring)}
-.sort-btn:active{transform:scale(.97)}
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);cursor:pointer;position:relative;z-index:2;
+  transition:border-color .1s .3s,background-color .1s .3s,transform .35s var(--spring)}
+.sort-btn:active{transform:scale(.94)}
 .sort-btn svg{width:16px;height:16px;flex:none;color:var(--muted);fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.sort-btn[aria-expanded="true"]{border-color:var(--accent)}
+.sort-btn>*,.sort-btn[data-pin="true"]::after{transition:opacity .16s .16s}
 .sort-btn[data-pin="true"]::after{content:"";position:absolute;top:6px;right:6px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
-.sort-menu{position:absolute;right:0;top:calc(100% + 8px);min-width:224px;padding:6px;background:var(--card);border:1px solid var(--line);
-  border-radius:calc(var(--r-md) + 4px);box-shadow:0 14px 36px rgb(var(--shadow) / .22);transform-origin:top right;
-  opacity:0;visibility:hidden;transform:translateY(-4px) scale(.97);transition:opacity .18s,transform .28s var(--ease),visibility .18s}
-.sort-menu[data-open="true"]{opacity:1;visibility:visible;transform:none}
-.sort-title{padding:6px 10px 4px;font-size:12px;font-weight:600;color:var(--muted)}
+.sortwrap[data-open="true"] .sort-btn{background:transparent;border-color:transparent;pointer-events:none;
+  transition:border-color 0s,background-color 0s,transform .35s var(--spring)}
+.sortwrap[data-open="true"] .sort-btn>*,.sortwrap[data-open="true"] .sort-btn[data-pin="true"]::after{opacity:0;transition:opacity .1s}
+.sort-menu{position:absolute;right:0;top:0;z-index:1;overflow:hidden;
+  width:var(--bw,100px);height:var(--bh,43px);background:var(--card);border:1px solid var(--line);
+  border-radius:var(--r-md);box-shadow:0 0 0 rgb(var(--shadow) / 0);
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:width .36s cubic-bezier(.32,.72,0,1),height .36s cubic-bezier(.32,.72,0,1),border-radius .36s cubic-bezier(.32,.72,0,1),
+    box-shadow .3s,opacity 0s .36s,visibility 0s .36s}
+.sort-menu[data-open="true"]{width:var(--mw);height:var(--mh);border-radius:calc(var(--r-md) + 4px);
+  box-shadow:0 14px 36px rgb(var(--shadow) / .22);opacity:1;visibility:visible;pointer-events:auto;
+  transition:width .48s cubic-bezier(.22,1,.36,1),height .48s cubic-bezier(.22,1,.36,1),border-radius .48s cubic-bezier(.22,1,.36,1),
+    box-shadow .3s,opacity 0s,visibility 0s}
+/* 内容固定在面板右上角，面板的左边缘和下边缘向外移动时，内容原地不动，像窗口被拉开 */
+.sort-inner{position:absolute;top:0;right:0;width:max-content;min-width:224px;padding:6px}
+.sort-menu .sort-inner>*{opacity:0;transform:translateY(-6px);
+  transition:opacity .14s calc((var(--n) - 1 - var(--i)) * 14ms),transform .2s var(--ease) calc((var(--n) - 1 - var(--i)) * 14ms),background-color .15s}
+.sort-menu[data-open="true"] .sort-inner>*{--d:calc(90ms + var(--i) * 34ms);opacity:1;transform:none;
+  transition:opacity .24s var(--d),transform .42s var(--ease) var(--d),background-color .15s}
+.sort-title{display:flex;align-items:center;justify-content:space-between;min-height:36px;padding:0 10px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer} /* 36 = 按钮高 43 - 面板边框 1 - 内边距 6，正好盖住按钮 */
+.sort-title svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .sort-item{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;padding:10px;font:inherit;font-size:14.5px;color:var(--text);
   background:none;border:0;border-radius:var(--r-md);text-align:left;cursor:pointer;transition:background-color .15s}
 .sort-item[aria-checked="true"]:not(.sort-pin){color:var(--accent-text);font-weight:600}

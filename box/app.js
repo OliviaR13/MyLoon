@@ -165,6 +165,100 @@ function setSwitch(host, on, thumb = host) {
 // 等开关的第一帧画出去再做重活：render() 会整表重建，同步执行会把动效最前面几帧吃掉，看起来像「这个开关没动画」
 const afterPaint = (fn) => requestAnimationFrame(() => requestAnimationFrame(fn));
 
+/* 数字滚动（思路借自 Bencho 的 Like：里程表式计数）。
+   只有变了的那几位会滚：变大时新数字从下面滚进来、旧的从上面滚出去，变小时反过来；
+   进位时从右到左依次错开 45ms。位数变了（9 → 10）就把整个数当成一位一起滚。
+   setRollText(host, text)：text 里每一段连续数字都是一个计数，其余的字原样显示。
+   前后两次文字「非数字的部分」完全一样才滚（计数变了），否则直接换（比如排序方式变了、或从「加载中」变成列表）。
+   读屏软件读的是隐藏的整段文字，每位数字的小格子对它隐藏，免得一位一位地念。 */
+const ROLL_EASE = "cubic-bezier(.2,.8,.2,1)";
+const slotOf = (ch) => { const s = el("span", "odo"); s.append(el("span", "odo-cur", ch)); return s; };
+function rollSlot(slot, to, dir, delay) {
+  const cur = slot.querySelector(".odo-cur");
+  const old = el("span", "odo-old", cur.textContent);
+  slot.append(old);
+  cur.textContent = to;
+  const opt = { duration: 380, delay, easing: ROLL_EASE };
+  cur.animate([{ transform: `translateY(${dir * 100}%)`, opacity: 0 }, { transform: "none", opacity: 1 }], { ...opt, fill: "backwards" });
+  old.animate([{ transform: "none", opacity: 1 }, { transform: `translateY(${-dir * 100}%)`, opacity: 0 }], { ...opt, fill: "both" }).onfinish = () => old.remove();
+}
+// 把一个计数落定成「每位一个格子」的静止状态；上一次没播完的动画直接丢掉，从当前值接着滚
+function settleNum(n) {
+  clearTimeout(n._t);
+  if (n.querySelector(".odo-old") || n.children.length !== n._v.length) n.replaceChildren(...[...n._v].map(slotOf));
+}
+function rollNum(n, to) {
+  settleNum(n);
+  const from = n._v;
+  if (from === to) return;
+  const dir = Number(to) >= Number(from) ? 1 : -1;
+  n._v = to;
+  if (from.length === to.length) {
+    [...to].forEach((ch, i) => { if (ch !== from[i]) rollSlot(n.children[i], ch, dir, (to.length - 1 - i) * 45); });
+  } else {
+    const slot = slotOf(from);
+    n.replaceChildren(slot);
+    rollSlot(slot, to, dir, 0);
+    n._t = setTimeout(() => settleNum(n), 460); // 滚完后恢复成每位一格，下次同位数时只滚变了的那几位
+  }
+}
+function setRollText(host, text) {
+  const parts = text.split(/(\d+)/); // 奇数位是数字，偶数位是其余的字
+  const shape = parts.filter((_, i) => i % 2 === 0).join("\u0000");
+  const prev = host._roll;
+  if (prev && host.contains(prev.vis) && prev.shape === shape && !motionOff()) {
+    const nums = prev.vis.querySelectorAll(".odo-num");
+    parts.filter((_, i) => i % 2).forEach((s, k) => rollNum(nums[k], s));
+    prev.sr.textContent = text;
+    return;
+  }
+  const sr = el("span", "sr-only", text);
+  const vis = el("span", "odo-text");
+  vis.setAttribute("aria-hidden", "true");
+  vis.append(...parts.map((s, i) => {
+    if (i % 2 === 0) return document.createTextNode(s);
+    const n = el("span", "odo-num");
+    n._v = s;
+    n.append(...[...s].map(slotOf));
+    return n;
+  }).filter((n) => n.nodeType !== 3 || n.data));
+  host.replaceChildren(sr, vis);
+  host._roll = { sr, vis, shape };
+}
+
+/* 按钮自己当确认（思路借自 Bencho 的 Notify）：点完之后按钮本身变成「已复制」——填色、文字换成它刚做完的事，不再另弹提示条。
+   两段文字叠在同一格里，按钮宽度取较宽的那段，所以按钮大小不变，旁边的按钮也不会被挤动（Notify 原版是让按钮宽度跟着文字长，
+   这里两个按钮并排在一行里，宽度一动就会带着另一个一起抖）。on(ms) 进入确认态并在 ms 毫秒后自动恢复，off() 立刻恢复。 */
+function checkIcon() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", "M5 12.5l4.5 4.5L19 7.5");
+  svg.append(path);
+  return svg;
+}
+function confirmable(btn, doneText, withCheck) {
+  const lbl = el("span", "lbl", btn.textContent);
+  const alt = el("span", "lbl lbl-alt");
+  alt.setAttribute("aria-hidden", "true");
+  if (withCheck) alt.append(checkIcon());
+  alt.append(doneText);
+  btn.classList.add("swap");
+  btn.replaceChildren(lbl, alt);
+  let t = 0;
+  const off = () => { clearTimeout(t); btn.removeAttribute("data-done"); btn.removeAttribute("aria-label"); };
+  return {
+    on(ms) {
+      clearTimeout(t);
+      btn.setAttribute("data-done", "");
+      btn.setAttribute("aria-label", doneText); // 读屏软件也能知道结果
+      t = setTimeout(off, ms);
+    },
+    off,
+  };
+}
+
 function toggleFav(id, btn) {
   state.favorites.has(id) ? state.favorites.delete(id) : state.favorites.add(id);
   state.favMeta[id] = [Date.now(), state.favorites.has(id) ? 1 : 0]; // 取消收藏也要留一条记录
@@ -418,8 +512,9 @@ function glide(before) {
 /* 唤起 Loon：成功时页面会被切走，不弹任何提示；
    2 秒后页面仍在前台并保持焦点，才认为没有唤起成功，给出备用方案。
    这是根据页面状态做的判断，可能受系统弹窗影响。 */
-function openInLoon(p) {
+function openInLoon(p, ui) {
   window.location.href = installUrl(p);
+  if (ui) ui.on(2000); // 按钮自己变成「唤起中…」，和下面的 2 秒判断同一个时长
   setTimeout(() => {
     if (document.visibilityState === "visible" && document.hasFocus()) {
       toast("没有唤起 Loon，请确认已安装", {
@@ -482,9 +577,14 @@ function buildCard(p, terms = []) {
     open ? collapse(desc) : expand(desc);
   });
 
-  card.querySelector(".act-install").addEventListener("click", () => openInLoon(p));
-  card.querySelector(".act-copy").addEventListener("click", async () => {
-    toast((await copyText(rawUrl(p))) ? "已复制链接" : "复制失败，请手动复制");
+  const installBtn = card.querySelector(".act-install");
+  const installing = confirmable(installBtn, "唤起中…", false);
+  installBtn.addEventListener("click", () => openInLoon(p, installing));
+  const copyBtn = card.querySelector(".act-copy");
+  const copied = confirmable(copyBtn, "已复制", true);
+  copyBtn.addEventListener("click", async () => {
+    if (await copyText(rawUrl(p))) copied.on(1800); // 成功：按钮自己说「已复制」，不弹提示条
+    else toast("复制失败，请手动复制");              // 失败才需要多说一句怎么办
   });
   return card;
 }
@@ -507,7 +607,7 @@ function render({ animate = false, flip = false } = {}) {
   const visible = sortPlugins(state.plugins.filter((p) => matches(p, terms)), terms);
   const total = state.plugins.length;
   const how = SORTS[state.sort.key];
-  els.count.textContent = (visible.length === total ? `共 ${total} 个插件` : `${visible.length} / ${total} 个插件`) + ` · ${how.label} ${how.hint[state.sort.dir]}`;
+  setRollText(els.count, (visible.length === total ? `共 ${total} 个插件` : `${visible.length} / ${total} 个插件`) + ` · ${how.label} ${how.hint[state.sort.dir]}`);
 
   if (!visible.length) {
     els.list.replaceChildren(
@@ -574,7 +674,7 @@ function syncTabs() {
     b.setAttribute("aria-pressed", String((b.dataset.view === "fav") === onFav));
   });
   const fc = document.getElementById("favCount");
-  if (fc) fc.textContent = String(state.favorites.size);
+  if (fc) setRollText(fc, String(state.favorites.size));
   placeTabInd();
 }
 
@@ -961,11 +1061,17 @@ function buildSort() {
   sortUI.text = el("span", "sort-text");
   btn.append(sortIcon(), sortUI.text);
 
+  // 菜单 = 一个会变大变小的面板（.sort-menu，负责尺寸和边框）+ 里面按自然大小排好的内容（.sort-inner）。
+  // 收起时面板和按钮一样大，展开时长到内容那么大：按钮和菜单是同一个形状的两种大小，不是两个东西
   const menu = el("div", "sort-menu");
   menu.id = "sortMenu";
   menu.setAttribute("role", "menu");
   menu.setAttribute("aria-label", "排序方式");
-  menu.append(el("div", "sort-title", "排序方式"));
+  const inner = el("div", "sort-inner");
+  menu.append(inner);
+  const title = el("div", "sort-title");
+  title.append(el("span", "", "排序方式"), chevronIcon());
+  inner.append(title); // 标题行的高度正好盖住按钮原来的位置：再点一下按钮原来的地方 = 收起，而不是误点到下面的选项
   sortUI.items = SORT_OPTIONS.map((o) => {
     const b = el("button", "sort-item");
     b.type = "button";
@@ -973,19 +1079,43 @@ function buildSort() {
     b.dataset.key = o.key;
     b.dataset.dir = o.dir;
     b.append(el("span", "", o.label), el("i", "sort-check"));
-    menu.append(b);
+    inner.append(b);
     return b;
   });
-  menu.append(el("div", "sort-sep"));
+  inner.append(el("div", "sort-sep"));
   const pin = el("button", "sort-item sort-pin");
   pin.type = "button";
   pin.setAttribute("role", "menuitemcheckbox");
   pin.append(el("span", "", "收藏置顶"), el("i", "mini-switch"));
-  menu.append(pin);
+  inner.append(pin);
+  // 每一行按顺序编号：展开时一行一行跟在面板后面进来，收起时反过来（CSS 里用 --i / --n 算延迟）
+  [...inner.children].forEach((c, i) => c.style.setProperty("--i", i));
+  inner.style.setProperty("--n", inner.children.length);
 
-  Object.assign(sortUI, { btn, menu, pin });
+  Object.assign(sortUI, { btn, menu, inner, pin });
   els.sort.replaceChildren(btn, menu);
+  sizeSortMenu();
   syncSort();
+}
+
+function chevronIcon() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", "M6 14.5l6-6 6 6");
+  svg.append(path);
+  return svg;
+}
+
+// 量出两个尺寸写进 CSS 变量：--bw/--bh 是按钮（收起时面板的大小），--mw/--mh 是内容（展开时面板的大小）。
+// 内容的自然大小不受面板当前宽高影响（.sort-inner 是 max-content），所以收起、隐藏着也量得准
+function sizeSortMenu() {
+  const s = sortUI.menu.style;
+  s.setProperty("--bw", sortUI.btn.offsetWidth + "px");
+  s.setProperty("--bh", sortUI.btn.offsetHeight + "px");
+  s.setProperty("--mw", sortUI.inner.offsetWidth + 2 + "px"); // +2 是面板自己的 1px 边框
+  s.setProperty("--mh", sortUI.inner.offsetHeight + 2 + "px");
 }
 
 // 更新按钮文字、选中项和「收藏置顶」状态（account.js 合并云端设置后也会调用）
@@ -1002,10 +1132,16 @@ function syncSort() {
 
 const sortIsOpen = () => sortUI.menu.dataset.open === "true";
 function setSortOpen(open, viaKeyboard = false) {
+  if (open) syncSort(); // 先更新按钮文字（宽度会变），再量尺寸
+  // 展开前，收起状态的面板必须正好等于按钮现在的大小，否则展开第一帧按钮变透明、面板却比它窄，按钮左边会缺一块。
+  // 所以这一步关掉过渡、让新量的尺寸立刻生效，再开始展开；收起时则保留过渡，从菜单大小缩回到按钮现在的大小
+  if (open) sortUI.menu.style.transition = "none";
+  sizeSortMenu();
+  if (open) { void sortUI.menu.offsetWidth; sortUI.menu.style.transition = ""; }
   sortUI.menu.dataset.open = String(open);
+  els.sort.dataset.open = String(open);
   sortUI.btn.setAttribute("aria-expanded", String(open));
   if (open) {
-    syncSort();
     // 只有键盘打开时才移动焦点；触屏点开不移动，避免出现焦点框
     if (viaKeyboard) (sortUI.items.find((b) => b.getAttribute("aria-checked") === "true") || sortUI.items[0]).focus();
   }
@@ -1016,6 +1152,7 @@ buildSort();
 sortUI.btn.addEventListener("click", (e) => setSortOpen(!sortIsOpen(), e.detail === 0));
 
 sortUI.menu.addEventListener("click", (e) => {
+  if (e.target.closest(".sort-title")) { setSortOpen(false); if (e.detail === 0) sortUI.btn.focus(); return; } // 展开时按钮原来的位置就是标题行：点它收起
   const item = e.target.closest(".sort-item");
   if (!item) return;
   if (item === sortUI.pin) { // 开关：菜单保持打开
