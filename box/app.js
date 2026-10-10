@@ -6,6 +6,7 @@ const CONFIG = {
   manifest: "api/manifest",        // 服务端校验令牌后返回清单（Pages Function）
   staticManifest: "manifest.json", // 不启用人机验证时直接读取的静态清单
   rawBase: "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
+  sourceBase: "https://github.com/OliviaR13/MyLoon/blob/main/", // 详情面板「查看源码」的前缀
   recentDays: 7,                                              // 日期在这个天数以内的插件显示「近期更新」
   all: "全部",
   turnstile: {
@@ -80,6 +81,7 @@ const saveFavMeta = () => { try { localStorage.setItem(FAV_META_KEY, JSON.string
 
 // query：输入框里还没回车的那一段；keywords：已回车确认的关键词（显示成胶囊）
 const state = { plugins: [], category: CONFIG.all, query: "", keywords: [], sort: readSort(), favorites: readFavs(), favMeta: readFavMeta() };
+let detailPlugin = null; // 详情面板正在显示的插件；null = 没开。render() 要用它，所以放在这里而不是详情那一节
 
 function saveFavs() {
   try { localStorage.setItem(FAV_KEY, JSON.stringify([...state.favorites])); } catch {}
@@ -553,7 +555,14 @@ function buildCard(p, terms = []) {
   star.setAttribute("aria-label", "收藏 " + p.name);
   star.setAttribute("aria-pressed", String(state.favorites.has(p.id)));
   star.addEventListener("click", () => toggleFav(p.id, star));
-  card.querySelector(".card-title").append(star);
+  // 详情入口：星标左边的 ⓘ。整张卡片的空白处也能点开（见「插件详情」一节的事件委托）
+  const info = el("button", "star detail-btn");
+  info.type = "button";
+  info.append(infoIcon());
+  info.setAttribute("aria-label", "查看 " + p.name + " 的详情");
+  info.setAttribute("aria-haspopup", "dialog");
+  info.addEventListener("click", () => openDetail(p));
+  card.querySelector(".card-title").append(info, star);
   const ver = card.querySelector(".chip-ver");
   if (p.version) ver.textContent = p.version; else ver.remove();
   if (isRecent(p)) card.querySelector(".card-name").append(" ", el("span", "chip chip-new", "近期更新")); // 不依赖版本号标签，版本号缺失或被隐藏时照常显示
@@ -589,6 +598,161 @@ function buildCard(p, terms = []) {
   return card;
 }
 
+/* ---------- 插件详情 ----------
+   只回答三件事：这个插件有什么用 / 安装前要做什么 / 出了问题看什么（版本、更新时间、源码）。
+   所有内容都来自 manifest.json 里已有的字段，不新增数据，也不在本地或云端存任何新东西：
+   · 收藏：复用 toggleFav，和列表里的星标走同一条路（favMeta + favs:change），云端同步自然生效；
+   · 不读也不写 settings，所以「显示描述 / 显示版本号 / 显示分类标签」这些卡片显示开关不影响详情；
+   · 外壳是 index.html 里的 <dialog class="sheet detail">，外观和动效沿用设置页的 .sheet（手机底部抽屉，≥600px 右侧面板）。
+   所有字段都用 textContent 写入，不当作 HTML 解析。 */
+const detailEls = {
+  dlg: $("#detail"), body: $("#detailBody"), icon: $("#detailIcon"), name: $("#detailName"), sub: $("#detailSub"),
+  chips: $("#detailChips"), intro: $("#detailIntro"), notes: $("#detailNotes"), info: $("#detailInfo"),
+  source: $("#detailSource"), install: $("#detailInstall"), close: $("#detailClose"), favSlot: $("#detailFav"),
+};
+
+function svgIcon(d, extra = {}) { // 单路径线条图标，按钮和卡片里都用
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  for (const [k, v] of Object.entries(extra)) svg.setAttribute(k, v);
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", d);
+  svg.append(path);
+  return svg;
+}
+function infoIcon() {
+  const svg = svgIcon("M12 11v5.2M12 7.8h.01");
+  const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  for (const [k, v] of Object.entries({ cx: 12, cy: 12, r: 8.5 })) c.setAttribute(k, v);
+  svg.prepend(c);
+  return svg;
+}
+
+/* 「安装前须知」：按清单字段和插件用途挑选，不是每个插件都一套话。
+   · 分类 / 标签属于「走代理」的（代理分流、IP 属地）：需要选策略、注意规则顺序；
+   · 直连类（登录修复）和没有任何特殊要求的插件：只会看到「无需额外设置」；
+   · mitm / script / args 来自 workflow 解析插件的 [MITM] / [Script] / [Argument] 段。
+   反引号包起来的部分显示成等宽小标签。 */
+const POLICY_TAGS = new Set(["代理分流", "IP 属地"]);
+function installNotes(p) {
+  const notes = [];
+  if ([p.category, ...p.tags].some((t) => POLICY_TAGS.has(t))) {
+    notes.push(
+      "安装后，在 Loon 的插件详情中选择代理策略组或节点。",
+      "建议将插件放在 `GEOIP,CN,DIRECT` 等国内直连规则之前。",
+      "未选择时，默认使用全局策略的第一个节点。"
+    );
+  }
+  if (p.mitm) notes.push("需要在 Loon 中开启 MITM 并信任证书，否则相关功能不会生效。");
+  if (p.script) notes.push("包含脚本，安装前可以先点「查看源码」确认内容。");
+  if (p.args) notes.push("安装后可以在 Loon 的插件详情中调整参数。");
+  if (!notes.length) notes.push("无需额外设置，安装后即可使用。");
+  return notes;
+}
+function noteItem(text) {
+  const li = el("li");
+  text.split("`").forEach((s, i) => { if (s) li.append(i % 2 ? el("code", "", s) : document.createTextNode(s)); });
+  return li;
+}
+
+const sourceUrl = (p) => CONFIG.sourceBase + p.file.replace(/^\/+/, "").split("/").map(encodeURIComponent).join("/");
+const shownVersion = (p) => (p.version ? (/^\d/.test(p.version) ? "v" + p.version : p.version) : "");
+
+function infoRows(p) {
+  return [
+    ["作者", p.author],
+    ["版本", p.version],
+    ["最近更新", p.date],
+    ["配置参数", p.args ? "可在 Loon 中调整" : "无"],
+    ["标签", p.tags.join("、")], // 分类已经在标题下面了，这里只放其余标签；没有就不显示这一行
+  ]
+    .filter(([, v]) => v)
+    .map(([k, v]) => { const r = el("div", "row"); r.append(el("span", "muted", k), el("span", "d-val", v)); return r; });
+}
+
+// 收藏星标：只建一次，之后随 detailPlugin 变化
+const detailStar = (() => {
+  const b = el("button", "star");
+  b.type = "button";
+  b.append(starIcon());
+  b.addEventListener("click", () => { if (detailPlugin) toggleFav(detailPlugin.id, b); });
+  detailEls.favSlot.append(b);
+  return b;
+})();
+function syncDetailFav() {
+  if (!detailPlugin) return;
+  const on = state.favorites.has(detailPlugin.id);
+  detailStar.setAttribute("aria-pressed", String(on));
+  detailStar.setAttribute("aria-label", (on ? "取消收藏 " : "收藏 ") + detailPlugin.name);
+}
+
+// 底部两个按钮：安装沿用列表里的 openInLoon（含 2 秒没唤起就给「复制链接」的兜底）；图标在 confirmable 之后再放进文字层
+const detailInstalling = confirmable(detailEls.install, "唤起中…", false);
+detailEls.install.querySelector(".lbl:not(.lbl-alt)").prepend(svgIcon("M12 4v10M8 10.5l4 4 4-4M5 19h14"));
+detailEls.install.addEventListener("click", () => { if (detailPlugin) openInLoon(detailPlugin, detailInstalling); });
+detailEls.source.prepend(svgIcon("M8 8l-4 4 4 4M16 8l4 4-4 4"));
+
+function fillDetail(p) {
+  const d = detailEls;
+  if (p.icon) { d.icon.src = p.icon; d.icon.hidden = false; } else { d.icon.removeAttribute("src"); d.icon.hidden = true; }
+  d.name.textContent = p.name;
+  const sub = [shownVersion(p), p.category].filter(Boolean).join(" · ");
+  d.sub.textContent = sub;
+  d.sub.hidden = !sub;
+  // 能力标签：用「需要 / 无需」直接回答「要不要开 MITM、会不会跑脚本」，需要用户动手的那个用强调色
+  const chip = (text, need) => { const c = el("span", "chip", text); if (need) c.dataset.need = ""; return c; };
+  d.chips.replaceChildren(chip(p.mitm ? "需 MITM" : "无需 MITM", p.mitm), chip(p.script ? "含脚本" : "无需脚本", p.script), ...(p.args ? [chip("可配置", false)] : []));
+  const segs = splitDescription(p.description);
+  d.intro.replaceChildren(...(segs.length ? segs.map((s) => el("span", "seg", s)) : [el("span", "seg d-empty", "这个插件还没有填写介绍。")]));
+  d.notes.replaceChildren(...installNotes(p).map(noteItem));
+  d.info.replaceChildren(...infoRows(p));
+  d.source.href = sourceUrl(p);
+  detailInstalling.off();
+  syncDetailFav();
+}
+
+/* 开关：和设置页同一套做法。加 .open 让面板滑进来；退场换成「先慢后快」的曲线，
+   等 transform 过渡真正结束再 close()，兜底 600ms（减少动画时没有 transitionend）。 */
+let detailEnd = null;
+function cancelDetailClose() {
+  if (detailEnd) { detailEls.dlg.removeEventListener("transitionend", detailEnd.fn); clearTimeout(detailEnd.timer); detailEnd = null; }
+  detailEls.dlg.classList.remove("closing");
+}
+function openDetail(p) {
+  const dlg = detailEls.dlg;
+  cancelDetailClose(); // 退场没播完又点开：直接接回来
+  detailPlugin = p;
+  fillDetail(p);
+  // 必须在 showModal 之前量滚动条宽度（之后页面已经 overflow:hidden），和设置页一样，免得页面在 Windows 上横跳
+  if (!dlg.open) document.documentElement.style.setProperty("--page-sbw", window.innerWidth - document.documentElement.clientWidth + "px");
+  if (!dlg.open) dlg.showModal();
+  detailEls.body.scrollTop = 0;
+  requestAnimationFrame(() => dlg.classList.add("open"));
+}
+function closeDetail() {
+  const dlg = detailEls.dlg;
+  if (!dlg.open || detailEnd) return;
+  dlg.classList.add("closing");
+  dlg.classList.remove("open");
+  const finish = () => { cancelDetailClose(); if (dlg.open) dlg.close(); detailPlugin = null; };
+  const fn = (e) => { if (e.target === dlg && e.propertyName === "transform") finish(); };
+  detailEnd = { fn, timer: setTimeout(finish, 600) };
+  dlg.addEventListener("transitionend", fn);
+}
+detailEls.close.addEventListener("click", closeDetail);
+detailEls.dlg.addEventListener("cancel", (e) => { e.preventDefault(); closeDetail(); }); // Esc
+detailEls.dlg.addEventListener("click", (e) => { if (e.target === detailEls.dlg) closeDetail(); }); // 点遮罩
+
+// 点卡片的空白处（名称、描述、标签）也能打开详情；按钮、链接、正在选中文字时不触发
+els.list.addEventListener("click", (e) => {
+  const card = e.target.closest(".card");
+  if (!card || e.target.closest("button, a")) return;
+  if (!getSelection().isCollapsed) return;
+  const p = state.plugins.find((x) => x.id === card.dataset.id);
+  if (p) openDetail(p);
+});
+
 function notice(title, body, label, onClick) {
   const box = el("div", "notice");
   box.append(el("h2", "", title), el("p", "", body));
@@ -602,6 +766,7 @@ function notice(title, body, label, onClick) {
 }
 
 function render({ animate = false, flip = false } = {}) {
+  syncDetailFav(); // 详情开着时，云端合并 / 在「收藏」页取消收藏等都会走到这里，星标跟着 state 走
   const before = flip && !animate && !motionOff() && els.list.animate ? cardTops() : null; // 重建前先记位置
   const terms = searchTerms();
   const visible = sortPlugins(state.plugins.filter((p) => matches(p, terms)), terms);
