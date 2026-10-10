@@ -69,6 +69,46 @@ jobs:
               return None
 
           # ----------------------------------------
+          # 读取 [Section] 段落内容（去掉空行和注释行）
+          # ----------------------------------------
+          def section(text, name):
+              pattern = (
+                  r"^\[" + re.escape(name) + r"\]\s*$"
+                  r"(.*?)(?=^\[[^\]\n]+\]\s*$|\Z)"
+              )
+              match = re.search(
+                  pattern, text, re.MULTILINE | re.DOTALL | re.IGNORECASE
+              )
+
+              if not match:
+                  return []
+
+              return [
+                  line.strip()
+                  for line in match.group(1).splitlines()
+                  if line.strip() and not line.strip().startswith(("#", ";", "//"))
+              ]
+
+          # 是否真的需要 MITM：hostname 里至少有一个没带 "-" 前缀的域名
+          # （只有 -xxx 排除项的，如 outlook.plugin，是在「跳过」MITM，不算需要）
+          def needs_mitm(text):
+              for line in section(text, "MITM"):
+                  key, _, value = line.partition("=")
+
+                  if key.strip().lower() != "hostname":
+                      continue
+
+                  value = value.replace("%APPEND%", "").replace("%INSERT%", "")
+
+                  for host in value.split(","):
+                      host = host.strip()
+
+                      if host and not host.startswith("-"):
+                          return True
+
+              return False
+
+          # ----------------------------------------
           # 扫描所有 .plugin
           # ----------------------------------------
           for path in sorted(root.glob("*.plugin")):
@@ -102,6 +142,13 @@ jobs:
                   "category": category,
 
                   "tags": tags,
+
+                  # 卡片上的「需 MITM / 含脚本 / 可配置」标签
+                  "mitm": needs_mitm(text),
+
+                  "script": bool(section(text, "Script")),
+
+                  "args": bool(section(text, "Argument")),
 
                   "date": meta(text, "date"),
 
