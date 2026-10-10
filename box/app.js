@@ -1186,36 +1186,18 @@ document.addEventListener("keydown", (e) => {
 });
 
 /* 吸顶栏（#dock）：页签、搜索 / 排序、分类筛选一起固定在屏幕顶部。
-   · 吸住时（data-stuck）背景变成毛玻璃、底下一条细线；
-   · 手指往下滑（读列表）时分类筛选这一行收起，往上滑时回来（data-slim）；
-   · 这几种情况不收，也不改变当前状态：搜索框有焦点（键盘弹出时 iOS 会自己滚动页面）、
-     已经滑到接近页面底部（收起会让页面变矮，滚动位置被夹回来，会被误判成「往上滑」，筛选行就在底部来回开合）、
-     以及收起 / 展开动画还没播完的 350ms 内。 */
+   吸住时（data-stuck）背景变成毛玻璃、底部渐隐；没吸住时完全透明，和普通页面一样。 */
 (() => {
   const dock = $("#dock");
   if (!dock) return;
-  let lastY = scrollY, lockUntil = 0, queued = 0;
+  let queued = 0;
   const update = () => {
     queued = 0;
-    const y = Math.max(0, scrollY); // iOS 下拉回弹时 scrollY 会是负数
-    const stickTop = parseFloat(getComputedStyle(dock).top) || 0;
-    const stuck = y > 0 && dock.getBoundingClientRect().top <= stickTop + 0.5;
-    dock.toggleAttribute("data-stuck", stuck);
-    if (!stuck || searchBox.contains(document.activeElement)) {
-      if (dock.hasAttribute("data-slim")) { dock.removeAttribute("data-slim"); lockUntil = performance.now() + 350; }
-      lastY = y;
-      return;
-    }
-    const dy = y - lastY;
-    if (Math.abs(dy) < 8 || performance.now() < lockUntil) return; // 小抖动不算方向
-    lastY = y;
-    if (innerHeight + y >= document.documentElement.scrollHeight - 60) return; // 接近底部：保持现状
-    const slim = dy > 0 && y > 120;
-    if (slim !== dock.hasAttribute("data-slim")) { dock.toggleAttribute("data-slim", slim); lockUntil = performance.now() + 350; }
+    const stickTop = parseFloat(getComputedStyle(dock).top) || 0; // 吸顶的位置是 env(安全区)，算出来是像素
+    dock.toggleAttribute("data-stuck", scrollY > 0 && dock.getBoundingClientRect().top <= stickTop + 0.5);
   };
   addEventListener("scroll", () => { if (!queued) queued = requestAnimationFrame(update); }, { passive: true });
   addEventListener("resize", update);
-  searchBox.addEventListener("focusin", update);
 })();
 
 load();
