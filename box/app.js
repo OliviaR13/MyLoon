@@ -261,12 +261,19 @@ function confirmable(btn, doneText, withCheck) {
   };
 }
 
+// 同一个插件的星标可能同时在两处：列表里的卡片、详情页。列表只有在「收藏」分类里才会重绘，其他时候靠这里把两处对齐
+function syncStars(id) {
+  const on = String(state.favorites.has(id));
+  els.list.querySelectorAll(".card").forEach((c) => { if (c.dataset.id === id) c.querySelector(".star:not(.detail-btn)")?.setAttribute("aria-pressed", on); });
+  syncDetailFav();
+}
 function toggleFav(id, btn) {
   state.favorites.has(id) ? state.favorites.delete(id) : state.favorites.add(id);
   state.favMeta[id] = [Date.now(), state.favorites.has(id) ? 1 : 0]; // 取消收藏也要留一条记录
   saveFavMeta();
   saveFavs();
   btn.setAttribute("aria-pressed", String(state.favorites.has(id)));
+  syncStars(id); // 点的是详情里的星标时，列表里那张卡片的星标也要跟着变（反过来，点卡片星标时详情里的星标也一样）
   if (state.favorites.has(id)) burstStar(btn);
   renderFilters();
   if (state.category === FAV) render({ flip: true }); // 在「收藏」里取消收藏时，该卡片消失，下面的卡片滑上来
@@ -429,6 +436,8 @@ function normalize(raw) {
     mitm: raw.mitm === true,
     script: raw.script === true,
     args: raw.args === true,
+    rule: raw.rule === true,                                    // 有 [Rule]
+    proxy: typeof raw.proxy === "boolean" ? raw.proxy : null,   // [Rule] 里有走 PROXY 的规则；null = 清单还没带这个字段，详情页退回按分类判断
   };
 }
 
@@ -608,7 +617,7 @@ function buildCard(p, terms = []) {
    所有字段都用 textContent 写入，不当作 HTML 解析。 */
 const detailEls = {
   dlg: $("#detail"), body: $("#detailBody"), icon: $("#detailIcon"), name: $("#detailName"), sub: $("#detailSub"),
-  chips: $("#detailChips"), intro: $("#detailIntro"), notes: $("#detailNotes"), info: $("#detailInfo"),
+  chips: $("#detailChips"), intro: $("#detailIntro"), notes: $("#detailNotes"), trouble: $("#detailTrouble"), info: $("#detailInfo"),
   source: $("#detailSource"), install: $("#detailInstall"), close: $("#detailClose"), favSlot: $("#detailFav"),
 };
 
@@ -635,15 +644,17 @@ function infoIcon() {
   return svg;
 }
 
-/* 「安装前须知」：按清单字段和插件用途挑选，不是每个插件都一套话。
-   · 分类 / 标签属于「走代理」的（代理分流、IP 属地）：需要选策略、注意规则顺序；
-   · 直连类（登录修复）和没有任何特殊要求的插件：只会看到「无需额外设置」；
-   · mitm / script / args 来自 workflow 解析插件的 [MITM] / [Script] / [Argument] 段。
+/* 「安装前须知」和「遇到问题时」：按清单字段挑选，不是每个插件都一套话；没有对应字段就不显示对应的提示。
+   · needsPolicy：[Rule] 里有走 PROXY 的规则（workflow 解析出的 proxy）。有的话用户要在 Loon 里为它选代理策略、注意规则顺序；
+     清单还没带 proxy 字段时（null），退回按分类判断（代理分流、IP 属地）；
+   · mitm / script / args / rule 来自 workflow 解析插件的 [MITM] / [Script] / [Argument] / [Rule] 段；
+   · 提示的原文来自 README 的「使用说明」和「常见问题」，不是新写的说法。
    反引号包起来的部分显示成等宽小标签。 */
 const POLICY_TAGS = new Set(["代理分流", "IP 属地"]);
+const needsPolicy = (p) => (p.proxy !== null ? p.proxy : [p.category, ...p.tags].some((t) => POLICY_TAGS.has(t)));
 function installNotes(p) {
   const notes = [];
-  if ([p.category, ...p.tags].some((t) => POLICY_TAGS.has(t))) {
+  if (needsPolicy(p)) {
     notes.push(
       "安装后，在 Loon 的插件详情中选择代理策略组或节点。",
       "建议将插件放在 `GEOIP,CN,DIRECT` 等国内直连规则之前。",
@@ -655,6 +666,25 @@ function installNotes(p) {
   if (p.args) notes.push("安装后可以在 Loon 的插件详情中调整参数。");
   if (!notes.length) notes.push("无需额外设置，安装后即可使用。");
   return notes;
+}
+function troubleNotes(p) {
+  const notes = [];
+  if (p.rule || needsPolicy(p)) notes.push("没生效：先确认插件排在 `GEOIP,CN,DIRECT` 等国内直连规则之前——规则自上而下匹配，先命中的生效。");
+  if (p.mitm || p.script) notes.push("带脚本的插件：确认 MITM 已开启，证书已安装并信任。");
+  if (needsPolicy(p)) notes.push("确认在插件详情里选的策略组或节点可用。建议选固定的单一节点，自动测速类的策略组切换节点时可能中断已建立的连接。");
+  if (p.mitm || p.script) notes.push("同时启用了对相同域名做 MITM 解密或改写响应体的其他插件（如去广告类）时，各插件独立生效，出现异常需要分别排查。");
+  if (needsPolicy(p)) notes.push("连接偶尔失败不一定是插件的问题：插件只决定走代理还是直连，连接被取消、重置或超时，原因可能在 App、节点、CDN 或链路。");
+  if (!notes.length) notes.push("暂时没有针对这个插件的特别排查项。");
+  return notes;
+}
+/* 介绍里的「安装步骤」句子：作者常在 #!desc 里写「请在『代理指向的策略』里选择…」「请把插件放在 GEOIP,CN,DIRECT 之前」，
+   这和下面「安装前须知」是同一件事，同一句话在页面里出现两遍。须知里已经有对应条目时（needsPolicy），把这样的句子从介绍里去掉；
+   全被去掉就原样保留。只影响显示，#!desc 原文和搜索都不变。 */
+const POLICY_STEP = /代理指向的策略|GEOIP,\s*CN,\s*DIRECT/;
+function introSegments(p, segs) {
+  if (!needsPolicy(p)) return segs;
+  const kept = segs.filter((s) => !POLICY_STEP.test(s));
+  return kept.length ? kept : segs;
 }
 function noteItem(text) {
   const li = el("li");
@@ -710,10 +740,13 @@ function fillDetail(p) {
   // 能力标签：用「需要 / 无需」直接回答「要不要开 MITM、会不会跑脚本」，需要用户动手的那个用强调色
   const chip = (text, need) => { const c = el("span", "chip", text); if (need) c.dataset.need = ""; return c; };
   d.chips.replaceChildren(chip(p.mitm ? "需 MITM" : "无需 MITM", p.mitm), chip(p.script ? "含脚本" : "无需脚本", p.script), ...(p.args ? [chip("可配置", false)] : []));
-  const segs = splitDescription(p.description);
+  const segs = introSegments(p, splitDescription(p.description));
   d.intro.replaceChildren(...(segs.length ? segs.map((s) => el("span", "seg", s)) : [el("span", "seg d-empty", "这个插件还没有填写介绍。")]));
   d.notes.replaceChildren(...installNotes(p).map(noteItem));
+  d.trouble.replaceChildren(...troubleNotes(p).map(noteItem));
   d.info.replaceChildren(...infoRows(p));
+  // 正文是「标题 + 内容」成对排下来的平铺结构：给每一对编同一个号，入场时一段一段浮上来（0 = 顶部标识，1 = 介绍，2 = 须知…）
+  [...d.body.children].forEach((c, i) => c.style.setProperty("--i", Math.ceil(i / 2)));
   d.source.href = sourceUrl(p);
   detailInstalling.off();
   syncDetailFav();

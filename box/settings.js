@@ -106,6 +106,9 @@
     renderAbout();
     endClear();
     if (!sheet.open) sheet.showModal();
+    sheet.classList.remove("enter"); // 重新计时：每次打开，内容的入场动效都从头播（样式见 style.css 的 #settings.enter）
+    void sheet.offsetWidth;
+    sheet.classList.add("enter");
     requestAnimationFrame(() => sheet.classList.add("open")); // 下一帧再加 class，过渡才会播放
   }
   function close() {
@@ -144,6 +147,8 @@
   const sheetBody = sheet.querySelector(".sheet-body");
   const syncScrollbar = () => sheet.style.setProperty("--sbw", sheetBody.offsetWidth - sheetBody.clientWidth + "px");
   if (window.ResizeObserver) new ResizeObserver(syncScrollbar).observe(sheetBody); // 内容变长 / 变短导致滚动条出现或消失时也会触发
+  // 入场错峰用的编号：「标题 + 分组」是一对，同一个号；分组下面的脚注跟着它前面的那一组
+  { let n = -1; sheet.querySelectorAll(".sheet-cols > *").forEach((c) => { if (c.matches(".group-title")) n++; c.style.setProperty("--i", Math.max(n, 0)); }); }
   $("settingsBtn").addEventListener("click", open);
   $("settingsClose").addEventListener("click", close);
   sheet.addEventListener("cancel", (e) => { e.preventDefault(); close(); }); // Esc

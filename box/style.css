@@ -722,6 +722,9 @@ html[data-search-collapse] .search:not([data-open]) .search-field{transform:tran
 
 /* 设置里的「双列」会把 .sheet.full 的内容列加宽到 1120px；详情只有一列内容，固定 760px，免得顶栏、正文、底部按钮三者对不齐 */
 html[data-full-cols] .sheet.full.detail{--full-col:760px}
+/* 底部渐隐加高到 120px（设置页是 64px）：按钮栏占了底部约 70px，渐隐只有 64px 时，内容滚到按钮后面仍然清清楚楚，和按钮的文字挤在一起；
+   加高后内容在按钮后面已经淡成底色。--sheet-fade 同时决定 ::before 的模糊范围和 ::after 的渐变，改这一个变量两层一起变 */
+.detail{--sheet-fade:120px}
 .detail .sheet-head{padding-bottom:6px}
 .detail .star{width:40px;height:40px}
 .detail .star svg{width:21px;height:21px}
@@ -748,6 +751,7 @@ html[data-full-cols] .sheet.full.detail{--full-col:760px}
 .d-notes{list-style:none;margin:0;padding:0 4px;display:grid;gap:9px;font-size:15px;line-height:1.6}
 .d-notes li{position:relative;padding-left:18px;overflow-wrap:anywhere;text-wrap:pretty}
 .d-notes li::before{content:"";position:absolute;left:4px;top:.72em;width:5px;height:5px;border-radius:50%;background:var(--accent)}
+.d-trouble li::before{background:var(--muted);opacity:.6}
 .d-notes code{font-family:var(--mono);font-size:.86em;background:var(--chip);border-radius:var(--r-sm);padding:2px 6px;word-break:break-all}
 .d-val{font-weight:600;text-align:right;overflow-wrap:anywhere}
 
@@ -766,10 +770,7 @@ html[data-full-cols] .sheet.full.detail{--full-col:760px}
    只用 backwards 填充：结束后回到元素本来的样子，不留 animation 的残余状态。 */
 .detail.enter .d-icon{animation:intro-pop .7s cubic-bezier(.34,1.3,.64,1) .12s backwards}
 .detail.enter .d-id{animation:intro-up .6s var(--ease) .2s backwards}
-.detail.enter .sheet-body > :nth-child(n+2){animation:rise .34s var(--ease) backwards}
-.detail.enter .sheet-body > :nth-child(2),.detail.enter .sheet-body > :nth-child(3){animation-delay:.27s}
-.detail.enter .sheet-body > :nth-child(4),.detail.enter .sheet-body > :nth-child(5){animation-delay:.315s}
-.detail.enter .sheet-body > :nth-child(6),.detail.enter .sheet-body > :nth-child(7){animation-delay:.36s}
+.detail.enter .sheet-body > :nth-child(n+2){animation:rise .34s var(--ease) calc(.225s + var(--i,1) * 45ms) backwards} /* --i 由 app.js 的 fillDetail 按「标题 + 内容」成对编号 */
 .detail.enter .detail-actions{animation:intro-up .5s var(--ease) .3s backwards}
 .detail.enter .sheet-head .btn,.detail.enter .sheet-head .star{animation:intro-up .5s var(--ease) .1s backwards}
 
@@ -785,6 +786,20 @@ html[data-full-cols] .sheet.full.detail{--full-col:760px}
 .detail.closing .detail-actions{opacity:0;translate:0 14px;transition:opacity .14s ease-in,translate .2s ease-in}
 .detail.closing .sheet-body{opacity:0;translate:0 10px;transition:opacity .16s ease-in .03s,translate .2s ease-in .03s}
 .detail.closing .sheet-head{opacity:0;transition:opacity .14s ease-in}
+
+/* ---------- 设置页的进出场（和详情页同一套节奏）----------
+   之前面板滑进来时，里面的内容是「一整块」跟着动，滑出去也是：几十行设置像一块板子被整个推进推出，没有层次。
+   进场：面板滑进来的同时，顶栏按钮和标题、各个设置分组依次浮上来——「标题 + 分组」一对一对，每对晚 36ms，最多错开 9 对（再往后的在屏幕外，不用等）。
+         JS 每次打开都重新加 .enter，所以每次都会播；只用 backwards 填充，播完回到元素本来的样子。
+   退场：内容先收，面板稍后再走。正文 .16s 内淡出并略微下沉，面板晚 .08s 起步（此时内容已经淡了大半，滑走的是一块「空」的面板，轻得多）；
+         总时长约 .38s，在 settings.js 的 600ms 兜底之内。用 translate / opacity 这类独立属性，不动 transform，避免和面板自己的滑动互相覆盖。
+   「减少动画」由下面全局的 html[data-reduce-motion] 统一清零。 */
+#settings.enter .sheet-head .btn{animation:intro-up .5s var(--ease) .08s backwards}
+#settings.enter .sheet-head h2{animation:intro-up .5s var(--ease) .12s backwards}
+#settings.enter .sheet-cols > *{animation:rise .38s var(--ease) calc(.14s + min(var(--i,0), 9) * 36ms) backwards}
+#settings.closing{transition-delay:.08s} /* 全屏时 .sheet.full.closing 另有 transform + opacity 两条过渡，这条对它们同样生效 */
+#settings.closing .sheet-body{opacity:0;translate:0 10px;transition:opacity .16s ease-in,translate .2s ease-in}
+#settings.closing::backdrop{transition-delay:.08s} /* 遮罩跟着面板一起起步，不要面板还没动遮罩先淡了 */
 
 /* 卡片标签分组：分类（实心）→ 运行要求 / 配置（描边）→ 作者与日期（弱化的一行文字，不是胶囊）。
    描边标签的字色略淡一点，和分类拉开层级；「需 MITM」是运行条件不是风险，所以不用警告色 */

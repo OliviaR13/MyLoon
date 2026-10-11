@@ -212,7 +212,7 @@
 
   <!-- 插件详情：全屏页（带 .full，和设置页全屏时同一套外观与动效：手机从底部滑上来铺满，桌面居中成一列）。
        内容全部由 app.js 的「插件详情」一节按 manifest.json 的字段填充，这里只放骨架。
-       排布顺序：标识 → 插件介绍 → 安装前须知 → 插件信息，操作按钮固定在底部。 -->
+       排布顺序：标识 → 插件介绍 → 安装前须知 → 遇到问题时 → 插件信息，操作按钮固定在底部。 -->
   <dialog class="sheet full detail" id="detail" aria-labelledby="detailName">
     <div class="sheet-head">
       <div class="sheet-nav">
@@ -236,6 +236,8 @@
       <div class="d-intro" id="detailIntro"></div>
       <h3 class="group-title">安装前须知</h3>
       <ul class="d-notes" id="detailNotes"></ul>
+      <h3 class="group-title">遇到问题时</h3>
+      <ul class="d-notes d-trouble" id="detailTrouble"></ul>
       <h3 class="group-title">插件信息</h3>
       <div class="group" id="detailInfo"></div>
     </div>
