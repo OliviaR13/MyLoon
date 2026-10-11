@@ -106,6 +106,8 @@
     renderAbout();
     endClear();
     if (!sheet.open) sheet.showModal();
+    // 入场按「一行一行」错开：给看得见的标题 / 设置行 / 脚注依次编号（登录前后、是否桌面端，显示的行不一样，所以每次打开都重新编）
+    { let k = 0; sheet.querySelectorAll(".sheet-cols :is(.group-title, .group > *, .group-foot)").forEach((n) => { if (n.getClientRects().length) n.style.setProperty("--k", Math.min(k++, 12)); }); }
     sheet.classList.remove("enter"); // 重新计时：每次打开，内容的入场动效都从头播（样式见 style.css 的 #settings.enter）
     void sheet.offsetWidth;
     sheet.classList.add("enter");

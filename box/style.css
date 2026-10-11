@@ -794,9 +794,10 @@ html[data-full-cols] .sheet.full.detail{--full-col:760px}
    退场：内容先收，面板稍后再走。正文 .16s 内淡出并略微下沉，面板晚 .08s 起步（此时内容已经淡了大半，滑走的是一块「空」的面板，轻得多）；
          总时长约 .38s，在 settings.js 的 600ms 兜底之内。用 translate / opacity 这类独立属性，不动 transform，避免和面板自己的滑动互相覆盖。
    「减少动画」由下面全局的 html[data-reduce-motion] 统一清零。 */
-#settings.enter .sheet-head .btn{animation:intro-up .5s var(--ease) .08s backwards}
-#settings.enter .sheet-head h2{animation:intro-up .5s var(--ease) .12s backwards}
-#settings.enter .sheet-cols > *{animation:rise .38s var(--ease) calc(.14s + min(var(--i,0), 9) * 36ms) backwards}
+#settings.enter .sheet-head .btn{animation:intro-up .6s var(--ease) .12s backwards}
+#settings.enter .sheet-head h2{animation:intro-up .6s var(--ease) .18s backwards}
+/* 和主页开场同一种感觉：分组标题、每一行设置、脚注各自从下面浮上来，从上往下一行一行错开（--k 由 settings.js 在打开时按「看得见的」元素依次编号，隐藏的行不占位，最多错开 12 档，再往后的在屏幕外；节奏和主页开场一致：每层晚 ~55ms、.6s 浮上来，等面板滑进来之后再开始） */
+#settings.enter .sheet-cols :is(.group-title,.group > *,.group-foot){animation:intro-up .6s var(--ease) calc(.26s + var(--k,0) * 55ms) backwards}
 #settings.closing{transition-delay:.08s} /* 全屏时 .sheet.full.closing 另有 transform + opacity 两条过渡，这条对它们同样生效 */
 #settings.closing .sheet-body{opacity:0;translate:0 10px;transition:opacity .16s ease-in,translate .2s ease-in}
 #settings.closing::backdrop{transition-delay:.08s} /* 遮罩跟着面板一起起步，不要面板还没动遮罩先淡了 */
