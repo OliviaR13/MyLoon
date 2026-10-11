@@ -190,6 +190,13 @@
         </div>
       </div>
 
+      <h3 class="group-title">帮助</h3>
+      <div class="group">
+        <button class="row row-btn" id="guideBtn" type="button" aria-haspopup="dialog">
+          <span class="row-text"><span>新手引导</span><span class="sub">重新了解搜索、插件安装、收藏与同步</span></span><i class="row-chev"></i>
+        </button>
+      </div>
+
       <h3 class="group-title">关于</h3>
       <div class="group">
         <div class="about-card">
@@ -245,6 +252,27 @@
       <a class="btn btn-ghost" id="detailSource" href="#" target="_blank" rel="noreferrer">查看源码</a>
       <button class="btn btn-primary" id="detailInstall" type="button">安装到 Loon</button>
     </div>
+  </dialog>
+
+  <!-- 新手引导：四步轻量向导。步骤内容由 app.js 的「新手引导」一节按 GUIDE_STEPS 生成，这里只放骨架。
+       首次进入（插件清单加载成功后）自动出现一次；设置 → 帮助 → 新手引导 可以随时重新打开，用的是同一套内容。 -->
+  <dialog class="guide" id="guide">
+    <div class="guide-top">
+      <span class="guide-kicker">新手引导</span>
+      <button class="guide-skip" id="guideSkip" type="button">跳过</button>
+    </div>
+    <div class="guide-main" id="guideMain"></div>
+    <div class="guide-foot">
+      <div class="guide-bar" id="guideBar" aria-hidden="true"></div>
+      <div class="guide-row">
+        <span class="guide-count" id="guideCount"></span>
+        <div class="guide-actions">
+          <button class="btn btn-ghost" id="guidePrev" type="button">上一步</button>
+          <button class="btn btn-primary" id="guideNext" type="button">下一步</button>
+        </div>
+      </div>
+    </div>
+    <div class="sr-only" id="guideLive" aria-live="polite"></div>
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite" popover="manual"><div class="toast-in"><span class="toast-msg"></span><button class="toast-act" type="button" hidden></button></div></div>

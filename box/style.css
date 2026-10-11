@@ -806,3 +806,89 @@ html[data-full-cols] .sheet.full.detail{--full-col:760px}
 .tags .chip-cap{color:color-mix(in srgb,var(--text) 80%,var(--muted))}
 .card-meta{margin-top:8px;font-size:12.5px;line-height:1.4;color:var(--muted);overflow-wrap:anywhere}
 html[data-compact] .card-meta{margin-top:6px}
+
+/* ---------- 新手引导 ----------
+   四步轻量向导：一个居中的卡片（手机上贴在底部、方便单手点），每次只显示一步，底部是分段进度条 + 「2 / 4」。
+   · 沿用页面的中性底色和青绿色强调色、圆角体系、--ease / --spring 缓动，不另起一套视觉。
+   · 四个步骤都渲染在同一个网格格子里叠放，卡片的高度取最高的那一步，切换时卡片不会忽高忽低；
+     当前步 data-state="active"，之前的 "prev"（往左淡出）、之后的 "next"（从右边进来）。
+   · 进出场的时长、延迟都由文件末尾全局的 html[data-reduce-motion] 清零（减少动画 / 系统「减少动态效果」），这里不用再写一份。
+   · 打开时页面不再滚动，和设置页、详情页同一做法（--page-sbw 由 app.js 在 showModal 之前量好）。 */
+html:has(.guide[open]){overflow:hidden;padding-right:var(--page-sbw,0px)}
+.guide{border:1px solid var(--line);padding:0;background:var(--card);color:var(--text);
+  width:min(440px,calc(100% - 24px));max-width:none;max-height:calc(100dvh - 24px);margin:auto;border-radius:var(--r-lg);overflow:hidden;
+  box-shadow:0 24px 60px rgb(var(--shadow) / .3);
+  opacity:0;transform:translateY(14px) scale(.98);transition:opacity .28s var(--ease),transform .4s var(--ease)}
+.guide[open]{display:flex;flex-direction:column}
+.guide.open{opacity:1;transform:none}
+.guide.closing{opacity:0;transform:translateY(8px) scale(.985);transition-duration:.2s;transition-timing-function:cubic-bezier(.4,0,1,1);pointer-events:none}
+/* ::backdrop 在较旧的 Safari 里不继承自定义属性，曲线直接写字面量（和 .sheet::backdrop 一样） */
+.guide::backdrop{background:rgb(var(--shadow) / .45);opacity:0;transition:opacity .3s cubic-bezier(.2,.8,.2,1)}
+.guide.open::backdrop{opacity:1}
+.guide.closing::backdrop{transition-duration:.2s;transition-timing-function:cubic-bezier(.4,0,1,1)}
+.guide:focus,.guide-title:focus{outline:none}
+.guide-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px 0 20px;min-height:46px}
+.guide-kicker{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em}
+.guide-skip{font:inherit;font-size:13.5px;font-weight:500;color:var(--muted);background:none;border:0;border-radius:var(--r-sm);padding:8px 10px;cursor:pointer;transition:color .2s,background-color .2s}
+.guide-skip[hidden]{display:none}
+.guide-skip:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+@media (hover:hover){.guide-skip:hover{color:var(--text);background:var(--chip)}}
+
+/* 步骤区：网格叠放（见上）。overflow 只在字体特别大、屏幕特别矮时才会出现滚动条 */
+.guide-main{flex:1;min-height:0;display:grid;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;padding:6px 20px 4px}
+.guide-step{grid-area:1 / 1;min-width:0;display:flex;flex-direction:column;
+  transition:opacity .26s var(--ease),transform .38s var(--ease),visibility 0s}
+.guide-step[data-state="prev"],.guide-step[data-state="next"]{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s ease,transform .3s var(--ease),visibility 0s .3s}
+.guide-step[data-state="prev"]{transform:translateX(-18px)}
+.guide-step[data-state="next"]{transform:translateX(18px)}
+.guide-art{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;min-height:92px;padding:16px 14px;border-radius:var(--r-md);
+  background:color-mix(in srgb,var(--accent) 7%,var(--chip));box-shadow:inset 0 0 0 1px var(--line)}
+.guide-art svg{flex:none;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.guide-logo{border-radius:22%;box-shadow:0 0 0 1px var(--line),0 6px 16px rgb(var(--shadow) / .14)}
+.guide-title{margin:18px 0 0;font-size:21px;line-height:1.25;font-weight:700;letter-spacing:-.02em;text-wrap:balance}
+.guide-lead{margin-top:8px;font-size:15px;line-height:1.6;color:var(--text);text-wrap:pretty}
+.guide-points{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px;font-size:14px;line-height:1.55;color:var(--muted)}
+.guide-points li{position:relative;padding-left:16px;text-wrap:pretty}
+.guide-points li::before{content:"";position:absolute;left:2px;top:.62em;width:6px;height:6px;border-radius:50%;background:var(--accent);opacity:.75}
+.guide-points b{color:var(--text);font-weight:600}
+.guide-note{margin-top:12px;padding:9px 12px;border-radius:var(--r-md);background:color-mix(in srgb,var(--accent) 9%,transparent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 22%,transparent);font-size:13px;line-height:1.55;color:var(--text);text-wrap:pretty}
+
+/* 插图里的小部件：都是静态的示意，不可点（整块 aria-hidden） */
+.guide-search{display:flex;align-items:center;gap:6px;flex-wrap:wrap;width:100%;max-width:330px;padding:7px 7px 7px 11px;border-radius:var(--r-md);border:1px solid var(--accent);background:var(--card);box-shadow:0 0 0 3px var(--glow)}
+.guide-search svg{color:var(--muted);margin-right:2px}
+.guide-search .kw{padding:0 10px;height:25px;font-size:13px}
+.guide-search .kw-text{max-width:none}
+.guide-search .go{margin-left:auto;padding:5px 11px;border-radius:calc(var(--r-md) - 3px);background:var(--accent);color:var(--accent-ink);font-size:12.5px;font-weight:600}
+.guide-pill{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:var(--r-md);border:1px solid var(--line);background:var(--card);font-size:12.5px;line-height:1.2;color:var(--text)}
+.guide-pill[data-on]{background:color-mix(in srgb,var(--accent) 14%,transparent);border-color:color-mix(in srgb,var(--accent) 55%,transparent);color:var(--accent-text);font-weight:600}
+.guide-pill[data-dash]{border-style:dashed;color:var(--muted)}
+.guide-pill svg{width:14px;height:14px}
+.guide-pill[data-on] svg{fill:currentColor}
+.guide-arrow{color:var(--muted);display:inline-grid;place-items:center}
+.guide-art .tags{margin:0;justify-content:center}
+.guide-art .tags .chip-cap{background:var(--card);padding:5px 9px;font-size:12.5px}  /* 插图底色比列表里深一点，描边标签要有自己的底，不然只剩字 */
+.guide-art .chip{background:var(--card);box-shadow:inset 0 0 0 1px var(--line);padding:5px 9px;font-size:12.5px}
+.guide-fake-btn{padding:6px 12px;border-radius:var(--r-md);background:var(--accent);color:var(--accent-ink);font-size:12.5px;font-weight:600}
+.guide-art-col{display:grid;justify-items:center;gap:10px;width:100%}
+
+/* 底部：分段进度条 + 「2 / 4」 + 按钮 */
+.guide-foot{padding:14px 20px 18px}
+.guide-bar{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:5px}
+.guide-bar i{height:4px;border-radius:2px;background:var(--chip);box-shadow:inset 0 0 0 1px var(--line);transition:background-color .3s var(--ease),box-shadow .3s var(--ease)}
+.guide-bar i[data-on]{background:var(--accent);box-shadow:none}
+.guide-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
+.guide-count{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+.guide-actions{display:flex;align-items:center;gap:8px}
+.guide-actions .btn{padding:10px 16px;font-size:14.5px;min-width:78px}
+.guide-actions .btn[hidden]{display:none}
+.guide-actions .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* 手机：卡片贴在屏幕底部（单手好点），从下面滑上来；底部留出 iOS 的安全区 */
+/* 屏幕很矮（小屏手机、横屏）：插图和间距收紧一点，尽量不用滚动就能看完一步 */
+@media (max-height:640px){.guide-art{min-height:70px;padding:10px 12px}.guide-title{margin-top:14px}.guide-main{padding-top:2px}}
+@media (max-width:599px){
+  .guide{margin:auto auto max(12px,env(safe-area-inset-bottom));transform:translateY(28px)}
+  .guide.closing{transform:translateY(18px)}
+  .guide-title{font-size:20px}
+}
