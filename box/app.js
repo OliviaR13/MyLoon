@@ -427,8 +427,10 @@ function normalize(raw) {
     version: raw.version ? String(raw.version) : "",
     author: String(raw.author || ""),
     category,
-    // 分类之外的其余标签
+    // 分类之外的其余标签（卡片上分类是实心胶囊、其余标签跟在后面，所以这里不含分类）
     tags: tags.filter((t) => t && t !== category),
+    // #!tag 里写的全部标签，按写的顺序（第一个就是分类）。详情页的「标签」一行要显示它们，不能只显示去掉分类之后剩下的
+    allTags: [...new Set(tags.filter(Boolean))],
     icon: safeIcon(raw.icon || ""),
     description: String(raw.description || ""),
     date: raw.date ? String(raw.date).trim() : "",
@@ -701,7 +703,7 @@ function infoRows(p) {
     ["版本", p.version],
     ["最近更新", p.date],
     ["配置参数", p.args ? "可在 Loon 中调整" : "无"],
-    ["标签", p.tags.join("、")], // 分类已经在标题下面了，这里只放其余标签；没有就不显示这一行
+    ["标签", p.allTags.join("、")], // 插件头部 #!tag 写了几个就显示几个（含分类，它在标题下面也出现一次）；没写就不显示这一行
   ]
     .filter(([, v]) => v)
     .map(([k, v]) => { const r = el("div", "row"); r.append(el("span", "muted", k), el("span", "d-val", v)); return r; });
