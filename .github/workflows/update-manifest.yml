@@ -108,6 +108,20 @@ jobs:
 
               return False
 
+          # 规则里有没有走 PROXY：有的话用户得在 Loon 里为这个插件选择代理策略（README 里的「自选节点」）。
+          # 规则写法是「类型, 值, 策略」，逗号后面可能有空格；FINAL 只有「FINAL, 策略」两段
+          def uses_proxy(text):
+              for line in section(text, "Rule"):
+                  parts = [p.strip().upper() for p in line.split(",")]
+
+                  if parts[0] == "FINAL":
+                      if len(parts) > 1 and parts[1] == "PROXY":
+                          return True
+                  elif "PROXY" in parts[2:]:
+                      return True
+
+              return False
+
           # ----------------------------------------
           # 扫描所有 .plugin
           # ----------------------------------------
@@ -149,6 +163,11 @@ jobs:
                   "script": bool(section(text, "Script")),
 
                   "args": bool(section(text, "Argument")),
+
+                  # 详情页的「安装前须知 / 遇到问题时」据此显示对应的提示
+                  "rule": bool(section(text, "Rule")),
+
+                  "proxy": uses_proxy(text),
 
                   "date": meta(text, "date"),
 
