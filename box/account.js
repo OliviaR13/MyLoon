@@ -76,7 +76,7 @@
   const on = (g) => ownMaster() && own(g); // 这一组此刻是否真的在同步
 
   const GROUPS = {
-    look: { keys: ["theme", "reduceMotion", "collapseSearch", "searchMode"], at: "myloon_box_look_at", cloud: "lookAt", label: "外观" },
+    look: { keys: ["theme", "reduceMotion", "searchMode"], at: "myloon_box_look_at", cloud: "lookAt", label: "外观" },
     cards: { keys: ["showDesc", "showVer", "showCat", "compact", "pinFavs"], sort: true, at: "myloon_box_cards_at", cloud: "cardsAt", label: "插件卡片设置" },
     // noLegacy：新增的一组，云端旧数据里没有它，不能拿旧的统一时间戳顶替
     panel: { keys: ["fullDefault"], at: "myloon_box_panel_at", cloud: "panelAt", label: "设置页偏好", noLegacy: true },

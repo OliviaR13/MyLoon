@@ -964,9 +964,7 @@ function applySearch({ animate = false } = {}) {
   if (state.plugins.length) render({ animate, flip: !animate });
 }
 
-/* 搜索框收起（思路借自 Bencho 的 Search）：一个盒子，宽度就是状态，而不是图标和输入框互相淡入淡出。
-   展开宽度由 JS 量出来（工具栏宽度减去排序按钮），这样宽度才能走弹簧过渡。
-   设置里的「收起搜索框」开着才生效；盒子里有焦点、或有关键词 / 输入内容时保持展开。 */
+/* 搜索框的状态：有没有内容（决定清除按钮和占位文字）、聚焦时的脚注 */
 function syncSearch() {
   const has = state.keywords.length > 0 || els.search.value !== "";
   searchBox.dataset.has = String(has);
@@ -980,19 +978,6 @@ function syncSearch() {
     $("#searchHintText").textContent = "回车添加关键词；" + (or ? "包含任意一个关键词即可（OR）" : "需同时包含全部关键词（AND）");
     hint.toggleAttribute("data-show", hintOn);
   }
-  if (!document.documentElement.hasAttribute("data-search-collapse")) {
-    searchBox.removeAttribute("data-open");
-    searchBox.style.removeProperty("--sw");
-    searchBox.style.removeProperty("--room");
-    return;
-  }
-  const open = searchBox.contains(document.activeElement) || has;
-  searchBox.toggleAttribute("data-open", open);
-  if (open) searchBox.removeAttribute("data-press");
-  const room = Math.max(120, searchBox.parentElement.clientWidth - (els.sort ? els.sort.offsetWidth : 0) - 8); // 8 是工具栏的 gap
-  searchBox.style.setProperty("--room", room + "px"); // 收起时也要有：它是展开动画（弹簧过冲）的上限
-  if (open) searchBox.style.setProperty("--sw", room + "px");
-  else searchBox.style.removeProperty("--sw");
 }
 els.search.addEventListener("focus", syncSearch);
 els.search.addEventListener("blur", syncSearch);
@@ -1007,13 +992,7 @@ els.search.addEventListener("keydown", (e) => {
     applySearch();
   }
 });
-// 收起状态下按住搜索图标：盒子缩一点（按压），松手 / 移开 / 被系统打断时复原。展开后不再有这个效果
-const pressOff = () => searchBox.removeAttribute("data-press");
-searchBox.addEventListener("pointerdown", () => {
-  if (document.documentElement.hasAttribute("data-search-collapse") && !searchBox.hasAttribute("data-open")) searchBox.setAttribute("data-press", "");
-});
-["pointerup", "pointercancel", "pointerleave"].forEach((t) => searchBox.addEventListener(t, pressOff));
-searchBox.addEventListener("mousedown", (e) => { if (e.target.closest("button")) e.preventDefault(); }); // 点按钮时输入框别失焦，不然收起的搜索框会先缩回去、点击落空
+searchBox.addEventListener("mousedown", (e) => { if (e.target.closest("button")) e.preventDefault(); }); // 点按钮（搜索 / 清除 / 删除关键词）时输入框别失焦，手机上键盘不会收起又弹出
 searchBox.addEventListener("click", (e) => {
   const x = e.target.closest(".kw-x");
   if (x) { state.keywords.splice(Number(x.dataset.i), 1); applySearch(); return; }
@@ -1025,13 +1004,8 @@ searchBox.addEventListener("click", (e) => {
     return;
   }
   if (e.target.closest("#searchGo")) { commitDraft(); applySearch({ animate: true }); els.search.blur(); return; }
-  if (!e.target.closest(".kw")) els.search.focus(); // 点盒子的空白处 / 放大镜 = 聚焦输入框（收起时也靠它展开）
+  if (!e.target.closest(".kw")) els.search.focus(); // 点盒子的空白处 / 放大镜 = 聚焦输入框
 });
-if (window.ResizeObserver) { // 工具栏宽度、排序按钮宽度（「最新」→「名称 A–Z」）变了，展开的搜索框都要跟着重新量
-  const ro = new ResizeObserver(syncSearch);
-  ro.observe(searchBox.parentElement);
-  ro.observe(els.sort);
-}
 els.tabs.addEventListener("click", (e) => {
   const b = e.target.closest(".tab");
   if (!b) return;
@@ -1091,7 +1065,7 @@ const tour = (() => {
   };
   const legendExtra = () => {
     const box = el("div", "tour-legend");
-    [["需 MITM", "需要在 Loon 中开启 MITM 并信任证书"], ["含脚本", "带有脚本，安装前可以先看源码"], ["可配置", "安装后可以在 Loon 里调整参数"]].forEach(([tag, text]) => {
+    [["需 MITM", "需要在 Loon 里开启 MITM 并信任证书"], ["含脚本", "带有脚本，安装前可以先看源码"], ["可配置", "安装后可以在 Loon 里调整参数"]].forEach(([tag, text]) => {
       const row = el("div", "tour-legend-row");
       row.append(el("span", "chip chip-cap", tag), el("span", "", text));
       box.append(row);
@@ -1100,7 +1074,7 @@ const tour = (() => {
   };
   const compareExtra = () => {
     const box = el("div", "tour-compare");
-    [["未登录", "收藏和设置只保存在本机浏览器。"], ["登录 GitHub（可选）", "收藏和已开启同步的设置按账号保存，多台设备之间同步。"]].forEach(([t, text]) => {
+    [["未登录", "收藏和设置只保存在这台设备的浏览器里。"], ["登录 GitHub（可选）", "收藏和已开启同步的设置跟着账号走，多台设备共用。"]].forEach(([t, text]) => {
       const c = el("div", "tour-compare-col");
       c.append(el("strong", "", t), el("span", "", text));
       box.append(c);
@@ -1108,13 +1082,21 @@ const tour = (() => {
     return box;
   };
   const TOUR_STEPS = [
-    { icon: "logo", title: "欢迎来到 Loon Box", body: "这里收集了常用的 Loon 插件。你可以浏览和搜索插件，点「安装」直接唤起 Loon 完成安装。", hint: "整个引导不到一分钟，随时可以跳过。" },
-    { icon: "search", title: "快速找到需要的插件", body: "在搜索框输入关键词，按回车添加；可以添加多个关键词一起搜索。再配合分类和右边的排序，很快就能缩小范围。",
-      extra: categoriesExtra, hint: "多个关键词默认需要同时命中；想改成命中任意一个，可以在「设置 → 多关键词逻辑」里切换。" },
-    { icon: "shield", title: "了解插件再安装", body: "点插件名称或卡片上的 ⓘ 打开详情，查看介绍、安装前须知和出问题时的排查方法。卡片上的标记会提示额外要求：",
-      extra: legendExtra, hint: "每个插件的要求不一样，安装前看一眼「安装前须知」就够了。" },
-    { icon: "star", title: "收藏与同步", body: "点卡片上的星标收藏插件，在顶部的「我的收藏」里集中查看。",
-      extra: compareExtra, hint: "登录不是必须的，不登录也能完整使用。需要时在「设置 → GitHub 账号」里登录或退出。" },
+    { icon: "logo", title: "欢迎来到 Loon Box",
+      body: "这里收集了常用的 Loon 插件。可以浏览、搜索，看中了点一下「安装」，就会唤起 Loon 完成安装。",
+      hint: "引导一共 4 步，随时可以跳过；之后想再看，到「设置 → 关于 → 新手引导」。" },
+    { icon: "search", title: "快速找到需要的插件",
+      body: "在搜索框里输入关键词，按回车添加；可以添加多个关键词一起筛选。再配合分类和排序，很快就能缩小范围。",
+      extra: categoriesExtra,
+      hint: "多个关键词默认需要「同时命中」。想改成「命中任意一个即可」，可以在「设置 → 外观 → 多关键词逻辑」里切换。" },
+    { icon: "shield", title: "装之前，先看看详情",
+      body: "点插件名称，或卡片上的 ⓘ，就能打开详情：介绍、安装前须知、遇到问题怎么排查，都在里面。卡片上的小标记会提示这个插件有额外要求：",
+      extra: legendExtra,
+      hint: "每个插件的要求不一样，花几秒看看「安装前须知」，能省不少麻烦。" },
+    { icon: "star", title: "收藏与同步",
+      body: "点卡片上的星标收藏插件，之后在顶部的「我的收藏」里集中查看。",
+      extra: compareExtra,
+      hint: "登录不是必须的，不登录也能使用全部功能。想登录或退出，到「设置 → 账号」。" },
   ];
 
   let idx = 0, shownOnce = false, endClose = null;
