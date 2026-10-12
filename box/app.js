@@ -1053,6 +1053,168 @@ function resetFilters() {
   render({ animate: true });
 }
 
+/* ---------- 新手引导 ----------
+   四步的轻量向导：认识 MyLoon → 查找插件 → 了解插件再安装 → 收藏与同步。每次一步，底部有进度（2 / 4）和「上一步 / 下一步 / 跳过」，
+   最后一步是「开始使用」。不要求用户去点真实的搜索框或卡片，随时可以跳过（按钮或 Esc）。
+   · 内容只在 TOUR_STEPS 这一处维护。首次自动出现和设置里「新手引导」重新打开的是同一套，以后增加功能只改这里。
+   · 完成或跳过都记在 localStorage（myloon_onboarding_completed），之后不再自动出现；设置里的入口始终保留。只存在本机，不上云。
+   · 自动出现的时机：清单成功加载之后（加载中、加载失败、人机验证时都不出现，不盖住错误提示），并等启动页退场、页面入场动画播完，
+     再停一小会儿。设置页 / 详情页已经打开时不打扰。一次页面加载只考虑一次。
+   · 老用户不打扰：本机已经有收藏、设置、排序、登录这类自己留下的数据，就直接记为已完成，不弹。
+   · 四个步骤同时叠在同一格里（只有当前这一步可见），所以向导的高度由最高的那一步决定，切步骤时不会跳高。 */
+const tour = (() => {
+  const dlg = document.getElementById("tour");
+  if (!dlg) return { open() {}, maybeShow() {} };
+  const KEY = "myloon_onboarding_completed";
+  dlg.tabIndex = -1;
+  const q = (id) => document.getElementById(id);
+  const ui = { stage: q("tourStage"), dots: q("tourDots"), count: q("tourCount"), skip: q("tourSkip"), prev: q("tourPrev"), next: q("tourNext") };
+  const svg = (paths) => {
+    const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    s.setAttribute("viewBox", "0 0 24 24");
+    s.setAttribute("aria-hidden", "true");
+    paths.forEach((d) => { const p = document.createElementNS("http://www.w3.org/2000/svg", "path"); p.setAttribute("d", d); s.append(p); });
+    return s;
+  };
+  const ICONS = {
+    search: ["M10.5 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z", "M15.5 15.5L20 20"],
+    shield: ["M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z", "M9 12l2 2 4-4"],
+    star: ["M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.7l-5.2 2.8 1-5.8-4.2-4.1 5.8-.8z"],
+  };
+  // 步骤里的「例子」都是真数据：分类取自当前清单，标记就是卡片上真正会出现的那几个
+  const categoriesExtra = () => {
+    const cats = [...new Set(state.plugins.map((p) => p.category))].slice(0, 5);
+    if (!cats.length) return null;
+    const row = el("div", "tour-chips");
+    row.append(el("span", "tour-label", "分类"), ...cats.map((c) => el("span", "chip", c)));
+    return row;
+  };
+  const legendExtra = () => {
+    const box = el("div", "tour-legend");
+    [["需 MITM", "需要在 Loon 中开启 MITM 并信任证书"], ["含脚本", "带有脚本，安装前可以先看源码"], ["可配置", "安装后可以在 Loon 里调整参数"]].forEach(([tag, text]) => {
+      const row = el("div", "tour-legend-row");
+      row.append(el("span", "chip chip-cap", tag), el("span", "", text));
+      box.append(row);
+    });
+    return box;
+  };
+  const compareExtra = () => {
+    const box = el("div", "tour-compare");
+    [["未登录", "收藏和设置只保存在本机浏览器。"], ["登录 GitHub（可选）", "收藏和已开启同步的设置按账号保存，多台设备之间同步。"]].forEach(([t, text]) => {
+      const c = el("div", "tour-compare-col");
+      c.append(el("strong", "", t), el("span", "", text));
+      box.append(c);
+    });
+    return box;
+  };
+  const TOUR_STEPS = [
+    { icon: "logo", title: "欢迎来到 Loon Box", body: "这里收集了常用的 Loon 插件。你可以浏览和搜索插件，点「安装」直接唤起 Loon 完成安装。", hint: "整个引导不到一分钟，随时可以跳过。" },
+    { icon: "search", title: "快速找到需要的插件", body: "在搜索框输入关键词，按回车添加；可以添加多个关键词一起搜索。再配合分类和右边的排序，很快就能缩小范围。",
+      extra: categoriesExtra, hint: "多个关键词默认需要同时命中；想改成命中任意一个，可以在「设置 → 多关键词逻辑」里切换。" },
+    { icon: "shield", title: "了解插件再安装", body: "点插件名称或卡片上的 ⓘ 打开详情，查看介绍、安装前须知和出问题时的排查方法。卡片上的标记会提示额外要求：",
+      extra: legendExtra, hint: "每个插件的要求不一样，安装前看一眼「安装前须知」就够了。" },
+    { icon: "star", title: "收藏与同步", body: "点卡片上的星标收藏插件，在顶部的「我的收藏」里集中查看。",
+      extra: compareExtra, hint: "登录不是必须的，不登录也能完整使用。需要时在「设置 → GitHub 账号」里登录或退出。" },
+  ];
+
+  let idx = 0, shownOnce = false, endClose = null;
+  const steps = TOUR_STEPS.map((s, i) => {
+    const sec = el("section", "tour-step");
+    const icon = el("span", "tour-icon" + (s.icon === "logo" ? " tour-icon-logo" : ""));
+    if (s.icon === "logo") { const img = el("img"); img.src = "./icon.png"; img.alt = ""; img.width = 56; img.height = 56; icon.append(img); } else icon.append(svg(ICONS[s.icon]));
+    const title = el("h2", "tour-title", s.title);
+    title.id = "tourTitle" + i;
+    sec.append(icon, title, el("p", "tour-body", s.body));
+    const extra = el("div", "tour-extra"); // 例子在每次打开时重新生成（见 fill），因为分类取自当前清单
+    sec.append(extra, el("p", "tour-hint", s.hint));
+    ui.stage.append(sec);
+    return { sec, extra, make: s.extra };
+  });
+  const dots = TOUR_STEPS.map(() => { const d = el("i", "tour-dot"); ui.dots.append(d); return d; });
+
+  function fill() {
+    steps.forEach((s) => { const n = s.make ? s.make() : null; s.extra.replaceChildren(...(n ? [n] : [])); s.extra.hidden = !n; });
+  }
+  function render() {
+    steps.forEach((s, i) => {
+      const pos = i < idx ? "before" : i > idx ? "after" : "active";
+      s.sec.dataset.pos = pos;
+      s.sec.setAttribute("aria-hidden", String(pos !== "active"));
+      s.sec.inert = pos !== "active";
+    });
+    dots.forEach((d, i) => d.toggleAttribute("data-on", i === idx));
+    const last = idx === TOUR_STEPS.length - 1;
+    ui.count.textContent = `${idx + 1} / ${TOUR_STEPS.length}`;
+    ui.prev.style.visibility = idx === 0 ? "hidden" : "visible";
+    ui.skip.hidden = last;
+    ui.next.textContent = last ? "开始使用" : "下一步";
+    dlg.setAttribute("aria-labelledby", "tourTitle" + idx);
+  }
+  const go = (n) => { idx = Math.max(0, Math.min(TOUR_STEPS.length - 1, n)); render(); };
+
+  const isDone = () => { try { return localStorage.getItem(KEY) === "1"; } catch { return true; } }; // 存取不了时当作已完成，免得每次都弹
+  const markDone = () => { try { localStorage.setItem(KEY, "1"); } catch {} };
+
+  function cancelClose() {
+    if (endClose) { dlg.removeEventListener("transitionend", endClose.fn); clearTimeout(endClose.timer); endClose = null; }
+    dlg.classList.remove("closing");
+  }
+  function open() {
+    cancelClose();
+    idx = 0;
+    fill();
+    render();
+    if (!dlg.open) {
+      document.documentElement.style.setProperty("--page-sbw", window.innerWidth - document.documentElement.clientWidth + "px"); // 同设置页：锁滚动前先量滚动条宽度
+      dlg.showModal();
+    }
+    dlg.focus({ preventScroll: true }); // 焦点放在向导本身（不画聚焦框）：自动弹出时不会有一个按钮莫名其妙被框住；← → 和 Esc 在这里就能用，Tab 再进到按钮
+    requestAnimationFrame(() => dlg.classList.add("open"));
+  }
+  // 完成和跳过都算「看过了」：记下来，之后不再自动出现
+  function finish() {
+    markDone();
+    if (!dlg.open || endClose) return;
+    dlg.classList.add("closing");
+    dlg.classList.remove("open");
+    const end = () => { cancelClose(); if (dlg.open) dlg.close(); };
+    const fn = (e) => { if (e.target === dlg && (e.propertyName === "transform" || e.propertyName === "opacity")) end(); };
+    endClose = { fn, timer: setTimeout(end, 600) }; // 兜底：减少动画 / 过渡被打断时也一定会关
+    dlg.addEventListener("transitionend", fn);
+  }
+
+  ui.next.addEventListener("click", () => (idx === TOUR_STEPS.length - 1 ? finish() : go(idx + 1)));
+  ui.prev.addEventListener("click", () => go(idx - 1));
+  ui.skip.addEventListener("click", finish);
+  dlg.addEventListener("cancel", (e) => { e.preventDefault(); finish(); }); // Esc = 跳过
+  dlg.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight") { e.preventDefault(); if (idx < TOUR_STEPS.length - 1) go(idx + 1); }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); go(idx - 1); }
+  });
+  document.addEventListener("mlb:tour", () => open()); // 设置 → 关于 → 新手引导（settings.js 在设置页收起后发出）
+
+  const splashBusy = () => ["on", "leaving"].includes(document.documentElement.getAttribute("data-splash"));
+  const returning = () => {
+    try {
+      return !!(["myloon_box_settings", "myloon_box_sort", "myloon_box_login", "myloon_box_splash", "myloon_box_full_cols"].some((k) => localStorage.getItem(k)) || state.favorites.size);
+    } catch { return false; }
+  };
+  // load() 成功拿到清单、列表渲染完之后调用
+  function maybeShow() {
+    if (shownOnce) return;
+    shownOnce = true;
+    if (isDone()) return;
+    if (returning()) { markDone(); return; } // 老用户：已经在用了，不弹
+    const poll = () => {
+      if (document.querySelector("dialog[open]")) return;                  // 用户已经打开了设置 / 详情：不打扰
+      if (splashBusy() || performance.now() < 2400) return void setTimeout(poll, 400); // 等启动页退场、入场动画播完
+      open();
+    };
+    setTimeout(poll, 600);
+  }
+  return { open, maybeShow };
+})();
+
 /* 启动页（Android 风格）：盖住整个页面，清单加载好（或需要用户点验证框）时淡出退场。
    状态写在 <html data-splash>：on（显示中）→ leaving（退场中）→ done（没了）；用户在设置里关掉就是 off（<head> 里的内联脚本在首帧之前写好）。
    · 至少显示 MIN_SHOW 毫秒（从页面开始加载算起）：清单有缓存、一下就好的时候，启动页不会一闪而过。
@@ -1232,7 +1394,7 @@ async function load(announce = false) {
       els.updated.textContent = "清单更新于 " + new Date(data.generatedAt).toLocaleDateString("zh-CN");
     }
     if (announce) toast("清单已刷新");
-    guideAfterLoad(); // 清单成功加载之后才可能出现新手引导；失败时走下面的 catch，不会有引导遮住错误提示
+    tour.maybeShow(); // 清单成功加载之后才考虑新手引导；失败时不弹，免得盖住「重试」
   } catch (err) {
     console.error(err);
     const msg = String(err.message);
@@ -1437,232 +1599,5 @@ document.addEventListener("keydown", (e) => {
   addEventListener("scroll", () => { if (!queued) queued = requestAnimationFrame(update); }, { passive: true });
   addEventListener("resize", update);
 })();
-
-/* ---------- 新手引导 ----------
-   四步轻量向导：认识 MyLoon → 查找插件 → 了解插件再安装 → 收藏与同步。
-   · 内容只有 GUIDE_STEPS 这一份：首次进入自动出现、设置 → 帮助 → 新手引导 重新打开，用的是同一套，以后增加功能只改这里。
-   · 完成状态记在 localStorage 的 myloon_onboarding_completed（只存本机，不进 settings，也就不会同步到云端）：
-     走完（开始使用）或跳过（跳过 / Esc）都会记下，之后不再自动出现；设置里的入口始终保留。
-   · 自动出现要同时满足：没记过完成状态 + 不是老用户 + 插件清单已成功加载 + 启动页和开场动画已经过去。
-     清单加载失败时不弹，免得遮住错误提示和「重试」。
-   · 老用户：升级前就用过的人，本机已经有 MyLoon 的数据（收藏、设置、排序、登录标记……），首次判断时就当作「看过了」，不打扰。
-     注意这个判断必须在 account.js 之前跑——account.js 每次加载都会写一个迁移用的 myloon_box_sync_cards，它不能算「用过」的证据。
-   · 所有文字都用 textContent 写入。 */
-const GUIDE_KEY = "myloon_onboarding_completed";
-const GUIDE_STEPS = [
-  {
-    title: "认识 MyLoon",
-    lead: "这是一份 Loon 插件合集：可以浏览、搜索插件，点一下「安装」就能唤起 Loon 完成安装。",
-    art: "intro",
-  },
-  {
-    title: "查找插件",
-    lead: "搜索、分类和排序，帮你很快找到需要的插件。",
-    points: [
-      "<b>搜索</b>：输入关键词后按回车，可以连续添加多个关键词组合搜索，结果更精准",
-      "<b>分类</b>：点按搜索框下面的分类标签，只看某一类插件",
-      "<b>排序</b>：按更新时间或名称排列，也可以让收藏置顶",
-    ],
-    note: "多个关键词默认需要同时命中（AND），可以在设置里改成命中任意一个（OR）。",
-    art: "search",
-  },
-  {
-    title: "了解插件再安装",
-    lead: "点卡片上的 ⓘ，或卡片的空白处，打开插件详情。",
-    points: [
-      "详情里有插件介绍、安装前须知和排查提示",
-      "<b>需 MITM</b>、<b>含脚本</b>、<b>可配置</b> 等标记，提醒你这个插件有哪些额外要求",
-      "看过之后，点「安装」即可唤起 Loon",
-    ],
-    note: "具体插件可能有额外的配置要求，请以详情页的提示为准。",
-    art: "detail",
-  },
-  {
-    title: "收藏与同步",
-    lead: "点插件右上角的星标收藏，在「我的收藏」里集中查看。",
-    points: [
-      "未登录时，收藏和设置只保存在这台设备",
-      "登录 GitHub 后，收藏和已开启同步的设置可以在多台设备间同步",
-    ],
-    note: "登录是可选的，不登录也能使用全部功能。登录和同步选项在「设置」里。",
-    art: "sync",
-  },
-];
-
-// 「老用户」判断：本机已有 MyLoon 的数据 → 升级前就用过。要在 account.js 加载之前跑（见上面的说明），所以放在这里同步执行。
-// 读写不了 localStorage（隐私模式等）时保守处理：不自动弹，免得每次打开都弹一遍；设置里的入口照常能用。
-let guideWanted = (() => {
-  try {
-    if (localStorage.getItem(GUIDE_KEY) === "1") return false;
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i) || "";
-      if (k.startsWith("myloon_box_") && k !== "myloon_box_sync_cards") { localStorage.setItem(GUIDE_KEY, "1"); return false; }
-    }
-    return true;
-  } catch { return false; }
-})();
-
-const guide = (() => {
-  const dlg = $("#guide");
-  const main = $("#guideMain"), bar = $("#guideBar"), count = $("#guideCount"), live = $("#guideLive");
-  const prevBtn = $("#guidePrev"), nextBtn = $("#guideNext"), skipBtn = $("#guideSkip");
-  let steps = [], idx = 0, built = false, ending = null;
-
-  const markDone = () => { try { localStorage.setItem(GUIDE_KEY, "1"); } catch {} };
-  const pill = (text, attrs = {}, icon) => {
-    const n = el("span", "guide-pill");
-    for (const [k, v] of Object.entries(attrs)) n.setAttribute("data-" + k, v);
-    if (icon) n.append(icon);
-    n.append(text);
-    return n;
-  };
-  // 每一步的示意图：静态、不可点，整块 aria-hidden。用页面里已有的样式类（.kw、.chip、.tags），看起来和真实界面一致
-  const ART = {
-    intro() {
-      const logo = el("img", "guide-logo");
-      Object.assign(logo, { src: "./icon.png", alt: "", width: 52, height: 52 });
-      return [logo, el("span", "chip", "浏览"), el("span", "chip", "搜索"), el("span", "chip", "一键安装")];
-    },
-    search() {
-      const box = el("div", "guide-search");
-      const lens = svgIcon("M15.5 15.5L21 21");
-      const ring = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      ["cx", "cy", "r"].forEach((k, i) => ring.setAttribute(k, [10.5, 10.5, 6.5][i]));
-      lens.prepend(ring);
-      box.append(lens);
-      ["微博", "去广告"].forEach((t) => { const kw = el("span", "kw"); kw.append(el("span", "kw-text", t)); box.append(kw); });
-      box.append(el("span", "go", "搜索"));
-      return [box];
-    },
-    detail() {
-      const tags = el("div", "tags");
-      [["需 MITM"], ["含脚本"], ["可配置"]].forEach(([t]) => tags.append(el("span", "chip chip-cap", t)));
-      const col = el("div", "guide-art-col");
-      col.append(tags, el("span", "guide-fake-btn", "安装到 Loon"));
-      return [col];
-    },
-    sync() {
-      const arrow = el("span", "guide-arrow");
-      arrow.append(svgIcon("M5 12h14M13 6l6 6-6 6"));
-      return [pill("收藏", { on: "" }, starIcon()), arrow, pill("登录 GitHub 同步 · 可选", { dash: "" })];
-    },
-  };
-
-  function build() {
-    if (built) return;
-    built = true;
-    steps = GUIDE_STEPS.map((s, i) => {
-      const sec = el("section", "guide-step");
-      sec.setAttribute("aria-labelledby", "guideT" + i);
-      const art = el("div", "guide-art");
-      art.setAttribute("aria-hidden", "true");
-      art.append(...ART[s.art]());
-      const title = el("h2", "guide-title", s.title);
-      title.id = "guideT" + i;
-      title.tabIndex = -1;
-      sec.append(art, title, el("p", "guide-lead", s.lead));
-      if (s.points) {
-        const ul = el("ul", "guide-points");
-        s.points.forEach((t) => {
-          const li = el("li");
-          // 文案里只有 <b>…</b> 一种标记：按它切开，加粗的部分用 <b> 元素写入（仍然是 textContent，不解析 HTML）
-          t.split(/<\/?b>/).forEach((part, k) => { if (part) li.append(k % 2 ? el("b", "", part) : document.createTextNode(part)); });
-          ul.append(li);
-        });
-        sec.append(ul);
-      }
-      if (s.note) sec.append(el("p", "guide-note", s.note));
-      return sec;
-    });
-    main.replaceChildren(...steps);
-    bar.replaceChildren(...GUIDE_STEPS.map(() => el("i")));
-  }
-
-  function show(i) {
-    const hadPrevFocus = document.activeElement === prevBtn;
-    const hadStepFocus = steps.some((sec) => sec.contains(document.activeElement)); // 焦点在某一步的标题上（刚打开时就是）
-    idx = Math.max(0, Math.min(GUIDE_STEPS.length - 1, i));
-    const last = idx === GUIDE_STEPS.length - 1;
-    steps.forEach((sec, k) => {
-      sec.dataset.state = k === idx ? "active" : k < idx ? "prev" : "next";
-      sec.inert = k !== idx; // 不是当前步的内容不进 Tab 顺序、也不被读屏软件读到
-      sec.setAttribute("aria-hidden", String(k !== idx));
-    });
-    [...bar.children].forEach((b, k) => b.toggleAttribute("data-on", k <= idx));
-    count.textContent = `${idx + 1} / ${GUIDE_STEPS.length}`;
-    prevBtn.hidden = idx === 0;
-    nextBtn.textContent = last ? "开始使用" : "下一步";
-    skipBtn.hidden = last; // 最后一步用「开始使用」收尾，不再需要跳过
-    dlg.setAttribute("aria-labelledby", "guideT" + idx);
-    live.textContent = `第 ${idx + 1} 步，共 ${GUIDE_STEPS.length} 步：${GUIDE_STEPS[idx].title}。${GUIDE_STEPS[idx].lead}`;
-    if (hadPrevFocus && prevBtn.hidden) nextBtn.focus(); // 「上一步」藏起来了，焦点别丢
-    // 旧的那一步变成 inert 后焦点会掉到页面上，←/→ 键就收不到了：把焦点跟到新的这一步的标题上（读屏软件也会从新标题读起）
-    else if (hadStepFocus && dlg.open) steps[idx].querySelector(".guide-title").focus({ preventScroll: true });
-  }
-
-  function cancelEnd() {
-    if (ending) { dlg.removeEventListener("transitionend", ending.fn); clearTimeout(ending.timer); ending = null; }
-    dlg.classList.remove("closing");
-  }
-  function open() {
-    cancelEnd(); // 退场没播完又被打开：直接接回来
-    if (dlg.open) return;
-    build();
-    show(0);
-    // 必须在 showModal 之前量滚动条宽度（之后页面已经 overflow:hidden），和设置页、详情页一样；已经有别的弹层开着时沿用上一次的值
-    if (!document.querySelector("dialog[open]")) document.documentElement.style.setProperty("--page-sbw", window.innerWidth - document.documentElement.clientWidth + "px");
-    dlg.showModal();
-    steps[0].querySelector(".guide-title").focus({ preventScroll: true }); // 焦点先落在标题上（不可见），Tab 再进按钮
-    void dlg.offsetWidth;
-    requestAnimationFrame(() => dlg.classList.add("open")); // 下一帧再加 class，过渡才会播放
-  }
-  // 结束（走完 / 跳过 / Esc）：记下完成状态，播退场，等透明度过渡真正结束再 close()，600ms 兜底（减少动画时没有 transitionend）
-  function end() {
-    if (!dlg.open || ending) return;
-    markDone();
-    dlg.classList.add("closing");
-    dlg.classList.remove("open");
-    const finish = () => { cancelEnd(); if (dlg.open) dlg.close(); };
-    const fn = (e) => { if (e.target === dlg && e.propertyName === "opacity") finish(); };
-    ending = { fn, timer: setTimeout(finish, 600) };
-    dlg.addEventListener("transitionend", fn);
-  }
-
-  nextBtn.addEventListener("click", () => (idx >= GUIDE_STEPS.length - 1 ? end() : show(idx + 1)));
-  prevBtn.addEventListener("click", () => show(idx - 1));
-  skipBtn.addEventListener("click", end);
-  dlg.addEventListener("cancel", (e) => { e.preventDefault(); end(); }); // Esc = 跳过
-  dlg.addEventListener("keydown", (e) => {
-    if (e.isComposing || e.altKey || e.ctrlKey || e.metaKey) return;
-    if (e.key === "ArrowRight" && idx < GUIDE_STEPS.length - 1) { e.preventDefault(); show(idx + 1); }
-    else if (e.key === "ArrowLeft" && idx > 0) { e.preventDefault(); show(idx - 1); }
-  });
-  return { open };
-})();
-
-// 设置 → 帮助 → 新手引导：先把设置页收起来再打开引导（两个弹层不叠在一起）
-$("#guideBtn")?.addEventListener("click", () => {
-  const st = $("#settings");
-  if (!st || !st.open) { guide.open(); return; }
-  const go = () => guide.open();
-  st.addEventListener("close", go, { once: true });
-  setTimeout(() => st.removeEventListener("close", go), 1500); // 万一设置页没有真的关掉，别让这个监听留着，等以后某次关闭时突然弹出来
-  $("#settingsClose").click();
-});
-
-// 清单加载成功之后调用。只排一次：之后手动刷新、重试都不会再触发
-function guideAfterLoad() {
-  if (!guideWanted) return;
-  guideWanted = false;
-  const root = document.documentElement;
-  const settle = () => setTimeout(() => {
-    if (document.querySelector("dialog[open]")) return; // 这一秒里用户已经自己打开了设置 / 详情：不打断，下次访问再说
-    guide.open();
-  }, motionOff() ? 150 : 500); // 开场动画约 1 秒，等页面一层层浮上来之后再出现
-  const busy = () => ["on", "leaving"].includes(root.getAttribute("data-splash"));
-  if (!busy()) return settle();
-  const mo = new MutationObserver(() => { if (!busy()) { mo.disconnect(); settle(); } }); // 启动页退场结束（done）再出现
-  mo.observe(root, { attributes: true, attributeFilter: ["data-splash"] });
-}
 
 load();

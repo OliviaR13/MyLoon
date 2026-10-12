@@ -106,8 +106,6 @@
     renderAbout();
     endClear();
     if (!sheet.open) sheet.showModal();
-    // 入场按「一行一行」错开：给看得见的标题 / 设置行 / 脚注依次编号（登录前后、是否桌面端，显示的行不一样，所以每次打开都重新编）
-    { let k = 0; sheet.querySelectorAll(".sheet-cols :is(.group-title, .group > *, .group-foot)").forEach((n) => { if (n.getClientRects().length) n.style.setProperty("--k", Math.min(k++, 12)); }); }
     sheet.classList.remove("enter"); // 重新计时：每次打开，内容的入场动效都从头播（样式见 style.css 的 #settings.enter）
     void sheet.offsetWidth;
     sheet.classList.add("enter");
@@ -151,6 +149,13 @@
   if (window.ResizeObserver) new ResizeObserver(syncScrollbar).observe(sheetBody); // 内容变长 / 变短导致滚动条出现或消失时也会触发
   // 入场错峰用的编号：「标题 + 分组」是一对，同一个号；分组下面的脚注跟着它前面的那一组
   { let n = -1; sheet.querySelectorAll(".sheet-cols > *").forEach((c) => { if (c.matches(".group-title")) n++; c.style.setProperty("--i", Math.max(n, 0)); }); }
+  // 分组里的每一行按顺序编号（--r）：分组先出现，里面的行再一行一行跟上
+  sheet.querySelectorAll(".group").forEach((g) => [...g.children].forEach((c, r) => c.style.setProperty("--r", r)));
+  // 新手引导的入口：不在设置页上面再叠一层，先把设置页收起，收起完（dialog 的 close 事件）再通知 app.js 打开向导
+  $("tourBtn")?.addEventListener("click", () => {
+    sheet.addEventListener("close", () => document.dispatchEvent(new Event("mlb:tour")), { once: true });
+    close();
+  });
   $("settingsBtn").addEventListener("click", open);
   $("settingsClose").addEventListener("click", close);
   sheet.addEventListener("cancel", (e) => { e.preventDefault(); close(); }); // Esc

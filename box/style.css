@@ -349,7 +349,7 @@ html[data-hide-cat] .chip-cat{display:none}
    关闭后又弹回来——退场动画结束、遮罩淡完的那一刻，背后的卡片会突然横跳一下。
    （scrollbar-gutter: stable 在根元素 + overflow:hidden 时 Chrome 不预留，试过了，没用。）
    所以由 settings.js 在打开前量出滚动条宽度写成 --page-sbw，这里用等宽的右内边距把位置占住，页面就不会动。浮层滚动条的系统上它是 0 */
-html:has(.sheet[open]){overflow:hidden;padding-right:var(--page-sbw,0px)}
+html:has(.sheet[open],.tour[open]){overflow:hidden;padding-right:var(--page-sbw,0px)}
 /* 主题卡片区不是 .row，上面的「.row + .row」分割线管不到它，单独补一条。
    「跟随系统」的说明只和主题有关，放在主题卡片下面，不放在整个「外观」组的脚注里（这个组里还有搜索框、多关键词等别的设置） */
 .tiles-note{margin:-4px 0 0;/* 左右留白和下面的 .row 一致（14px / 全屏 18px），文字左边缘才能对齐 */ padding:0 14px 14px;font-size:12.5px;line-height:1.5;color:var(--muted)}
@@ -565,6 +565,70 @@ html[data-compact] .card-icon{width:34px;height:34px}
 html[data-compact] .card-desc:not([data-open="true"]){max-height:calc(2 * 1.55em);margin-top:3px}
 html[data-compact] .tags{margin-top:7px}
 @media (min-width:600px){html[data-compact] .card{grid-template-columns:34px 1fr auto}}
+
+/* ---------- 新手引导 ----------
+   手机：底部卡片，从下面滑上来（底边向屏幕外多延伸 --bleed，同详情抽屉 / 设置页的理由）；桌面端（宽 ≥ 720px 且有鼠标悬停）：居中的卡片，淡入 + 轻轻放大。
+   四个步骤叠在同一格里（grid），只有当前这一步可见：整个向导的高度由最高的一步决定，切步骤不会跳高。
+   步骤切换：当前步骤之前的往左退、之后的往右等着，所以「下一步」是内容向左滑走、新内容从右边进来，「上一步」反过来，方向是自然的。 */
+.tour{--bleed:120px;border:0;padding:0 0 var(--bleed);background:var(--bg);color:var(--text);width:100%;max-width:none;max-height:none;height:fit-content;
+  margin:auto 0 0;inset-block-end:calc(-1 * var(--bleed));border-radius:var(--r-lg) var(--r-lg) 0 0;overflow:hidden;
+  transform:translateY(100%);transition:transform .45s var(--ease);box-shadow:0 -8px 40px rgb(var(--shadow) / .25)}
+.tour.open{transform:none}
+.tour.closing{transition-duration:.3s;transition-timing-function:cubic-bezier(.4,0,1,1);pointer-events:none}
+.tour::backdrop{background:rgb(var(--shadow) / .45);opacity:0;transition:opacity .4s cubic-bezier(.2,.8,.2,1)}
+.tour.open::backdrop{opacity:1}
+.tour.closing::backdrop{transition-duration:.3s;transition-timing-function:cubic-bezier(.4,0,1,1)}
+.tour:focus,.tour h2:focus{outline:none}
+.tour-card{display:flex;flex-direction:column;gap:18px;padding:26px 22px calc(18px + env(safe-area-inset-bottom))}
+.tour-stage{display:grid;overflow:hidden}
+.tour-step{grid-area:1 / 1;display:flex;flex-direction:column;align-items:flex-start;gap:12px;opacity:0;visibility:hidden;transform:translateX(26px);
+  transition:opacity .26s var(--ease),transform .38s var(--ease),visibility 0s .38s}
+.tour-step[data-pos="before"]{transform:translateX(-26px)}
+.tour-step[data-pos="active"]{opacity:1;visibility:visible;transform:none;transition:opacity .34s var(--ease) .06s,transform .44s var(--ease) .06s,visibility 0s}
+.tour-icon{flex:none;display:grid;place-items:center;width:56px;height:56px;border-radius:var(--r-md);background:var(--chip);color:var(--accent);box-shadow:0 0 0 1px var(--line)}
+.tour-icon svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tour-icon-logo{background:none;box-shadow:none}
+.tour-icon-logo img{width:56px;height:56px;border-radius:var(--r-md);box-shadow:0 0 0 1px var(--line);display:block}
+.tour-title{margin:4px 0 0;font-size:22px;line-height:1.25;font-weight:700;letter-spacing:-.025em}
+.tour-body{margin:0;font-size:15px;line-height:1.65}
+.tour-hint{margin:0;font-size:13px;line-height:1.6;color:var(--muted)}
+.tour-extra{align-self:stretch}
+.tour-extra[hidden]{display:none}
+.tour-chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.tour-label{margin-right:2px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.tour-legend{display:grid;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--card);font-size:13.5px;line-height:1.5}
+.tour-legend-row{display:flex;align-items:center;gap:10px}
+.tour-legend-row .chip{flex:none;min-width:56px;text-align:center}
+.tour-compare{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tour-compare-col{display:grid;align-content:start;gap:5px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--card);font-size:13px;line-height:1.55;color:var(--muted)}
+.tour-compare-col strong{font-size:13.5px;color:var(--text);font-weight:650}
+.tour-compare-col:last-child{border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
+/* 当前这一步里的内容依次浮上来（和页面的入场动效同一套关键帧）；步骤一出现 data-pos="active" 动画就开始 */
+.tour-step[data-pos="active"] .tour-icon{animation:intro-pop .6s cubic-bezier(.34,1.3,.64,1) .08s backwards}
+.tour-step[data-pos="active"] .tour-title{animation:intro-up .5s var(--ease) .14s backwards}
+.tour-step[data-pos="active"] .tour-body{animation:intro-up .5s var(--ease) .2s backwards}
+.tour-step[data-pos="active"] .tour-extra{animation:intro-up .5s var(--ease) .26s backwards}
+.tour-step[data-pos="active"] .tour-hint{animation:intro-up .5s var(--ease) .32s backwards}
+.tour-progress{display:flex;align-items:center;justify-content:space-between}
+.tour-dots{display:flex;gap:6px}
+.tour-dot{width:6px;height:6px;border-radius:3px;background:var(--line);transition:width .38s var(--ease),background-color .2s}
+.tour-dot[data-on]{width:22px;background:var(--accent)}
+.tour-count{font-size:12.5px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+.tour-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px} /* 最后一步「跳过」隐藏后，这一行也不会变矮，切到最后一步卡片不会少 2px */
+.tour-skip{padding:10px 4px;border:0;background:none;font:inherit;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer}
+.tour-skip:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--r-sm)}
+.tour-skip[hidden]{display:none}
+@media (hover:hover){.tour-skip:hover{color:var(--text)}}
+.tour-nav{display:flex;gap:8px;margin-left:auto}
+.tour-nav .btn{padding:10px 16px;font-size:14.5px}
+.tour-nav .btn-primary{min-width:104px}
+@media (min-width:720px) and (hover:hover){
+  .tour{--bleed:0px;width:min(440px,calc(100vw - 32px));margin:auto;inset:0;height:fit-content;border-radius:var(--r-lg);
+    transform:translateY(14px) scale(.97);opacity:0;transition:transform .4s var(--ease),opacity .28s var(--ease);box-shadow:0 24px 70px rgb(var(--shadow) / .3)}
+  .tour.open{transform:none;opacity:1}
+  .tour.closing{transform:translateY(8px) scale(.98);opacity:0}
+  .tour-card{padding-bottom:20px}
+}
 
 /* 开场动画：页面打开时，背景光晕先淡入，然后从上到下一层一层浮上来——
    图标（轻轻弹出）→ 标题 → 刷新 / 设置 → 页签 → 搜索栏 → 分类筛选 → 数量 / 列表 → 页脚，每层晚 ~60ms，整套约 1 秒。
@@ -787,17 +851,20 @@ html[data-full-cols] .sheet.full.detail{--full-col:760px}
 .detail.closing .sheet-body{opacity:0;translate:0 10px;transition:opacity .16s ease-in .03s,translate .2s ease-in .03s}
 .detail.closing .sheet-head{opacity:0;transition:opacity .14s ease-in}
 
-/* ---------- 设置页的进出场（和详情页同一套节奏）----------
-   之前面板滑进来时，里面的内容是「一整块」跟着动，滑出去也是：几十行设置像一块板子被整个推进推出，没有层次。
-   进场：面板滑进来的同时，顶栏按钮和标题、各个设置分组依次浮上来——「标题 + 分组」一对一对，每对晚 36ms，最多错开 9 对（再往后的在屏幕外，不用等）。
+/* ---------- 设置页的进出场 ----------
+   进场：和页面打开时的入场动效（见上面的「开场动画」）是同一套——同样的位移（12px）、时长（.6s）、曲线、每层晚 60ms，
+         从上往下一层一层出现：左上的按钮弹出（和主页图标一样的弹出）→ 标题 → 各个设置分组（标题 + 分组为一层）；
+         每个分组出现之后，里面的行再一行一行跟上（和主页列表里卡片一行一行浮上来一样，每行晚 40ms）。
+         分组按 --i 编号、行按 --r 编号，由 settings.js 打开前写好；只错开前 6 层 / 6 行，更靠下的在屏幕外，不用等。
          JS 每次打开都重新加 .enter，所以每次都会播；只用 backwards 填充，播完回到元素本来的样子。
    退场：内容先收，面板稍后再走。正文 .16s 内淡出并略微下沉，面板晚 .08s 起步（此时内容已经淡了大半，滑走的是一块「空」的面板，轻得多）；
          总时长约 .38s，在 settings.js 的 600ms 兜底之内。用 translate / opacity 这类独立属性，不动 transform，避免和面板自己的滑动互相覆盖。
    「减少动画」由下面全局的 html[data-reduce-motion] 统一清零。 */
-#settings.enter .sheet-head .btn{animation:intro-up .6s var(--ease) .12s backwards}
-#settings.enter .sheet-head h2{animation:intro-up .6s var(--ease) .18s backwards}
-/* 和主页开场同一种感觉：分组标题、每一行设置、脚注各自从下面浮上来，从上往下一行一行错开（--k 由 settings.js 在打开时按「看得见的」元素依次编号，隐藏的行不占位，最多错开 12 档，再往后的在屏幕外；节奏和主页开场一致：每层晚 ~55ms、.6s 浮上来，等面板滑进来之后再开始） */
-#settings.enter .sheet-cols :is(.group-title,.group > *,.group-foot){animation:intro-up .6s var(--ease) calc(.26s + var(--k,0) * 55ms) backwards}
+#settings.enter .sheet-head .btn{animation:intro-pop .7s cubic-bezier(.34,1.3,.64,1) backwards}
+#settings.enter #settingsFull{animation-delay:.06s}
+#settings.enter .sheet-head h2{animation:intro-up .6s var(--ease) .08s backwards}
+#settings.enter .sheet-cols > *{animation:intro-up .6s var(--ease) calc(.16s + min(var(--i,0), 6) * 60ms) backwards}
+#settings.enter .group > *{animation:rise .34s var(--ease) calc(.26s + min(var(--i,0), 6) * 60ms + min(var(--r,0), 6) * 40ms) backwards}
 #settings.closing{transition-delay:.08s} /* 全屏时 .sheet.full.closing 另有 transform + opacity 两条过渡，这条对它们同样生效 */
 #settings.closing .sheet-body{opacity:0;translate:0 10px;transition:opacity .16s ease-in,translate .2s ease-in}
 #settings.closing::backdrop{transition-delay:.08s} /* 遮罩跟着面板一起起步，不要面板还没动遮罩先淡了 */
@@ -807,89 +874,3 @@ html[data-full-cols] .sheet.full.detail{--full-col:760px}
 .tags .chip-cap{color:color-mix(in srgb,var(--text) 80%,var(--muted))}
 .card-meta{margin-top:8px;font-size:12.5px;line-height:1.4;color:var(--muted);overflow-wrap:anywhere}
 html[data-compact] .card-meta{margin-top:6px}
-
-/* ---------- 新手引导 ----------
-   四步轻量向导：一个居中的卡片（手机上贴在底部、方便单手点），每次只显示一步，底部是分段进度条 + 「2 / 4」。
-   · 沿用页面的中性底色和青绿色强调色、圆角体系、--ease / --spring 缓动，不另起一套视觉。
-   · 四个步骤都渲染在同一个网格格子里叠放，卡片的高度取最高的那一步，切换时卡片不会忽高忽低；
-     当前步 data-state="active"，之前的 "prev"（往左淡出）、之后的 "next"（从右边进来）。
-   · 进出场的时长、延迟都由文件末尾全局的 html[data-reduce-motion] 清零（减少动画 / 系统「减少动态效果」），这里不用再写一份。
-   · 打开时页面不再滚动，和设置页、详情页同一做法（--page-sbw 由 app.js 在 showModal 之前量好）。 */
-html:has(.guide[open]){overflow:hidden;padding-right:var(--page-sbw,0px)}
-.guide{border:1px solid var(--line);padding:0;background:var(--card);color:var(--text);
-  width:min(440px,calc(100% - 24px));max-width:none;max-height:calc(100dvh - 24px);margin:auto;border-radius:var(--r-lg);overflow:hidden;
-  box-shadow:0 24px 60px rgb(var(--shadow) / .3);
-  opacity:0;transform:translateY(14px) scale(.98);transition:opacity .28s var(--ease),transform .4s var(--ease)}
-.guide[open]{display:flex;flex-direction:column}
-.guide.open{opacity:1;transform:none}
-.guide.closing{opacity:0;transform:translateY(8px) scale(.985);transition-duration:.2s;transition-timing-function:cubic-bezier(.4,0,1,1);pointer-events:none}
-/* ::backdrop 在较旧的 Safari 里不继承自定义属性，曲线直接写字面量（和 .sheet::backdrop 一样） */
-.guide::backdrop{background:rgb(var(--shadow) / .45);opacity:0;transition:opacity .3s cubic-bezier(.2,.8,.2,1)}
-.guide.open::backdrop{opacity:1}
-.guide.closing::backdrop{transition-duration:.2s;transition-timing-function:cubic-bezier(.4,0,1,1)}
-.guide:focus,.guide-title:focus{outline:none}
-.guide-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px 0 20px;min-height:46px}
-.guide-kicker{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em}
-.guide-skip{font:inherit;font-size:13.5px;font-weight:500;color:var(--muted);background:none;border:0;border-radius:var(--r-sm);padding:8px 10px;cursor:pointer;transition:color .2s,background-color .2s}
-.guide-skip[hidden]{display:none}
-.guide-skip:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-@media (hover:hover){.guide-skip:hover{color:var(--text);background:var(--chip)}}
-
-/* 步骤区：网格叠放（见上）。overflow 只在字体特别大、屏幕特别矮时才会出现滚动条 */
-.guide-main{flex:1;min-height:0;display:grid;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;padding:6px 20px 4px}
-.guide-step{grid-area:1 / 1;min-width:0;display:flex;flex-direction:column;
-  transition:opacity .26s var(--ease),transform .38s var(--ease),visibility 0s}
-.guide-step[data-state="prev"],.guide-step[data-state="next"]{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s ease,transform .3s var(--ease),visibility 0s .3s}
-.guide-step[data-state="prev"]{transform:translateX(-18px)}
-.guide-step[data-state="next"]{transform:translateX(18px)}
-.guide-art{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;min-height:92px;padding:16px 14px;border-radius:var(--r-md);
-  background:color-mix(in srgb,var(--accent) 7%,var(--chip));box-shadow:inset 0 0 0 1px var(--line)}
-.guide-art svg{flex:none;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.guide-logo{border-radius:22%;box-shadow:0 0 0 1px var(--line),0 6px 16px rgb(var(--shadow) / .14)}
-.guide-title{margin:18px 0 0;font-size:21px;line-height:1.25;font-weight:700;letter-spacing:-.02em;text-wrap:balance}
-.guide-lead{margin-top:8px;font-size:15px;line-height:1.6;color:var(--text);text-wrap:pretty}
-.guide-points{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px;font-size:14px;line-height:1.55;color:var(--muted)}
-.guide-points li{position:relative;padding-left:16px;text-wrap:pretty}
-.guide-points li::before{content:"";position:absolute;left:2px;top:.62em;width:6px;height:6px;border-radius:50%;background:var(--accent);opacity:.75}
-.guide-points b{color:var(--text);font-weight:600}
-.guide-note{margin-top:12px;padding:9px 12px;border-radius:var(--r-md);background:color-mix(in srgb,var(--accent) 9%,transparent);
-  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 22%,transparent);font-size:13px;line-height:1.55;color:var(--text);text-wrap:pretty}
-
-/* 插图里的小部件：都是静态的示意，不可点（整块 aria-hidden） */
-.guide-search{display:flex;align-items:center;gap:6px;flex-wrap:wrap;width:100%;max-width:330px;padding:7px 7px 7px 11px;border-radius:var(--r-md);border:1px solid var(--accent);background:var(--card);box-shadow:0 0 0 3px var(--glow)}
-.guide-search svg{color:var(--muted);margin-right:2px}
-.guide-search .kw{padding:0 10px;height:25px;font-size:13px}
-.guide-search .kw-text{max-width:none}
-.guide-search .go{margin-left:auto;padding:5px 11px;border-radius:calc(var(--r-md) - 3px);background:var(--accent);color:var(--accent-ink);font-size:12.5px;font-weight:600}
-.guide-pill{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:var(--r-md);border:1px solid var(--line);background:var(--card);font-size:12.5px;line-height:1.2;color:var(--text)}
-.guide-pill[data-on]{background:color-mix(in srgb,var(--accent) 14%,transparent);border-color:color-mix(in srgb,var(--accent) 55%,transparent);color:var(--accent-text);font-weight:600}
-.guide-pill[data-dash]{border-style:dashed;color:var(--muted)}
-.guide-pill svg{width:14px;height:14px}
-.guide-pill[data-on] svg{fill:currentColor}
-.guide-arrow{color:var(--muted);display:inline-grid;place-items:center}
-.guide-art .tags{margin:0;justify-content:center}
-.guide-art .tags .chip-cap{background:var(--card);padding:5px 9px;font-size:12.5px}  /* 插图底色比列表里深一点，描边标签要有自己的底，不然只剩字 */
-.guide-art .chip{background:var(--card);box-shadow:inset 0 0 0 1px var(--line);padding:5px 9px;font-size:12.5px}
-.guide-fake-btn{padding:6px 12px;border-radius:var(--r-md);background:var(--accent);color:var(--accent-ink);font-size:12.5px;font-weight:600}
-.guide-art-col{display:grid;justify-items:center;gap:10px;width:100%}
-
-/* 底部：分段进度条 + 「2 / 4」 + 按钮 */
-.guide-foot{padding:14px 20px 18px}
-.guide-bar{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:5px}
-.guide-bar i{height:4px;border-radius:2px;background:var(--chip);box-shadow:inset 0 0 0 1px var(--line);transition:background-color .3s var(--ease),box-shadow .3s var(--ease)}
-.guide-bar i[data-on]{background:var(--accent);box-shadow:none}
-.guide-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
-.guide-count{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
-.guide-actions{display:flex;align-items:center;gap:8px}
-.guide-actions .btn{padding:10px 16px;font-size:14.5px;min-width:78px}
-.guide-actions .btn[hidden]{display:none}
-.guide-actions .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-
-/* 手机：卡片贴在屏幕底部（单手好点），从下面滑上来；底部留出 iOS 的安全区 */
-/* 屏幕很矮（小屏手机、横屏）：插图和间距收紧一点，尽量不用滚动就能看完一步 */
-@media (max-height:640px){.guide-art{min-height:70px;padding:10px 12px}.guide-title{margin-top:14px}.guide-main{padding-top:2px}}
-@media (max-width:599px){
-  .guide{margin:auto auto max(12px,env(safe-area-inset-bottom));transform:translateY(28px)}
-  .guide.closing{transform:translateY(18px)}
-  .guide-title{font-size:20px}
-}
