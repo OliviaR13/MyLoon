@@ -50,6 +50,8 @@
 
     <!-- 吸顶栏：页签、搜索 / 排序、分类筛选一起固定在屏幕顶部，见 style.css 的 .dock 和 app.js 的「吸顶栏」 -->
     <div class="dock" id="dock">
+    <!-- 吸顶栏的渐进模糊：8 层叠起来的毛玻璃，每层的蒙版不同，越往下越少、越轻，见 style.css 的 .dock-blur -->
+    <div class="dock-blur" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="tabs" id="tabs" role="group" aria-label="切换视图">
       <button class="tab" type="button" data-view="all" aria-pressed="true">全部插件</button>
       <button class="tab" type="button" data-view="fav" aria-pressed="false">我的收藏<small id="favCount">0</small></button>
