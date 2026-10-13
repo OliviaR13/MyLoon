@@ -137,7 +137,7 @@ mark.hit{padding:0 .08em;border-radius:3px;background:color-mix(in srgb,var(--ac
    · 栏自己在最下面留 8px 的空，筛选行和卡片之间有呼吸的位置。
    · 左右各伸出 16px 抵消 .shell 的内边距，毛玻璃横向铺满。
    · 排序菜单是 dock 里面的绝对定位元素，会盖到下面的列表上，所以 dock 的层级要比列表高。 */
-.dock{--dock-fade:88px;position:sticky;top:env(safe-area-inset-top);z-index:6;margin:0 -16px;padding:0 16px 8px}
+.dock{--dock-fade:48px;position:sticky;top:env(safe-area-inset-top);z-index:6;margin:0 -16px;padding:0 16px 8px}
 .dock::before,.dock-blur{content:"";position:absolute;z-index:-1;left:0;right:0;top:calc(-1 * env(safe-area-inset-top));bottom:calc(-1 * var(--dock-fade));pointer-events:none;
   visibility:hidden;opacity:0;transition:opacity .25s,visibility 0s .25s}
 .dock::before{background:linear-gradient(to bottom,
