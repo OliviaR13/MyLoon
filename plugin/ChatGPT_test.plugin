@@ -1,5 +1,0 @@
-#!name = ChatGPT 屏蔽 ab 域名（测试）
-#!desc = 拒绝 ab.chatgpt.com，测试是否能去掉广告
-
-[Rule]
-DOMAIN,ab.chatgpt.com,REJECT
