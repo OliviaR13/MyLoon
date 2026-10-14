@@ -3,28 +3,8 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-10-14T22:45:15.625744+00:00",
+  "generatedAt": "2026-10-14T22:45:26.568398+00:00",
   "plugins": [
-    {
-      "id": "ChatGPT_NoAds",
-      "name": "ChatGPT 去广告",
-      "file": "plugin/ChatGPT_NoAds.plugin",
-      "version": null,
-      "author": "@OliviaR13",
-      "category": "去广告",
-      "tags": [
-        "去广告"
-      ],
-      "mitm": true,
-      "script": true,
-      "args": true,
-      "rule": false,
-      "proxy": false,
-      "date": null,
-      "homepage": "https://github.com/OliviaR13/MyLoon",
-      "icon": "https://raw.githubusercontent.com/sooyaaabo/Loon/main/Icon/App-Icon/ChatGPT.png",
-      "description": "移除 ChatGPT App 回答下方的赞助广告卡片（需 MitM 解密 chatgpt.com）"
-    },
     {
       "id": "Gemini",
       "name": "Gemini 自选节点",
