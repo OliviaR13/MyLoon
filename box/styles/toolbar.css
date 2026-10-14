@@ -68,8 +68,9 @@ mark.hit{padding:0 .08em;border-radius:3px;background:color-mix(in srgb,var(--ac
 }
 
 /* 吸顶栏（#dock）：页签、搜索 / 排序、分类筛选一起固定在顶部，8 层渐进毛玻璃 */
-.dock{--dock-fade:48px;position:sticky;top:env(safe-area-inset-top);z-index:6;margin:0 -16px;padding:0 16px 8px}
-.dock::before,.dock-blur{content:"";position:absolute;z-index:-1;left:0;right:0;top:calc(-1 * env(safe-area-inset-top));bottom:calc(-1 * var(--dock-fade));pointer-events:none;
+/* --dock-lift：下拉刷新时整页会下移（最多 80px），毛玻璃向上多铺一段，盖住吸顶栏上方露出的内容 */
+.dock{--dock-fade:48px;--dock-lift:96px;position:sticky;top:env(safe-area-inset-top);z-index:6;margin:0 -16px;padding:0 16px 8px}
+.dock::before,.dock-blur{content:"";position:absolute;z-index:-1;left:0;right:0;top:calc(-1 * (env(safe-area-inset-top) + var(--dock-lift)));bottom:calc(-1 * var(--dock-fade));pointer-events:none;
   visibility:hidden;opacity:0;transition:opacity .25s,visibility 0s .25s}
 .dock::before{background:linear-gradient(to bottom,
   color-mix(in srgb,var(--bg) 72%,transparent) 0,
