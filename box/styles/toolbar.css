@@ -1,0 +1,151 @@
+/* ==========================================================================
+   工具栏与导航（Toolbar & Dock）：吸顶毛玻璃栏、顶层页签、多关键词搜索、排序菜单与分类筛选
+   ========================================================================== */
+
+/* 顶层页签：全部插件 / 我的收藏
+   用下划线标记选中页，和下方分类 chip 的填充样式区分开，两套控件不会看起来一样 */
+.tabs{position:relative;display:flex;gap:20px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.tab{font:inherit;font-size:15px;font-weight:600;color:var(--muted);background:none;border:0;
+  border-bottom:2px solid transparent;margin-bottom:-1px;padding:8px 2px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;
+  transition:color .2s,border-color .2s}
+.tab[aria-pressed="true"]{color:var(--text);border-bottom-color:var(--accent)}
+.tab small{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--muted);
+  background:var(--chip);border-radius:999px;padding:1px 7px;line-height:1.5}
+.tab[aria-pressed="true"] small{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent-text)}
+.tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (hover:hover){.tab:hover{color:var(--text)}}
+
+/* 页签指示器：一条下划线，切换时两段式移动（借自 Bencho Icon bar）。
+   前进方向的那一端先走（快），后面那一端稍晚带回弹地追上（慢）。 */
+.tabs.has-ind .tab[aria-pressed="true"]{border-bottom-color:transparent}
+.tab-ind{position:absolute;bottom:-1px;height:2px;border-radius:2px;background:var(--accent);pointer-events:none}
+.tab-ind[data-dir="fwd"]{transition:right .18s var(--ease),left .45s var(--spring) .07s}
+.tab-ind[data-dir="back"]{transition:left .18s var(--ease),right .45s var(--spring) .07s}
+.tab-ind.no-anim{transition:none}
+
+/* 工具栏：搜索 + 排序 */
+.toolbar{display:flex;align-items:flex-start;gap:8px;position:relative;z-index:5}
+/* 搜索框脚注：聚焦时用 grid 行高 0fr→1fr 平滑展开，失焦折叠，不占位置 */
+.search-hint{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .28s cubic-bezier(.2,.8,.2,1),opacity .2s}
+.search-hint[data-show]{grid-template-rows:1fr;opacity:1}
+.search-hint>div{overflow:hidden;min-height:0}
+.search-hint span{display:block;padding:6px 4px 0;font-size:12px;line-height:1.5;color:var(--muted)}
+/* 搜索框：一个带边框的盒子，从左到右依次是 放大镜 · 已确认的关键词 + 输入框 · 红叉（清除全部）· 搜索按钮。
+   输入框本身没有边框，边框、聚焦光圈都画在盒子上；关键词多了会在盒子里换行，盒子随之长高。
+   输入框字号必须 ≥16px，否则 iOS Safari 聚焦时会自动放大页面 */
+.search{flex:1;min-width:0;position:relative;display:flex;align-items:flex-start;min-height:43px;overflow:hidden;
+  border:1px solid var(--line);border-radius:var(--r-md);background:var(--card);cursor:text;transition:border-color .15s,box-shadow .15s}
+.search:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
+.search-lens{flex:none;margin:12px 8px 0 12px;color:var(--muted);pointer-events:none;transition:color .2s}
+.search:focus-within .search-lens,.search[data-has="true"] .search-lens{color:var(--text)}
+.search-field{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:7px 0}
+.search input{flex:1 1 96px;min-width:96px;height:27px;padding:0;border:0;outline:0;background:none;color:var(--text);
+  font:inherit;font-size:16px;line-height:27px;text-overflow:ellipsis;-webkit-appearance:none;appearance:none}
+.search input::placeholder{color:var(--muted)}
+/* 关键词胶囊：文字 + 红叉 */
+.kw{position:relative;display:inline-flex;align-items:center;gap:2px;max-width:100%;height:27px;padding:0 4px 0 10px;border-radius:999px;
+  background:var(--chip);box-shadow:inset 0 0 0 1px var(--line);font-size:14px;cursor:default}
+.kw-text{min-width:0;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kw-in{transform-origin:left center;animation:kw-pop .36s var(--spring) backwards}
+@keyframes kw-pop{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:none}}
+/* 命中的关键词：浅色底，不改字色，深浅主题都读得清 */
+mark.hit{padding:0 .08em;border-radius:3px;background:color-mix(in srgb,var(--accent) 24%,transparent);color:inherit}
+.kw-x,.search-clear{flex:none;display:grid;place-items:center;border:0;padding:0;background:none;color:#e5484d;cursor:pointer}
+.kw-x{position:relative;width:20px;height:20px;border-radius:50%;transition:background-color .15s}
+.kw-x::after{content:"";position:absolute;inset:-6px}
+.search-clear{align-self:flex-start;width:36px;height:41px}
+.search-clear[hidden]{display:none}
+.search-clear:not([hidden]){animation:fade .18s backwards}
+.search-go{flex:none;margin:5px 5px 5px 0;height:31px;padding:0 13px;border:0;border-radius:calc(var(--r-md) - 3px);background:var(--accent);color:var(--accent-ink);
+  font:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:filter .15s,transform .35s var(--spring)}
+.search-go:active{transform:scale(.94)}
+.kw-x:focus-visible,.search-clear:focus-visible,.search-go:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+@media (hover:hover){
+  .kw-x:hover{background:color-mix(in srgb,#e5484d 16%,transparent)}
+  .search-clear:hover{color:#c93036}
+  .search-go:hover{filter:brightness(1.08)}
+}
+
+/* 吸顶栏（#dock）：页签、搜索 / 排序、分类筛选一起固定在顶部，8 层渐进毛玻璃 */
+.dock{--dock-fade:48px;position:sticky;top:env(safe-area-inset-top);z-index:6;margin:0 -16px;padding:0 16px 8px}
+.dock::before,.dock-blur{content:"";position:absolute;z-index:-1;left:0;right:0;top:calc(-1 * env(safe-area-inset-top));bottom:calc(-1 * var(--dock-fade));pointer-events:none;
+  visibility:hidden;opacity:0;transition:opacity .25s,visibility 0s .25s}
+.dock::before{background:linear-gradient(to bottom,
+  color-mix(in srgb,var(--bg) 72%,transparent) 0,
+  color-mix(in srgb,var(--bg) 64%,transparent) calc(100% - var(--dock-fade)),
+  color-mix(in srgb,var(--bg) 40%,transparent) calc(100% - var(--dock-fade) * .65),
+  color-mix(in srgb,var(--bg) 14%,transparent) calc(100% - var(--dock-fade) * .3),
+  transparent 100%)}
+.dock[data-stuck]::before,.dock[data-stuck] .dock-blur{visibility:visible;opacity:1;transition:opacity .25s}
+.dock-blur i{position:absolute;inset:0}
+.dock-blur i:nth-child(1){-webkit-backdrop-filter:blur(0.7px);backdrop-filter:blur(0.7px);
+  -webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - var(--dock-fade) * 1 / 8),transparent 100%);mask-image:linear-gradient(to bottom,#000 calc(100% - var(--dock-fade) * 1 / 8),transparent 100%)}
+.dock-blur i:nth-child(2){-webkit-backdrop-filter:blur(1.4px);backdrop-filter:blur(1.4px);
+  -webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - var(--dock-fade) * 2 / 8),transparent calc(100% - var(--dock-fade) * 1 / 8));mask-image:linear-gradient(to bottom,#000 calc(100% - var(--dock-fade) * 2 / 8),transparent calc(100% - var(--dock-fade) * 1 / 8))}
+.dock-blur i:nth-child(3){-webkit-backdrop-filter:blur(2.2px);backdrop-filter:blur(2.2px);
+  -webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - var(--dock-fade) * 3 / 8),transparent calc(100% - var(--dock-fade) * 2 / 8));mask-image:linear-gradient(to bottom,#000 calc(100% - var(--dock-fade) * 3 / 8),transparent calc(100% - var(--dock-fade) * 2 / 8))}
+.dock-blur i:nth-child(4){-webkit-backdrop-filter:blur(3.2px);backdrop-filter:blur(3.2px);
+  -webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - var(--dock-fade) * 4 / 8),transparent calc(100% - var(--dock-fade) * 3 / 8));mask-image:linear-gradient(to bottom,#000 calc(100% - var(--dock-fade) * 4 / 8),transparent calc(100% - var(--dock-fade) * 3 / 8))}
+.dock-blur i:nth-child(5){-webkit-backdrop-filter:blur(4.5px);backdrop-filter:blur(4.5px);
+  -webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - var(--dock-fade) * 5 / 8),transparent calc(100% - var(--dock-fade) * 4 / 8));mask-image:linear-gradient(to bottom,#000 calc(100% - var(--dock-fade) * 5 / 8),transparent calc(100% - var(--dock-fade) * 4 / 8))}
+.dock-blur i:nth-child(6){-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  -webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - var(--dock-fade) * 6 / 8),transparent calc(100% - var(--dock-fade) * 5 / 8));mask-image:linear-gradient(to bottom,#000 calc(100% - var(--dock-fade) * 6 / 8),transparent calc(100% - var(--dock-fade) * 5 / 8))}
+.dock-blur i:nth-child(7){-webkit-backdrop-filter:blur(7.8px);backdrop-filter:blur(7.8px);
+  -webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - var(--dock-fade) * 7 / 8),transparent calc(100% - var(--dock-fade) * 6 / 8));mask-image:linear-gradient(to bottom,#000 calc(100% - var(--dock-fade) * 7 / 8),transparent calc(100% - var(--dock-fade) * 6 / 8))}
+.dock-blur i:nth-child(8){-webkit-backdrop-filter:blur(10px) saturate(1.5);backdrop-filter:blur(10px) saturate(1.5);
+  -webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - var(--dock-fade) * 8 / 8),transparent calc(100% - var(--dock-fade) * 7 / 8));mask-image:linear-gradient(to bottom,#000 calc(100% - var(--dock-fade) * 8 / 8),transparent calc(100% - var(--dock-fade) * 7 / 8))}
+
+/* 分类筛选与统计栏 */
+.filters{display:flex;gap:8px;overflow-x:auto;padding:12px 0 0;scrollbar-width:none}
+.filters::-webkit-scrollbar{display:none}
+.chip-filter{flex:none;font:inherit;font-size:13px;border:1px solid var(--line);background:transparent;color:var(--text);border-radius:var(--r-md);
+  padding:5px 12px;cursor:pointer;transition:background-color .2s,border-color .2s,color .2s,transform .12s}
+.chip-filter:active{transform:scale(.96)}
+.chip-filter[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 14%,transparent);border-color:color-mix(in srgb,var(--accent) 55%,transparent);color:var(--accent-text);font-weight:600}
+.chip-filter small{opacity:.6;margin-left:4px;font-family:var(--mono);font-size:11px}
+@media (hover:hover){.chip-filter:hover:not([aria-pressed="true"]){border-color:var(--accent)}}
+
+.meta{display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-size:12.5px;margin:14px 2px 8px}
+
+/* 排序：一个按钮 + 弹出菜单（参考 Bencho 的 Create menu：一个形状，不是两个） */
+.sortwrap{position:relative;flex:none;height:43px}
+.sort-btn{height:100%;display:flex;align-items:center;gap:7px;padding:0 13px;font:inherit;font-size:14px;font-weight:600;color:var(--text);
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);cursor:pointer;position:relative;z-index:2;
+  transition:border-color .1s .3s,background-color .1s .3s,transform .35s var(--spring)}
+.sort-btn:active{transform:scale(.94)}
+.sort-btn svg{width:16px;height:16px;flex:none;color:var(--muted);fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.sort-btn>*,.sort-btn[data-pin="true"]::after{transition:opacity .16s .16s}
+.sort-btn[data-pin="true"]::after{content:"";position:absolute;top:6px;right:6px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.sortwrap[data-open="true"] .sort-btn{background:transparent;border-color:transparent;pointer-events:none;
+  transition:border-color 0s,background-color 0s,transform .35s var(--spring)}
+.sortwrap[data-open="true"] .sort-btn>*,.sortwrap[data-open="true"] .sort-btn[data-pin="true"]::after{opacity:0;transition:opacity .1s}
+.sort-menu{position:absolute;right:0;top:0;z-index:1;overflow:hidden;
+  width:var(--bw,100px);height:var(--bh,43px);background:var(--card);border:1px solid var(--line);
+  border-radius:var(--r-md);box-shadow:0 0 0 rgb(var(--shadow) / 0);
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:width .36s cubic-bezier(.32,.72,0,1),height .36s cubic-bezier(.32,.72,0,1),border-radius .36s cubic-bezier(.32,.72,0,1),
+    box-shadow .3s,opacity 0s .36s,visibility 0s .36s}
+.sort-menu[data-open="true"]{width:var(--mw);height:var(--mh);border-radius:calc(var(--r-md) + 4px);
+  box-shadow:0 14px 36px rgb(var(--shadow) / .22);opacity:1;visibility:visible;pointer-events:auto;
+  transition:width .48s cubic-bezier(.22,1,.36,1),height .48s cubic-bezier(.22,1,.36,1),border-radius .48s cubic-bezier(.22,1,.36,1),
+    box-shadow .3s,opacity 0s,visibility 0s}
+.sort-inner{position:absolute;top:0;right:0;width:max-content;min-width:224px;padding:6px}
+.sort-menu .sort-inner>*{opacity:0;transform:translateY(-6px);
+  transition:opacity .14s calc((var(--n) - 1 - var(--i)) * 14ms),transform .2s var(--ease) calc((var(--n) - 1 - var(--i)) * 14ms),background-color .15s}
+.sort-menu[data-open="true"] .sort-inner>*{--d:calc(90ms + var(--i) * 34ms);opacity:1;transform:none;
+  transition:opacity .24s var(--d),transform .42s var(--ease) var(--d),background-color .15s}
+.sort-title{display:flex;align-items:center;justify-content:space-between;min-height:36px;padding:0 10px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer}
+.sort-title svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.sort-item{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;padding:10px;font:inherit;font-size:14.5px;color:var(--text);
+  background:none;border:0;border-radius:var(--r-md);text-align:left;cursor:pointer;transition:background-color .15s}
+.sort-item[aria-checked="true"]:not(.sort-pin){color:var(--accent-text);font-weight:600}
+.sort-item:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.sort-check{flex:none;width:6px;height:11px;margin-right:4px;border:solid currentColor;border-width:0 2px 2px 0;transform:rotate(45deg) translateY(-1px);opacity:0;transition:opacity .15s}
+.sort-item[aria-checked="true"] .sort-check{opacity:1}
+.sort-sep{height:1px;margin:6px 4px;background:var(--line)}
+@media (hover:hover){.sort-item:hover{background:var(--chip)}.sort-btn:hover{border-color:var(--muted)}}
+@media (hover:none){
+  .tab:active{opacity:.6}
+  .sort-item:active{background:var(--chip)}
+}

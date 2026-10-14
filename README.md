@@ -139,7 +139,7 @@ App 发出请求
 |---|---|
 | [`plugin/`](plugin/) | Loon 插件（10 款） |
 | [`script/`](script/) | 插件使用的脚本 |
-| [`box/`](box/) | Loon Box 前端源码（HTML / CSS / JS） |
+| [`box/`](box/) | Loon Box 前端源码（原生 HTML / 模块化 CSS `styles/` / ES Modules `js/`） |
 | [`functions/`](functions/) | Cloudflare Pages Functions：清单接口、GitHub OAuth、云端同步、人机验证 |
 | [`icon/`](icon/) | 图标资源 |
 | [`manifest.json`](manifest.json) | 插件清单，由 GitHub Actions 自动生成，请勿手动编辑 |

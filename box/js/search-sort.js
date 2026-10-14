@@ -1,0 +1,262 @@
+/* 多关键词胶囊搜索框、变形排序菜单与吸顶栏（#dock）控制 */
+
+import { CONFIG, FAV, SORT_KEY } from "./config.js";
+import { el, els, crossIcon, sortIcon, chevronIcon, setSwitch, lsSet } from "./dom.js";
+import { SORTS, SORT_OPTIONS, state, getSettings, setSettings } from "./state.js";
+import { render, renderFilters, syncTabs, setResetFiltersHandler } from "./render.js";
+
+/* ---------- 多关键词搜索框 ---------- */
+
+let shownKw = new Set();
+let filterTimer = 0;
+
+export function renderKeywords() {
+  els.searchField.querySelectorAll(".kw").forEach((n) => n.remove());
+  const prev = shownKw;
+  shownKw = new Set(state.keywords);
+  state.keywords.forEach((k, i) => {
+    const chip = el("span", prev.has(k) ? "kw" : "kw kw-in");
+    const x = el("button", "kw-x");
+    x.type = "button";
+    x.dataset.i = i;
+    x.setAttribute("aria-label", `删除关键词 ${k}`);
+    x.append(crossIcon());
+    chip.append(el("span", "kw-text", k), x);
+    els.searchField.insertBefore(chip, els.search);
+  });
+}
+
+export function commitDraft() {
+  const v = els.search.value.trim();
+  if (!v) return false;
+  if (!state.keywords.some((k) => k.toLowerCase() === v.toLowerCase())) state.keywords.push(v);
+  els.search.value = state.query = "";
+  return true;
+}
+
+export function syncSearch() {
+  const has = state.keywords.length > 0 || els.search.value !== "";
+  els.searchBox.dataset.has = String(has);
+  els.searchClear.hidden = !has;
+  els.search.placeholder = state.keywords.length ? "继续添加关键词" : "输入关键词";
+  const hintOn = document.activeElement === els.search;
+  if (els.searchHint) {
+    const or = getSettings().searchMode === "or";
+    els.searchHintText.textContent = "回车添加关键词；" + (or ? "包含任意一个关键词即可（OR）" : "需同时包含全部关键词（AND）");
+    els.searchHint.toggleAttribute("data-show", hintOn);
+  }
+}
+
+export function applySearch({ animate = false } = {}) {
+  clearTimeout(filterTimer);
+  renderKeywords();
+  syncSearch();
+  if (state.plugins.length) render({ animate, flip: !animate });
+}
+
+export function resetFilters() {
+  state.category = CONFIG.all;
+  state.query = els.search.value = "";
+  state.keywords = [];
+  renderKeywords();
+  syncSearch();
+  renderFilters();
+  render({ animate: true });
+}
+
+const filterSoon = () => {
+  clearTimeout(filterTimer);
+  filterTimer = setTimeout(() => { if (state.plugins.length) render({ flip: true }); }, 120);
+};
+
+/* ---------- 排序菜单 ---------- */
+
+const sortUI = {};
+
+export function sizeSortMenu() {
+  if (!sortUI.menu) return;
+  const s = sortUI.menu.style;
+  s.setProperty("--bw", sortUI.btn.offsetWidth + "px");
+  s.setProperty("--bh", sortUI.btn.offsetHeight + "px");
+  s.setProperty("--mw", sortUI.inner.offsetWidth + 2 + "px");
+  s.setProperty("--mh", sortUI.inner.offsetHeight + 2 + "px");
+}
+
+export function syncSort() {
+  if (!sortUI.btn) return;
+  const { key, dir } = state.sort;
+  sortUI.text.textContent = SORTS[key].short[dir];
+  sortUI.btn.setAttribute("aria-label", `排序：${SORTS[key].label} ${SORTS[key].hint[dir]}`);
+  sortUI.items.forEach((b) => b.setAttribute("aria-checked", String(b.dataset.key === key && b.dataset.dir === dir)));
+  const pinned = !!getSettings().pinFavs;
+  setSwitch(sortUI.pin, pinned, sortUI.pin.querySelector(".mini-switch"));
+  sortUI.btn.dataset.pin = String(pinned);
+}
+
+const sortIsOpen = () => sortUI.menu?.dataset.open === "true";
+
+export function setSortOpen(open, viaKeyboard = false) {
+  if (open) syncSort();
+  if (open) sortUI.menu.style.transition = "none";
+  sizeSortMenu();
+  if (open) { void sortUI.menu.offsetWidth; sortUI.menu.style.transition = ""; }
+  sortUI.menu.dataset.open = String(open);
+  els.sort.dataset.open = String(open);
+  sortUI.btn.setAttribute("aria-expanded", String(open));
+  if (open && viaKeyboard) {
+    (sortUI.items.find((b) => b.getAttribute("aria-checked") === "true") || sortUI.items[0]).focus();
+  }
+}
+
+export function buildSort() {
+  const btn = el("button", "sort-btn");
+  btn.type = "button";
+  btn.setAttribute("aria-haspopup", "menu");
+  btn.setAttribute("aria-expanded", "false");
+  btn.setAttribute("aria-controls", "sortMenu");
+  sortUI.text = el("span", "sort-text");
+  btn.append(sortIcon(), sortUI.text);
+
+  const menu = el("div", "sort-menu");
+  menu.id = "sortMenu";
+  menu.setAttribute("role", "menu");
+  menu.setAttribute("aria-label", "排序方式");
+  const inner = el("div", "sort-inner");
+  menu.append(inner);
+  const title = el("div", "sort-title");
+  title.append(el("span", "", "排序方式"), chevronIcon());
+  inner.append(title);
+
+  sortUI.items = SORT_OPTIONS.map((o) => {
+    const b = el("button", "sort-item");
+    b.type = "button";
+    b.setAttribute("role", "menuitemradio");
+    b.dataset.key = o.key;
+    b.dataset.dir = o.dir;
+    b.append(el("span", "", o.label), el("i", "sort-check"));
+    inner.append(b);
+    return b;
+  });
+  inner.append(el("div", "sort-sep"));
+  const pin = el("button", "sort-item sort-pin");
+  pin.type = "button";
+  pin.setAttribute("role", "menuitemcheckbox");
+  pin.append(el("span", "", "收藏置顶"), el("i", "mini-switch"));
+  inner.append(pin);
+
+  [...inner.children].forEach((c, i) => c.style.setProperty("--i", i));
+  inner.style.setProperty("--n", inner.children.length);
+
+  Object.assign(sortUI, { btn, menu, inner, pin });
+  els.sort.replaceChildren(btn, menu);
+  sizeSortMenu();
+  syncSort();
+}
+
+/* ---------- 事件绑定与吸顶栏监听 ---------- */
+
+export function initSearchAndSort() {
+  setResetFiltersHandler(resetFilters);
+  buildSort();
+
+  els.search.addEventListener("focus", syncSearch);
+  els.search.addEventListener("blur", syncSearch);
+  els.search.addEventListener("input", (e) => {
+    if (!e.isComposing) {
+      state.query = e.target.value;
+      filterSoon();
+    }
+    syncSearch();
+  });
+  els.search.addEventListener("compositionend", () => {
+    state.query = els.search.value;
+    syncSearch();
+    filterSoon();
+  });
+  els.search.addEventListener("keydown", (e) => {
+    if (e.isComposing || e.keyCode === 229) return;
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (commitDraft()) applySearch();
+      else els.search.blur();
+    } else if (e.key === "Backspace" && !els.search.value && state.keywords.length) {
+      state.keywords.pop();
+      applySearch();
+    }
+  });
+
+  els.searchBox.addEventListener("mousedown", (e) => { if (e.target.closest("button")) e.preventDefault(); });
+  els.searchBox.addEventListener("click", (e) => {
+    const x = e.target.closest(".kw-x");
+    if (x) { state.keywords.splice(Number(x.dataset.i), 1); applySearch(); return; }
+    if (e.target.closest("#searchClear")) {
+      state.keywords = [];
+      els.search.value = state.query = "";
+      applySearch({ animate: true });
+      els.search.focus();
+      return;
+    }
+    if (e.target.closest("#searchGo")) { commitDraft(); applySearch({ animate: true }); els.search.blur(); return; }
+    if (!e.target.closest(".kw")) els.search.focus();
+  });
+
+  els.tabs.addEventListener("click", (e) => {
+    const b = e.target.closest(".tab");
+    if (!b) return;
+    state.category = b.dataset.view === "fav" ? FAV : CONFIG.all;
+    syncTabs();
+    els.filters.querySelectorAll(".chip-filter").forEach((x) =>
+      x.setAttribute("aria-pressed", String(x.dataset.name === state.category))
+    );
+    render({ animate: true });
+  });
+
+  sortUI.btn.addEventListener("click", (e) => setSortOpen(!sortIsOpen(), e.detail === 0));
+  sortUI.menu.addEventListener("click", (e) => {
+    if (e.target.closest(".sort-title")) {
+      setSortOpen(false);
+      if (e.detail === 0) sortUI.btn.focus();
+      return;
+    }
+    const item = e.target.closest(".sort-item");
+    if (!item) return;
+    if (item === sortUI.pin) {
+      const nextPin = !getSettings().pinFavs;
+      setSettings({ pinFavs: nextPin });
+      document.dispatchEvent(new Event("settings:change"));
+      syncSort();
+    } else {
+      state.sort = { key: item.dataset.key, dir: item.dataset.dir };
+      lsSet(SORT_KEY, state.sort.key + ":" + state.sort.dir);
+      document.dispatchEvent(new Event("settings:change"));
+      syncSort();
+      setSortOpen(false);
+      if (e.detail === 0) sortUI.btn.focus();
+    }
+    if (state.plugins.length) render({ animate: true });
+  });
+
+  document.addEventListener("click", (e) => { if (sortIsOpen() && !els.sort.contains(e.target)) setSortOpen(false); });
+  document.addEventListener("keydown", (e) => {
+    if (!sortIsOpen()) return;
+    if (e.key === "Escape") { setSortOpen(false); sortUI.btn.focus(); return; }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const list = [...sortUI.items, sortUI.pin];
+      const i = list.indexOf(document.activeElement);
+      list[(i + (e.key === "ArrowDown" ? 1 : -1) + list.length) % list.length].focus();
+    }
+  });
+
+  // 吸顶栏（#dock）：吸住时加 data-stuck，触发毛玻璃渐隐背景
+  if (els.dock) {
+    let queued = 0;
+    const updateDock = () => {
+      queued = 0;
+      const stickTop = parseFloat(getComputedStyle(els.dock).top) || 0;
+      els.dock.toggleAttribute("data-stuck", scrollY > 0 && els.dock.getBoundingClientRect().top <= stickTop + 0.5);
+    };
+    window.addEventListener("scroll", () => { if (!queued) queued = requestAnimationFrame(updateDock); }, { passive: true });
+    window.addEventListener("resize", updateDock);
+  }
+}

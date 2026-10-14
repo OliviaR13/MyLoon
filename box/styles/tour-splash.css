@@ -1,0 +1,108 @@
+/* ==========================================================================
+   新手引导、启动页与全局动效（Tour, Splash & Motion）
+   ========================================================================== */
+
+/* 新手引导：手机为底部卡片，桌面端为居中卡片；四步叠在同一格（grid）中切换 */
+.tour{--bleed:120px;border:0;padding:0 0 var(--bleed);background:var(--bg);color:var(--text);width:100%;max-width:none;max-height:none;height:fit-content;
+  margin:auto 0 0;inset-block-end:calc(-1 * var(--bleed));border-radius:var(--r-lg) var(--r-lg) 0 0;overflow:hidden;
+  transform:translateY(100%);transition:transform .45s var(--ease);box-shadow:0 -8px 40px rgb(var(--shadow) / .25)}
+.tour.open{transform:none}
+.tour.closing{transition-duration:.3s;transition-timing-function:cubic-bezier(.4,0,1,1);pointer-events:none}
+.tour::backdrop{background:rgb(var(--shadow) / .45);opacity:0;transition:opacity .4s cubic-bezier(.2,.8,.2,1)}
+.tour.open::backdrop{opacity:1}
+.tour.closing::backdrop{transition-duration:.3s;transition-timing-function:cubic-bezier(.4,0,1,1)}
+.tour:focus,.tour h2:focus{outline:none}
+.tour-card{display:flex;flex-direction:column;gap:18px;padding:26px 22px calc(18px + env(safe-area-inset-bottom))}
+.tour-stage{display:grid;overflow:hidden}
+.tour-step{grid-area:1 / 1;display:flex;flex-direction:column;align-items:flex-start;gap:12px;opacity:0;visibility:hidden;transform:translateX(26px);
+  transition:opacity .26s var(--ease),transform .38s var(--ease),visibility 0s .38s}
+.tour-step[data-pos="before"]{transform:translateX(-26px)}
+.tour-step[data-pos="active"]{opacity:1;visibility:visible;transform:none;transition:opacity .34s var(--ease) .06s,transform .44s var(--ease) .06s,visibility 0s}
+.tour-icon{flex:none;display:grid;place-items:center;width:56px;height:56px;border-radius:var(--r-md);background:var(--chip);color:var(--accent);box-shadow:0 0 0 1px var(--line)}
+.tour-icon svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tour-icon-logo{background:none;box-shadow:none}
+.tour-icon-logo img{width:56px;height:56px;border-radius:var(--r-md);box-shadow:0 0 0 1px var(--line);display:block}
+.tour-title{margin:4px 0 0;font-size:22px;line-height:1.25;font-weight:700;letter-spacing:-.025em}
+.tour-body{margin:0;font-size:15px;line-height:1.65}
+.tour-hint{margin:0;font-size:13px;line-height:1.6;color:var(--muted)}
+.tour-extra{align-self:stretch}
+.tour-extra[hidden]{display:none}
+.tour-chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.tour-label{margin-right:2px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.tour-legend{display:grid;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--card);font-size:13.5px;line-height:1.5}
+.tour-legend-row{display:flex;align-items:center;gap:10px}
+.tour-legend-row .chip{flex:none;min-width:56px;text-align:center}
+.tour-compare{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tour-compare-col{display:grid;align-content:start;gap:5px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--card);font-size:13px;line-height:1.55;color:var(--muted)}
+.tour-compare-col strong{font-size:13.5px;color:var(--text);font-weight:650}
+.tour-compare-col:last-child{border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
+.tour-step[data-pos="active"] .tour-icon{animation:intro-pop .6s cubic-bezier(.34,1.3,.64,1) .08s backwards}
+.tour-step[data-pos="active"] .tour-title{animation:intro-up .5s var(--ease) .14s backwards}
+.tour-step[data-pos="active"] .tour-body{animation:intro-up .5s var(--ease) .2s backwards}
+.tour-step[data-pos="active"] .tour-extra{animation:intro-up .5s var(--ease) .26s backwards}
+.tour-step[data-pos="active"] .tour-hint{animation:intro-up .5s var(--ease) .32s backwards}
+.tour-progress{display:flex;align-items:center;justify-content:space-between}
+.tour-dots{display:flex;gap:6px}
+.tour-dot{width:6px;height:6px;border-radius:3px;background:var(--line);transition:width .38s var(--ease),background-color .2s}
+.tour-dot[data-on]{width:22px;background:var(--accent)}
+.tour-count{font-size:12.5px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+.tour-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px}
+.tour-skip{padding:10px 4px;border:0;background:none;font:inherit;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer}
+.tour-skip:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--r-sm)}
+.tour-skip[hidden]{display:none}
+@media (hover:hover){.tour-skip:hover{color:var(--text)}}
+.tour-nav{display:flex;gap:8px;margin-left:auto}
+.tour-nav .btn{padding:10px 16px;font-size:14.5px}
+.tour-nav .btn-primary{min-width:104px}
+@media (min-width:720px) and (hover:hover){
+  .tour{--bleed:0px;width:min(440px,calc(100vw - 32px));margin:auto;inset:0;height:fit-content;border-radius:var(--r-lg);
+    transform:translateY(14px) scale(.97);opacity:0;transition:transform .4s var(--ease),opacity .28s var(--ease);box-shadow:0 24px 70px rgb(var(--shadow) / .3)}
+  .tour.open{transform:none;opacity:1}
+  .tour.closing{transform:translateY(8px) scale(.98);opacity:0}
+  .tour-card{padding-bottom:20px}
+}
+
+/* 页面逐层开场动画：在启动页开始退场（非 data-splash="on"）时依次触发 */
+@keyframes intro-up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes intro-pop{from{opacity:0;transform:scale(.86)}to{opacity:1;transform:none}}
+@keyframes intro-glow{from{opacity:0}to{opacity:1}}
+html:not([data-splash="on"]) body::after{animation:intro-glow 1.3s ease-out backwards}
+html:not([data-splash="on"]) .head .logo{animation:intro-pop .7s cubic-bezier(.34,1.3,.64,1) backwards}
+html:not([data-splash="on"]) .head-text{animation:intro-up .6s var(--ease) .08s backwards}
+html:not([data-splash="on"]) .head .btn{animation:intro-up .6s var(--ease) .16s backwards}
+html:not([data-splash="on"]) .tabs{animation:intro-up .6s var(--ease) .22s backwards}
+html:not([data-splash="on"]) .toolbar{animation:intro-up .6s var(--ease) .28s backwards}
+html:not([data-splash="on"]) .filters{animation:intro-up .6s var(--ease) .34s backwards}
+html:not([data-splash="on"]) .meta{animation:intro-glow .5s ease-out .4s backwards}
+html:not([data-splash="on"]) .list{animation:intro-up .6s var(--ease) .36s backwards}
+html:not([data-splash="on"]) .foot{animation:intro-glow .5s ease-out .52s backwards}
+
+/* 启动页（Android 风格）：盖住整个页面，清单加载好后退场，带 6 秒兜底保险 */
+.splash{display:none;position:fixed;inset:0;z-index:2000;place-items:center;touch-action:none;overscroll-behavior:contain;
+  background:radial-gradient(75% 46% at 50% 38%,var(--glow),transparent 72%),var(--bg)}
+html[data-splash="on"] .splash,html[data-splash="leaving"] .splash{display:grid}
+.splash-core{display:grid;justify-items:center;padding:0 28px;text-align:center}
+.splash-logo{width:88px;height:88px;border-radius:22%;box-shadow:0 0 0 1px var(--line),0 12px 32px rgb(var(--shadow) / .16);
+  animation:splash-pop .6s cubic-bezier(.34,1.3,.64,1) backwards}
+.splash-text{margin-top:22px;font-size:18px;line-height:1.4;letter-spacing:-.01em;text-wrap:balance;animation:splash-up .55s var(--ease) .18s backwards}
+.splash-text span{color:var(--muted);font-weight:500}
+.splash-text b{font-weight:700}
+.splash-spin{margin-top:30px;color:var(--accent);animation:splash-in .4s ease .45s backwards,splash-rotate 1.4s linear infinite}
+.splash-spin circle{stroke:currentColor;stroke-dasharray:1,150;stroke-dashoffset:0;animation:splash-dash 1.4s ease-in-out infinite}
+@keyframes splash-pop{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:none}}
+@keyframes splash-up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes splash-in{from{opacity:0}to{opacity:1}}
+@keyframes splash-rotate{to{transform:rotate(360deg)}}
+@keyframes splash-dash{0%{stroke-dasharray:1,150;stroke-dashoffset:0}50%{stroke-dasharray:90,150;stroke-dashoffset:-35}100%{stroke-dasharray:90,150;stroke-dashoffset:-124}}
+html[data-splash="leaving"] .splash{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .45s ease .06s,visibility 0s .52s}
+html[data-splash="leaving"] .splash-core{opacity:0;transform:scale(1.07);transition:opacity .3s ease,transform .5s var(--ease)}
+html[data-splash="on"] .splash{animation:splash-failsafe .4s ease 6s forwards}
+@keyframes splash-failsafe{to{opacity:0;visibility:hidden;pointer-events:none}}
+html[data-splash="on"] .sk-card,html[data-splash="on"] .list.enter .card{animation:none}
+
+/* 减少动画：由 settings.js 统一写入 <html data-reduce-motion> */
+html[data-reduce-motion],html[data-reduce-motion] *,html[data-reduce-motion] *::before,html[data-reduce-motion] *::after{
+  animation-duration:.01ms !important;animation-delay:0s !important;animation-iteration-count:1 !important;
+  transition-duration:.01ms !important;transition-delay:0s !important;scroll-behavior:auto !important}
+html[data-reduce-motion] ::backdrop{transition-duration:.01ms !important;transition-delay:0s !important}
+html[data-reduce-motion] .row-fuse{animation:none}

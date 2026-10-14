@@ -21,11 +21,11 @@
     var sp="on";try{if(localStorage.getItem("myloon_box_splash")==="off")sp="off"}catch(e){}d.setAttribute("data-splash",sp)})(document.documentElement)</script>
   <link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="./style.css">
-  <!-- 不需要人机验证：把 app.js 里 CONFIG.turnstile.siteKey 设为空字符串，并删除下面这行 -->
+  <!-- 不需要人机验证：把 box/js/config.js 里 CONFIG.turnstile.siteKey 设为空字符串，并删除下面这行 -->
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 </head>
 <body>
-  <!-- 启动页（Android 风格）：盖住整个页面，清单加载好后退场。样式见 style.css 的 .splash，控制见 app.js 的 splash。
+  <!-- 启动页（Android 风格）：盖住整个页面，清单加载好后退场。样式见 styles/tour-splash.css，控制见 js/tour-splash.js。
        只在 <html data-splash="on"> 时显示；设置里可以关闭（只存本机）。 -->
   <div class="splash" id="splash" role="status" aria-label="正在加载">
     <div class="splash-core">
@@ -48,9 +48,9 @@
       </button>
     </header>
 
-    <!-- 吸顶栏：页签、搜索 / 排序、分类筛选一起固定在屏幕顶部，见 style.css 的 .dock 和 app.js 的「吸顶栏」 -->
+    <!-- 吸顶栏：页签、搜索 / 排序、分类筛选一起固定在屏幕顶部，见 styles/toolbar.css 和 js/search-sort.js -->
     <div class="dock" id="dock">
-    <!-- 吸顶栏的渐进模糊：8 层叠起来的毛玻璃，每层的蒙版不同，越往下越少、越轻，见 style.css 的 .dock-blur -->
+    <!-- 吸顶栏的渐进模糊：8 层叠起来的毛玻璃，每层的蒙版不同，越往下越少、越轻 -->
     <div class="dock-blur" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="tabs" id="tabs" role="group" aria-label="切换视图">
       <button class="tab" type="button" data-view="all" aria-pressed="true">全部插件</button>
@@ -61,7 +61,7 @@
       <div class="search" id="searchBox" role="search">
         <svg class="search-lens" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>
         <div class="search-field" id="searchField">
-          <!-- 已确认的关键词（.kw）由 app.js 插在输入框前面 -->
+          <!-- 已确认的关键词（.kw）由 js/search-sort.js 插在输入框前面 -->
           <input id="searchInput" type="text" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="输入关键词" aria-label="搜索插件">
         </div>
         <button class="search-clear" id="searchClear" type="button" hidden aria-label="清除全部关键词"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
@@ -72,7 +72,6 @@
     <div class="search-hint" id="searchHint" aria-live="polite"><div><span id="searchHintText"></span></div></div>
     <div class="filters" id="filters" role="group" aria-label="按分类筛选"></div>
     </div>
-
 
     <p class="meta"><span id="countText">请完成人机验证以加载插件列表</span><span id="updatedText"></span></p>
     <section id="results" class="list" aria-live="polite" aria-busy="false"></section>
@@ -99,8 +98,6 @@
       <h2 id="settingsTitle" tabindex="-1" autofocus>设置</h2>
     </div>
     <div class="sheet-body">
-      <!-- 双列的多栏排版放在这一层：它的高度跟着内容走，滚动交给外面的 .sheet-body。
-           多栏容器自己高度固定时，Safari / Firefox 放不下的内容会向右多长出几栏（横向溢出），双列就散了 -->
       <div class="sheet-cols">
       <h3 class="group-title">账号</h3>
       <div class="group">
@@ -114,7 +111,6 @@
         </div>
       </div>
 
-      <!-- 登录后才出现：开关在上，同步的内容在中间，手动同步在最后；规则写在分组脚注里 -->
       <div id="syncSection" hidden>
         <h3 class="group-title">云端同步</h3>
         <div class="group">
@@ -214,9 +210,7 @@
     </div>
   </dialog>
 
-  <!-- 插件详情：全屏页（带 .full，和设置页全屏时同一套外观与动效：手机从底部滑上来铺满，桌面居中成一列）。
-       内容全部由 app.js 的「插件详情」一节按 manifest.json 的字段填充，这里只放骨架。
-       排布顺序：标识 → 插件介绍 → 安装前须知 → 遇到问题时 → 插件信息，操作按钮固定在底部。 -->
+  <!-- 插件详情全屏页（由 js/detail.js 按 manifest.json 的字段动态填充） -->
   <dialog class="sheet full detail" id="detail" aria-labelledby="detailName">
     <div class="sheet-head">
       <div class="sheet-nav">
@@ -224,7 +218,6 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
         </button>
       </div>
-      <!-- 收藏星标由 app.js 放进来，复用列表里同一个 toggleFav，所以云端同步不需要任何改动 -->
       <div class="detail-fav" id="detailFav"></div>
     </div>
     <div class="sheet-body" id="detailBody">
@@ -251,9 +244,7 @@
     </div>
   </dialog>
 
-  <!-- 新手引导：四步的轻量向导（首次进入时出现，设置 → 关于 → 「新手引导」可以重新打开）。
-       手机是底部卡片，桌面端是居中卡片。步骤内容、进度点都由 app.js 的「新手引导」一节生成，这里只放骨架，
-       以后增加功能只需要改那一处的 TOUR_STEPS。 -->
+  <!-- 新手引导四步向导（由 js/tour-splash.js 的 TOUR_STEPS 生成） -->
   <dialog class="tour" id="tour" aria-label="新手引导">
     <div class="tour-card">
       <div class="tour-stage" id="tourStage"></div>
@@ -289,9 +280,6 @@
     </article>
   </template>
 
-  <script src="./app.js"></script>
-  <script src="./pull.js"></script>
-  <script src="./settings.js"></script>
-  <script src="./account.js"></script>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>

@@ -1,0 +1,120 @@
+/* ==========================================================================
+   列表与卡片（Cards & List）：插件卡片、星标爆发、紧凑模式、人机验证与骨架屏
+   ========================================================================== */
+
+/* 列表：一个带细线的容器，行与行之间用分隔线 */
+.list{border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card);overflow:hidden}
+.list:empty{display:none}
+.card{--row:var(--card);display:grid;grid-template-columns:40px 1fr;gap:12px 14px;padding:16px;background:var(--row);cursor:pointer;transition:background-color .2s}
+.card :is(button,a){cursor:pointer}
+.card + .card,.card + .sk-card,.verify + .sk-card,.sk-card + .sk-card{border-top:1px solid var(--line)}
+.list.enter .card{animation:rise .34s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 45ms)}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.card-icon{width:40px;height:40px;border-radius:var(--r-md);background:var(--chip);object-fit:cover;box-shadow:0 0 0 1px var(--line)}
+
+/* 标题行：左边「名称 + 版本」、右边详情 ⓘ 与收藏星标，永不换行 */
+.card-title{display:flex;align-items:flex-start;gap:8px}
+.card-name{flex:1;min-width:0;min-height:32px;padding:5.5px 0;box-sizing:border-box;font-size:15.5px;line-height:1.35;word-spacing:.3em}
+.card-title h2{display:inline;font-size:15.5px;line-height:1.35;font-weight:620;letter-spacing:-.005em;word-spacing:normal;overflow-wrap:anywhere}
+.chip{display:inline-block;font-size:11.5px;line-height:1;padding:4px 7px;border-radius:var(--r-sm);background:var(--chip);color:var(--muted)}
+.chip-ver{font-family:var(--mono);font-size:11px;vertical-align:.08em;word-spacing:normal}
+.chip-new{font-size:11px;vertical-align:.08em;word-spacing:normal;background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--accent-text);font-weight:600}
+
+/* 描述：按语义分段；展开收起用 max-height 过渡 */
+.card-desc{position:relative;color:var(--muted);font-size:13.5px;line-height:1.55;margin-top:5px;overflow:hidden;
+  max-height:calc(3 * 1.55em);transition:max-height .32s cubic-bezier(.2,.8,.2,1)}
+.card-desc[data-open="true"]{max-height:none}
+.card-desc::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1.8em;pointer-events:none;opacity:0;
+  background:linear-gradient(transparent,var(--row));transition:opacity .2s}
+.card-desc[data-overflow="true"][data-open="false"]::after{opacity:1}
+.seg{display:block;overflow-wrap:anywhere;line-break:strict;text-wrap:pretty}
+.seg + .seg{margin-top:.25em}
+@supports (word-break:auto-phrase){.seg{word-break:auto-phrase}}
+.more{font:inherit;font-size:13px;color:var(--accent-text);background:none;border:0;padding:4px 0 0;cursor:pointer}
+.more::after{content:"";display:inline-block;width:.42em;height:.42em;margin-left:.45em;border:solid currentColor;border-width:0 1.5px 1.5px 0;
+  transform:translateY(-.18em) rotate(45deg);transition:transform .4s var(--spring)}
+.more[aria-expanded="true"]::after{transform:translateY(.08em) rotate(-135deg)}
+
+/* 卡片标签分组：分类（实心）→ 运行要求 / 配置（描边）→ 作者与日期（弱化的一行文字） */
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.tags .chip-cat{background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--accent-text);font-weight:600}
+.tags .chip-cap{background:transparent;color:color-mix(in srgb,var(--text) 80%,var(--muted));box-shadow:inset 0 0 0 1px var(--line)}
+.card-meta{margin-top:8px;font-size:12.5px;line-height:1.4;color:var(--muted);overflow-wrap:anywhere}
+.card-actions{grid-column:1 / -1;display:grid;grid-template-columns:1fr auto;gap:8px}
+.card-actions .btn{padding:9px 14px}
+.card-actions .act-copy{border-color:transparent;background:transparent;color:var(--muted);font-weight:500;padding:9px 10px}
+@media (min-width:600px){
+  .card{grid-template-columns:40px 1fr auto}
+  .card-actions{grid-column:auto;grid-template-columns:1fr;align-content:start;min-width:92px}
+}
+@media (hover:hover){.card:hover{--row:var(--hover)}}
+@media (hover:none){.more:active{opacity:.6}}
+
+/* 收藏星标与详情入口按钮 */
+.star{position:relative;margin-left:auto;align-self:flex-start;flex:none;width:32px;height:32px;display:grid;place-items:center;border:0;background:none;color:var(--muted);
+  border-radius:var(--r-md);cursor:pointer;transition:color .2s,transform .4s var(--spring),background-color .2s}
+.star svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round;transition:fill .2s}
+.star:active{transform:scale(.85)}
+.star[aria-pressed="true"]{color:var(--accent-text)}
+.star[aria-pressed="true"] svg{fill:currentColor}
+.star:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.detail-btn{margin-left:0;opacity:.75;transition:color .2s,transform .4s var(--spring),background-color .2s,opacity .2s}
+.detail-btn svg{width:18px;height:18px}
+/* 收藏爆发（借自 Bencho Like · Bloom）：弹跳 + 光盘镂空成圆环 + 七对彩点 */
+.star svg.pop{animation:star-pop .5s var(--spring)}
+@keyframes star-pop{0%{transform:scale(.7)}55%{transform:scale(1.3)}100%{transform:scale(1)}}
+.star-burst{position:absolute;inset:0;pointer-events:none}
+.star-ring{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;box-sizing:border-box;border-radius:50%;
+  border:13px solid var(--accent-text);opacity:0;animation:star-bloom .5s ease-out forwards}
+@keyframes star-bloom{0%{transform:scale(.2);border-width:13px;opacity:.5}40%{transform:scale(1);border-width:9px;opacity:.35}100%{transform:scale(1.25);border-width:0;opacity:0}}
+.star-spoke{position:absolute;left:50%;top:50%;width:0;height:0;transform:rotate(var(--a))}
+.star-spoke i{position:absolute;left:0;top:0;width:5px;height:5px;margin:-2.5px 0 0 -2.5px;border-radius:50%;background:var(--c);opacity:0;
+  --d:24px;animation:star-fly .6s cubic-bezier(.2,.7,.3,1) forwards}
+.star-spoke i + i{--d:15px;animation-delay:.04s}
+@keyframes star-fly{0%{transform:translateX(7px) scale(.8);opacity:1}55%{opacity:1}100%{transform:translateX(var(--d)) scale(.3);opacity:0}}
+html[data-reduce-motion] .star-burst{display:none}
+@media (hover:hover){
+  .star:hover{background:var(--chip)}
+  .detail-btn:hover{opacity:1;color:var(--text)}
+}
+
+/* 设置里的显示开关与紧凑模式 */
+html[data-hide-desc] .card-desc,html[data-hide-desc] .more{display:none}
+html[data-hide-ver] .chip-ver{display:none}
+html[data-hide-cat] .chip-cat{display:none}
+html[data-compact] .card{padding:11px 14px;gap:8px 12px;grid-template-columns:34px 1fr}
+html[data-compact] .card-icon{width:34px;height:34px}
+html[data-compact] .card-desc:not([data-open="true"]){max-height:calc(2 * 1.55em);margin-top:3px}
+html[data-compact] .tags{margin-top:7px}
+html[data-compact] .card-meta{margin-top:6px}
+@media (min-width:600px){html[data-compact] .card{grid-template-columns:34px 1fr auto}}
+
+/* 加载状态：状态行 + 验证面板 + 骨架行 */
+.verify{display:grid;justify-items:center;padding:16px 16px 14px;animation:fade .3s both}
+.verify-box{width:100%;max-width:360px;display:grid;justify-items:center;overflow:hidden;max-height:0;opacity:0;transform:translateY(-6px);
+  transition:max-height .35s var(--ease),opacity .25s,transform .35s var(--ease),margin .35s var(--ease)}
+.verify[data-interactive="true"] .verify-box{max-height:110px;opacity:1;transform:none;margin-top:14px}
+.verify ~ .sk-card{transition:filter .3s}
+.verify[data-interactive="true"] ~ .sk-card{filter:opacity(.4)}
+.status{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--muted);font-size:13.5px}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.spinner{position:relative;flex:none;width:16px;height:16px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);
+  animation:spin .8s linear infinite;transition:background-color .25s,border-color .25s}
+@keyframes spin{to{transform:rotate(360deg)}}
+.status[data-state="ok"] .spinner{animation:none;background:var(--accent);border-color:var(--accent)}
+.status[data-state="ok"] .spinner::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;
+  border:solid var(--accent-ink);border-width:0 2px 2px 0;transform:rotate(45deg)}
+.sk-card{display:grid;grid-template-columns:40px 1fr;gap:12px 14px;padding:16px;
+  animation:rise .4s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 90ms)}
+.sk-icon,.sk-line,.sk-chip,.sk-btn{border-radius:var(--r-sm);background:linear-gradient(90deg,var(--chip) 30%,color-mix(in srgb,var(--chip) 50%,var(--card)) 50%,var(--chip) 70%);
+  background-size:300% 100%;animation:shimmer 1.5s ease-in-out infinite}
+@keyframes shimmer{from{background-position:100% 0}to{background-position:0 0}}
+.sk-icon{width:40px;height:40px;border-radius:var(--r-md)}
+.sk-lines{display:grid;gap:8px;align-content:start;min-width:0}
+.sk-line{height:11px}
+.sk-line:nth-child(1){width:42%;height:15px}
+.sk-line:nth-child(3){width:72%}
+.sk-chips{display:flex;gap:6px;margin-top:2px}
+.sk-chip{width:52px;height:20px;border-radius:var(--r-sm)}
+.sk-btn{grid-column:1 / -1;height:38px;border-radius:var(--r-md)}
+@media (min-width:600px){.sk-card{grid-template-columns:40px 1fr 92px}.sk-btn{grid-column:auto}}

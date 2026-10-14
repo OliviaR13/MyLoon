@@ -1,0 +1,109 @@
+/* ==========================================================================
+   基础样式（Base）：字体声明、设计变量、深浅色主题、全局重置、页头与基础控件
+   ========================================================================== */
+
+@font-face{
+  font-family:"Geist Sans";
+  src:url("/fonts/Geist-Variable.woff2") format("woff2");
+  font-style:normal;
+  font-weight:100 900;
+  font-display:swap;
+}
+
+/* OliviaR13's Loon Box
+   设计取向：克制的工具型列表（低变化、低密度动效、中等信息密度）。
+   中性底色 + 单一强调色；行与行之间用细线分隔，不做一张张独立卡片。 */
+:root{
+  /* 暖调纸张色中性色 + 单一强调色；不用纯白纯黑 */
+  --bg:#f6f4ef;--card:#fdfcf9;--hover:#faf8f3;--text:#1d1b17;--muted:#6a655a;--line:#e6e2d8;--chip:#efece4;
+  --accent:#0f7f69;--accent-text:#0a6250;--accent-ink:#f7fbf9;--shadow:40 30 10;
+  --glow:color-mix(in srgb,var(--accent) 16%,transparent);
+  /* 圆角体系：容器 / 控件 / 标签 */
+  --r-lg:16px;--r-md:10px;--r-sm:6px;
+  /* 弹性缓动（轻微回弹），用于按压、箭头和开关 */
+  --spring:cubic-bezier(.34,1.4,.64,1);--ease:cubic-bezier(.2,.8,.2,1);
+  /* z-index 层级 */
+  --z-grain:1;--z-toast:10;
+  --font:"Geist Sans",-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Noto Sans SC","Segoe UI",sans-serif;
+  --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+}
+/* 深色：跟随系统（除非用户强制浅色），或用户强制深色 */
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--bg:#12110f;--card:#191815;--hover:#1e1d19;--text:#efece5;--muted:#a39e92;--line:#2b2924;--chip:#23211d;--accent:#3fcfa6;--accent-text:#3fcfa6;--accent-ink:#04140e;--shadow:0 0 0;
+    --glow:color-mix(in srgb,var(--accent) 14%,transparent)}
+}
+:root[data-theme="dark"]{--bg:#12110f;--card:#191815;--hover:#1e1d19;--text:#efece5;--muted:#a39e92;--line:#2b2924;--chip:#23211d;--accent:#3fcfa6;--accent-text:#3fcfa6;--accent-ink:#04140e;--shadow:0 0 0;
+    --glow:color-mix(in srgb,var(--accent) 14%,transparent)}
+:root[data-theme="light"]{color-scheme:light}
+:root[data-theme="dark"]{color-scheme:dark}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;-webkit-tap-highlight-color:transparent}
+/* 顶部 96px 渐变回底色：避免状态栏区域（纯底色）和光晕之间出现一条硬边 */
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+/* 背景光晕：固定在视口里，不随列表滚动；顶部和底部各 18% 渐变回底色，和状态栏、底部工具栏衔接 */
+body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    linear-gradient(var(--bg) 0,transparent 18%,transparent 82%,var(--bg) 100%),
+    radial-gradient(75% 46% at 50% 14%,var(--glow),transparent 72%),
+    radial-gradient(65% 40% at 85% 96%,color-mix(in srgb,var(--glow) 55%,transparent),transparent 70%)}
+body::before{content:"";position:fixed;inset:0;z-index:var(--z-grain);pointer-events:none;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.shell{position:relative;z-index:2;max-width:720px;margin:0 auto;padding:calc(24px + env(safe-area-inset-top)) 16px calc(36px + env(safe-area-inset-bottom))}
+h1,h2,p{margin:0}
+a{color:var(--accent-text)}
+:where(.btn,.chip-filter,.more,.sort-btn,input):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* 触屏：去掉 iOS 点按时出现的灰色矩形，改用自己的按下反馈 */
+button,a,.tab,.tile,.row-btn,.chip-filter,.star{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+
+/* 头部 */
+.head{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.logo{border-radius:var(--r-md);flex:none;box-shadow:0 0 0 1px var(--line)}
+.head-text{flex:1;min-width:0}
+.head h1{font-size:24px;line-height:1.05;font-weight:700;letter-spacing:-.03em}
+.h1-eyebrow{display:block;font-size:13px;font-weight:600;letter-spacing:0;color:var(--muted);margin-bottom:3px}
+.head p{color:var(--muted);font-size:13px;font-weight:500;margin-top:5px;line-break:strict;text-wrap:balance}
+@supports (word-break:auto-phrase){.head p{word-break:auto-phrase}}
+#refreshBtn{height:40px;padding:0 14px;flex:none} /* 与右边的设置按钮等高 */
+#refreshBtn:disabled{opacity:.6}
+
+/* 按钮 */
+.btn{font:inherit;font-size:14px;font-weight:600;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:var(--r-md);
+  padding:8px 14px;cursor:pointer;text-decoration:none;white-space:nowrap;line-height:1.2;
+  transition:background-color .15s,border-color .15s,filter .15s,transform .35s var(--spring)}
+.btn:active:not(:disabled){transform:scale(.97)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn-ghost{background:transparent}
+.btn-icon{display:grid;place-items:center;width:40px;height:40px;padding:0;flex:none}
+
+/* 按钮自己当确认（借自 Bencho Notify）：两段文字叠在同一格，按钮大小不变；确认态时旧文字向上滑走、新文字从下面滑进来，按钮填色 */
+.btn.swap{display:inline-grid;grid-template-areas:"s";align-items:center;justify-items:center;overflow:hidden}
+.btn.swap>.lbl{grid-area:s;display:inline-flex;align-items:center;gap:5px;transition:transform .34s var(--ease),opacity .2s}
+.btn.swap>.lbl-alt{transform:translateY(70%);opacity:0}
+.btn.swap[data-done]>.lbl:not(.lbl-alt){transform:translateY(-70%);opacity:0}
+.btn.swap[data-done]>.lbl-alt{transform:none;opacity:1;transition-delay:.04s}
+.btn.swap .lbl svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.btn-ghost.swap[data-done]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn-primary.swap[data-done]{filter:brightness(1.12)}
+
+@media (hover:hover){
+  .btn-ghost:hover:not(:disabled){background:var(--chip)}
+  .btn-primary:hover{filter:brightness(1.08)}
+}
+
+/* 数字滚动（借自 Bencho Like）：每位数字一个固定高度的格子，滚动时新旧两个数字上下错开。
+   高度取行高（1lh），所以格子不会改变所在那一行的高度；tabular-nums 让每位数字等宽，滚动时宽度不抖 */
+.odo{display:inline-block;position:relative;overflow:hidden;height:1.5em;height:1lh;vertical-align:top;font-variant-numeric:tabular-nums}
+.odo-cur{display:block}
+.odo-old{position:absolute;left:0;top:0;display:block}
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* 跳转链接、空状态提示与页脚 */
+.skip{position:absolute;left:12px;top:-48px;z-index:var(--z-toast);padding:8px 12px;border-radius:var(--r-md);background:var(--text);color:var(--bg);
+  font-size:13px;text-decoration:none;transition:top .2s var(--ease)}
+.skip:focus{top:calc(8px + env(safe-area-inset-top))}
+.notice{padding:28px 18px;text-align:center;color:var(--muted)}
+.notice h2{color:var(--text);font-size:16px;margin-bottom:4px}
+.notice .btn{margin-top:12px}
+.foot{text-align:center;color:var(--muted);font-size:12.5px;margin-top:28px}

@@ -1,0 +1,55 @@
+/* ==========================================================================
+   灵动岛提示条与下拉刷新（Toast & Pull-to-Refresh）
+   ========================================================================== */
+
+/* 提示条（灵动岛式）：药丸的宽、高、圆角由 JS 量好内容后写进 --tw / --th / --tr，
+   一组弹簧过渡一起长大；内容单独带模糊淡入，药丸先动、字后到 */
+.toast{position:fixed;left:0;right:0;top:calc(10px + env(safe-area-inset-top));bottom:auto;margin:0 auto;padding:0;border:0;display:block;
+  width:var(--tw,96px);height:var(--th,32px);border-radius:var(--tr,16px);overflow:hidden;
+  opacity:0;visibility:hidden;z-index:var(--z-toast);pointer-events:none;
+  background:var(--text);color:var(--bg);font-size:13.5px;line-height:1.4;box-shadow:0 8px 24px rgb(var(--shadow) / .22);
+  transition:width .5s var(--spring),height .5s var(--spring),border-radius .5s var(--spring),opacity .2s,visibility .2s,background-color .25s,color .25s}
+.toast.show{opacity:1;visibility:visible}
+/* 退场：尺寸走不回弹的曲线，药丸缩到一半才开始淡出，同时轻轻往上收一点 */
+.toast.show.leaving{opacity:0;translate:0 -4px;
+  transition:width .34s cubic-bezier(.4,0,.2,1),height .34s cubic-bezier(.4,0,.2,1),border-radius .34s cubic-bezier(.4,0,.2,1),
+    opacity .2s ease-in .13s,translate .34s cubic-bezier(.4,0,.2,1),background-color .25s,color .25s}
+.toast-in{position:absolute;left:50%;top:50%;translate:-50% -50%;width:max-content;max-width:min(92vw,420px);box-sizing:border-box;
+  display:flex;align-items:center;justify-content:center;gap:12px;padding:10px 16px;text-align:center;
+  opacity:0;transform:scale(.92);filter:blur(6px);transition:opacity .16s,transform .16s,filter .16s}
+.toast.open .toast-in{opacity:1;transform:none;filter:none;transition-duration:.22s;transition-delay:.06s}
+.toast-msg{text-align:center;text-wrap:balance}
+.toast-act{pointer-events:auto;flex:none;font:inherit;font-weight:600;color:inherit;background:none;border:0;padding:2px 0;cursor:pointer;text-decoration:underline}
+.toast-act[hidden]{display:none}
+@media (hover:none){.toast-act:active{opacity:.6}}
+
+/* 下拉刷新 × 灵动岛：借用上面的提示条药丸（#toast），拉动散开五点圆环，松手转成 Windows 11 风格转圈 */
+.toast.dragging{transition:opacity .2s,visibility .2s,background-color .25s,color .25s}
+.toast.armed{background:var(--accent);color:var(--accent-ink)}
+.toast-pull{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;white-space:nowrap;pointer-events:none;
+  opacity:0;transform:scale(.92);filter:blur(6px);transition:opacity .16s,transform .16s,filter .16s}
+.toast.pulling .toast-pull{opacity:1;transform:none;filter:none;transition-duration:.22s;transition-delay:.06s}
+.toast-pull svg{flex:none;display:block}
+.toast-pull circle{fill:currentColor}
+.orb{transform-origin:14px 14px}
+.toast.working .pull-orbit{animation:orbit-in .18s ease-out}
+@keyframes orbit-in{from{opacity:0}}
+.toast.working .orb{animation:win-orbit 2.6s infinite backwards;animation-delay:calc(var(--i) * .17s)}
+@keyframes win-orbit{
+  0%{transform:rotate(225deg);opacity:1;animation-timing-function:ease-out}
+  7%{transform:rotate(345deg);animation-timing-function:linear}
+  30%{transform:rotate(455deg);animation-timing-function:ease-in-out}
+  39%{transform:rotate(690deg);animation-timing-function:linear}
+  70%{transform:rotate(815deg);opacity:1;animation-timing-function:ease-out}
+  75%{transform:rotate(945deg);animation-timing-function:ease-out}
+  76%,100%{transform:rotate(945deg);opacity:0}
+}
+html[data-reduce-motion] .toast.working .orb{animation:none;opacity:1;transform:rotate(calc(var(--i) * 72deg))}
+html[data-reduce-motion] .toast.working .pull-orbit{animation:none}
+.toast-pull-label{font-size:13.5px;font-weight:600;overflow:hidden;
+  opacity:var(--lt,0);max-width:calc(58px * var(--lt,0));margin-left:calc(8px * var(--lt,0))}
+.toast.pop .toast-pull{animation:pull-pop .4s var(--spring)}
+@keyframes pull-pop{from{transform:scale(.86)}to{transform:none}}
+.shell.pull-drag{transition:none}
+.shell.pull-anim{transition:transform .5s var(--spring)}
+html{overscroll-behavior-y:contain}
