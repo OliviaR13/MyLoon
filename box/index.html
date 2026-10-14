@@ -20,7 +20,13 @@
        data-splash：on = 正在显示，leaving = 正在退场，done = 已经没了，off = 用户关掉了。没有 JS 时这个属性不存在，启动页也就不会出现 */
     var sp="on";try{if(localStorage.getItem("myloon_box_splash")==="off")sp="off"}catch(e){}d.setAttribute("data-splash",sp)})(document.documentElement)</script>
   <link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./styles/base.css">
+  <link rel="stylesheet" href="./styles/toolbar.css">
+  <link rel="stylesheet" href="./styles/cards.css">
+  <link rel="stylesheet" href="./styles/toast-pull.css">
+  <link rel="stylesheet" href="./styles/sheet-settings.css">
+  <link rel="stylesheet" href="./styles/detail.css">
+  <link rel="stylesheet" href="./styles/tour-splash.css">
   <!-- 不需要人机验证：把 box/js/config.js 里 CONFIG.turnstile.siteKey 设为空字符串，并删除下面这行 -->
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 </head>
