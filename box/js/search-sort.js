@@ -250,15 +250,17 @@ export function initSearchAndSort() {
 
   // 吸顶栏（#dock）：吸住时加 data-stuck，触发毛玻璃渐隐背景
   if (els.dock) {
-    let queued = 0, stickTop = 0;
+    let stickTop = 0;
+    const LEAD = 36; // 提前这么多像素开始显示毛玻璃：等真正吸住再出现，会比手感慢半拍
     // top 只在尺寸变化时才可能变，缓存起来，滚动时不再每帧读 getComputedStyle
     const readStickTop = () => { stickTop = parseFloat(getComputedStyle(els.dock).top) || 0; };
     const updateDock = () => {
-      queued = 0;
-      els.dock.toggleAttribute("data-stuck", scrollY > 0 && els.dock.getBoundingClientRect().top <= stickTop + 0.5);
+      els.dock.toggleAttribute("data-stuck", scrollY > 0 && els.dock.getBoundingClientRect().top <= stickTop + LEAD);
     };
     readStickTop();
-    window.addEventListener("scroll", () => { if (!queued) queued = requestAnimationFrame(updateDock); }, { passive: true });
+    updateDock();
+    // 滚动事件本身就在帧前触发，直接更新，不再多等一个 rAF
+    window.addEventListener("scroll", updateDock, { passive: true });
     window.addEventListener("resize", () => { readStickTop(); updateDock(); });
   }
 }
