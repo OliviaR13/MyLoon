@@ -3,14 +3,14 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-10-14T22:21:16.963465+00:00",
+  "generatedAt": "2026-10-14T22:22:58.098723+00:00",
   "plugins": [
     {
       "id": "ChatGPT_NoAds",
       "name": "ChatGPT 去广告",
       "file": "plugin/ChatGPT_NoAds.plugin",
       "version": null,
-      "author": "OliviaR13",
+      "author": "@OliviaR13",
       "category": "去广告",
       "tags": [
         "去广告"
