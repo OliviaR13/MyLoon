@@ -254,11 +254,20 @@ export function initSearchAndSort() {
     const LEAD = 36; // 提前这么多像素开始显示毛玻璃：等真正吸住再出现，会比手感慢半拍
     // top 只在尺寸变化时才可能变，缓存起来，滚动时不再每帧读 getComputedStyle
     const readStickTop = () => { stickTop = parseFloat(getComputedStyle(els.dock).top) || 0; };
+    // 下拉刷新时 .shell 会被 translateY 整体下移（pull.js）；吸顶栏的位置跟着下移，
+    // 不扣掉这段位移的话，要等灵动岛退出、位移归零后才会判定为「已吸顶」，毛玻璃就晚出现
+    const shell = document.querySelector(".shell");
+    const shellShift = () => {
+      if (!shell || !shell.style.transform) return 0;
+      const t = getComputedStyle(shell).transform;
+      return t && t !== "none" ? new DOMMatrixReadOnly(t).m42 : 0;
+    };
     const updateDock = () => {
-      els.dock.toggleAttribute("data-stuck", scrollY > 0 && els.dock.getBoundingClientRect().top <= stickTop + LEAD);
+      els.dock.toggleAttribute("data-stuck", scrollY > 0 && els.dock.getBoundingClientRect().top - shellShift() <= stickTop + LEAD);
     };
     readStickTop();
     updateDock();
+    shell?.addEventListener("transitionend", (e) => { if (e.target === shell) updateDock(); });
     // 滚动事件本身就在帧前触发，直接更新，不再多等一个 rAF
     window.addEventListener("scroll", updateDock, { passive: true });
     window.addEventListener("resize", () => { readStickTop(); updateDock(); });
