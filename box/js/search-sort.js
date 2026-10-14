@@ -250,13 +250,15 @@ export function initSearchAndSort() {
 
   // 吸顶栏（#dock）：吸住时加 data-stuck，触发毛玻璃渐隐背景
   if (els.dock) {
-    let queued = 0;
+    let queued = 0, stickTop = 0;
+    // top 只在尺寸变化时才可能变，缓存起来，滚动时不再每帧读 getComputedStyle
+    const readStickTop = () => { stickTop = parseFloat(getComputedStyle(els.dock).top) || 0; };
     const updateDock = () => {
       queued = 0;
-      const stickTop = parseFloat(getComputedStyle(els.dock).top) || 0;
       els.dock.toggleAttribute("data-stuck", scrollY > 0 && els.dock.getBoundingClientRect().top <= stickTop + 0.5);
     };
+    readStickTop();
     window.addEventListener("scroll", () => { if (!queued) queued = requestAnimationFrame(updateDock); }, { passive: true });
-    window.addEventListener("resize", updateDock);
+    window.addEventListener("resize", () => { readStickTop(); updateDock(); });
   }
 }
