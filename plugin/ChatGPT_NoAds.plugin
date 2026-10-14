@@ -1,10 +1,8 @@
 #!name = ChatGPT 去广告
 #!desc = 移除 ChatGPT App 回答下方的赞助广告卡片（需 MitM 解密 chatgpt.com）
-#!author = OliviaR13
+#!author = @OliviaR13
 #!homepage = https://github.com/OliviaR13/MyLoon
 #!icon = https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/icon/chatgpt.png
-#!system = iOS
-#!loon_version = 3.5.1(983)
 #!tag = 去广告
 
 [Argument]
