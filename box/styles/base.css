@@ -9,13 +9,6 @@
   font-weight:100 900;
   font-display:swap;
 }
-@font-face{
-  font-family:"Skeletal Title";
-  src:url("/fonts/MacintoshSkeletalFilled-latin.woff") format("woff");
-  font-style:normal;
-  font-weight:400;
-  font-display:swap;
-}
 
 /* OliviaR13's Loon Box
    设计取向：克制的工具型列表（低变化、低密度动效、中等信息密度）。
@@ -67,10 +60,9 @@ button,a,.tab,.tile,.row-btn,.chip-filter,.star{-webkit-touch-callout:none;-webk
 .head{display:flex;align-items:center;gap:12px;margin-bottom:20px}
 .logo{border-radius:var(--r-md);flex:none;box-shadow:0 0 0 1px var(--line)}
 .head-text{flex:1;min-width:0}
-/* 标题用手写体（仅含英文）：单字重，禁用合成粗体；加载失败时回退到 Geist */
-.head h1{font-family:"Skeletal Title","Geist Sans",system-ui,sans-serif;font-size:27px;line-height:1.05;font-weight:400;font-synthesis:none;letter-spacing:0}
-.h1-eyebrow{display:block;font-size:16px;font-weight:400;letter-spacing:.01em;color:var(--muted);margin-bottom:2px}
-.head p{font-family:"Skeletal Title","Geist Sans",system-ui,sans-serif;color:var(--muted);font-size:15px;font-weight:400;font-synthesis:none;letter-spacing:.01em;margin-top:5px;line-break:strict;text-wrap:balance}
+.head h1{font-size:24px;line-height:1.05;font-weight:700;letter-spacing:-.03em}
+.h1-eyebrow{display:block;font-size:13px;font-weight:600;letter-spacing:0;color:var(--muted);margin-bottom:3px}
+.head p{color:var(--muted);font-size:13px;font-weight:500;margin-top:5px;line-break:strict;text-wrap:balance}
 @supports (word-break:auto-phrase){.head p{word-break:auto-phrase}}
 #refreshBtn{height:40px;padding:0 14px;flex:none} /* 与右边的设置按钮等高 */
 #refreshBtn:disabled{opacity:.6}
