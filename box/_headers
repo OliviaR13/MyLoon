@@ -1,0 +1,8 @@
+/fonts/*
+  Cache-Control: public, max-age=2592000, immutable
+
+/icon.png
+  Cache-Control: public, max-age=86400
+
+/apple-touch-icon.png
+  Cache-Control: public, max-age=86400
