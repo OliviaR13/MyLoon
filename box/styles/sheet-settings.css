@@ -75,6 +75,18 @@ html:has(.sheet[open],.tour[open]){overflow:hidden;padding-right:var(--page-sbw,
 .acct{display:flex;align-items:center;gap:10px;min-width:0}
 .acct img{border-radius:50%;box-shadow:0 0 0 1px var(--line);background:var(--chip)}
 .acct span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 退出登录的内联确认（借自 Bencho Confirm）：「取消」从按钮左边展开，按钮自己变成红色的确认，
+   按钮底部一条细线烧尽 = 自动取消的倒计时。按钮本身的宽度不变（「退出登录」和「确认退出」一样宽），所以不会挪位置 */
+.confirm{display:inline-flex;align-items:center;flex:none}
+.confirm-cancel{max-width:0;margin-right:0;padding-inline:0;border-width:0;opacity:0;overflow:hidden;pointer-events:none;
+  transition:max-width .42s var(--spring),margin-right .42s var(--spring),padding-inline .42s var(--spring),opacity .2s,border-width 0s .2s,background-color .15s,transform .35s var(--spring)}
+.confirm[data-ask] .confirm-cancel{max-width:96px;margin-right:8px;padding-inline:14px;border-width:1px;opacity:1;pointer-events:auto;
+  transition-delay:0s}
+#logoutBtn{position:relative}
+#logoutBtn.btn-ghost.swap[data-done]{background:#e5484d;border-color:#e5484d;color:#fff}
+#logoutBtn[data-done]::after{content:"";position:absolute;left:0;bottom:0;height:3px;background:rgb(255 255 255 / .6);
+  animation:logout-burn var(--ask-ms,4000ms) linear forwards}
+@keyframes logout-burn{from{width:100%}to{width:0}}
 
 /* 液体开关（.switch 与 .mini-switch） */
 .switch,.mini-switch{--w:46px;--h:28px;--pad:3px;
