@@ -48,7 +48,6 @@ export const DEFAULTS = {
   compact: false,
   reduceMotion: false,
   fullDefault: false,
-  searchMode: "and",
 };
 export const BOOL_KEYS = Object.keys(DEFAULTS).filter((k) => typeof DEFAULTS[k] === "boolean");
 

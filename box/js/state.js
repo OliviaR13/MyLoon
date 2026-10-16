@@ -82,7 +82,6 @@ export const state = {
   generatedAt: "",
   category: CONFIG.all,
   query: "",
-  keywords: [],
   sort: readSort(),
   favorites: readFavs(),
   favMeta: readFavMeta(),
@@ -146,12 +145,11 @@ export function normalize(raw) {
 
 /* ---------- 搜索匹配与排序 ---------- */
 
-export const termsHit = (terms, text) =>
-  getSettings().searchMode === "or" ? terms.some((t) => text.includes(t)) : terms.every((t) => text.includes(t));
+export const termsHit = (terms, text) => terms.every((t) => text.includes(t));
 
 export const searchTerms = () => {
-  const draft = state.query.trim().toLowerCase();
-  return [...state.keywords.map((k) => k.toLowerCase()), ...(draft ? [draft] : [])];
+  const q = state.query.trim().toLowerCase();
+  return q ? [q] : [];
 };
 
 export function matches(p, terms = searchTerms()) {

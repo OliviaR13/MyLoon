@@ -1,55 +1,24 @@
-/* 多关键词胶囊搜索框、变形排序菜单与吸顶栏（#dock）控制 */
+/* 搜索框、变形排序菜单与吸顶栏（#dock）控制 */
 
 import { CONFIG, FAV, SORT_KEY } from "./config.js";
-import { el, els, crossIcon, sortIcon, chevronIcon, setSwitch, lsSet } from "./dom.js";
+import { el, els, sortIcon, chevronIcon, setSwitch, lsSet } from "./dom.js";
 import { SORTS, SORT_OPTIONS, state, getSettings, setSettings } from "./state.js";
 import { render, renderFilters, syncTabs, setResetFiltersHandler } from "./render.js";
 
-/* ---------- 多关键词搜索框 ---------- */
+/* ---------- 搜索框（单关键词） ---------- */
 
-let shownKw = new Set();
 let filterTimer = 0;
 
-export function renderKeywords() {
-  els.searchField.querySelectorAll(".kw").forEach((n) => n.remove());
-  const prev = shownKw;
-  shownKw = new Set(state.keywords);
-  state.keywords.forEach((k, i) => {
-    const chip = el("span", prev.has(k) ? "kw" : "kw kw-in");
-    const x = el("button", "kw-x");
-    x.type = "button";
-    x.dataset.i = i;
-    x.setAttribute("aria-label", `删除关键词 ${k}`);
-    x.append(crossIcon());
-    chip.append(el("span", "kw-text", k), x);
-    els.searchField.insertBefore(chip, els.search);
-  });
-}
-
-export function commitDraft() {
-  const v = els.search.value.trim();
-  if (!v) return false;
-  if (!state.keywords.some((k) => k.toLowerCase() === v.toLowerCase())) state.keywords.push(v);
-  els.search.value = state.query = "";
-  return true;
-}
-
+/* 有内容时：放大镜加粗、出现清除按钮 */
 export function syncSearch() {
-  const has = state.keywords.length > 0 || els.search.value !== "";
+  const has = els.search.value !== "";
   els.searchBox.dataset.has = String(has);
   els.searchClear.hidden = !has;
-  els.search.placeholder = state.keywords.length ? "继续添加关键词" : "输入关键词";
-  const hintOn = document.activeElement === els.search;
-  if (els.searchHint) {
-    const or = getSettings().searchMode === "or";
-    els.searchHintText.textContent = "回车添加关键词；" + (or ? "包含任意一个关键词即可（OR）" : "需同时包含全部关键词（AND）");
-    els.searchHint.toggleAttribute("data-show", hintOn);
-  }
 }
 
 export function applySearch({ animate = false } = {}) {
   clearTimeout(filterTimer);
-  renderKeywords();
+  state.query = els.search.value;
   syncSearch();
   if (state.plugins.length) render({ animate, flip: !animate });
 }
@@ -57,8 +26,6 @@ export function applySearch({ animate = false } = {}) {
 export function resetFilters() {
   state.category = CONFIG.all;
   state.query = els.search.value = "";
-  state.keywords = [];
-  renderKeywords();
   syncSearch();
   renderFilters();
   render({ animate: true });
@@ -177,27 +144,25 @@ export function initSearchAndSort() {
     if (e.isComposing || e.keyCode === 229) return;
     if (e.key === "Enter") {
       e.preventDefault();
-      if (commitDraft()) applySearch();
-      else els.search.blur();
-    } else if (e.key === "Backspace" && !els.search.value && state.keywords.length) {
-      state.keywords.pop();
       applySearch();
+      els.search.blur();
+    } else if (e.key === "Escape" && els.search.value) {
+      e.preventDefault();
+      els.search.value = "";
+      applySearch({ animate: true });
     }
   });
 
   els.searchBox.addEventListener("mousedown", (e) => { if (e.target.closest("button")) e.preventDefault(); });
   els.searchBox.addEventListener("click", (e) => {
-    const x = e.target.closest(".kw-x");
-    if (x) { state.keywords.splice(Number(x.dataset.i), 1); applySearch(); return; }
     if (e.target.closest("#searchClear")) {
-      state.keywords = [];
-      els.search.value = state.query = "";
+      els.search.value = "";
       applySearch({ animate: true });
       els.search.focus();
       return;
     }
-    if (e.target.closest("#searchGo")) { commitDraft(); applySearch({ animate: true }); els.search.blur(); return; }
-    if (!e.target.closest(".kw")) els.search.focus();
+    if (e.target.closest("#searchGo")) { applySearch({ animate: true }); els.search.blur(); return; }
+    els.search.focus();
   });
 
   els.tabs.addEventListener("click", (e) => {

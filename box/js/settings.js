@@ -21,7 +21,6 @@ export function initSettings() {
     try { s = JSON.parse(lsGet(SETTINGS_KEY) || "{}"); } catch {}
     const out = { ...DEFAULTS };
     if (["system", "light", "dark"].includes(s.theme)) out.theme = s.theme;
-    if (["and", "or"].includes(s.searchMode)) out.searchMode = s.searchMode;
     for (const k of BOOL_KEYS) if (typeof s[k] === "boolean") out[k] = s[k];
     return out;
   }
@@ -51,8 +50,6 @@ export function initSettings() {
     root.toggleAttribute("data-compact", settings.compact);
     root.toggleAttribute("data-reduce-motion", settings.reduceMotion || forced);
 
-    sheet.querySelectorAll("[data-mode-opt]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.modeOpt === settings.searchMode)));
-    $id("searchModeOpt")?.setAttribute("data-mode", settings.searchMode);
 
     $id("fullColsRow").hidden = !IS_PC;
     if (IS_PC) {
@@ -63,8 +60,6 @@ export function initSettings() {
       delete root.dataset.fullCols;
     }
 
-    $id("searchModeSub").textContent =
-      settings.searchMode === "or" ? "OR：名称或描述中包含任意一个关键词即显示" : "AND：名称或描述中须同时包含全部关键词";
     sheet.querySelectorAll("[data-theme-opt]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.themeOpt === settings.theme)));
 
     setSwitch($id("splashSwitch"), splashOn);
@@ -200,16 +195,6 @@ export function initSettings() {
       return;
     }
 
-    const m = e.target.closest("[data-mode-opt]");
-    if (m) {
-      if (settings.searchMode === m.dataset.modeOpt) return;
-      settings.searchMode = m.dataset.modeOpt;
-      save();
-      apply();
-      if (state.plugins.length) render({ animate: true });
-      return;
-    }
-
     const sw = e.target.closest("[data-switch]");
     if (sw) {
       const k = sw.dataset.switch;
@@ -274,13 +259,12 @@ export function initSettings() {
     get: () => ({ ...settings }),
     set(next) {
       const prev = settings.showDesc;
-      const prevMode = settings.searchMode;
       const prevFull = settings.fullDefault;
       settings = { ...settings, ...next };
       lsSet(SETTINGS_KEY, JSON.stringify(settings));
       apply();
       if (prevFull !== settings.fullDefault && !sheet.open && !fullTouched) setFull(settings.fullDefault);
-      if ((prev !== settings.showDesc || prevMode !== settings.searchMode) && state.plugins.length) render();
+      if (prev !== settings.showDesc && state.plugins.length) render();
     },
   });
 
