@@ -1,0 +1,33 @@
+/* ==========================================================================
+   液态玻璃（Liquid Glass）：搜索框、排序按钮与菜单、页头按钮
+   - 所有浏览器：半透明底 + 模糊 + 提亮 + 上下高光边（镜面感）
+   - Chromium：再叠 SVG feDisplacementMap 做边缘折射（index.html 里的 #lg 滤镜），Safari/Firefox 自动退回上一档
+   - 不引入外部库；减少动态效果时只去掉过渡，不去掉玻璃
+   ========================================================================== */
+:root{
+  --lg-tint:color-mix(in srgb,var(--card) 52%,transparent);
+  --lg-edge-hi:rgb(255 255 255 / .75);--lg-edge-lo:rgb(255 255 255 / .18);
+  --lg-shade:rgb(var(--shadow) / .10);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--lg-tint:color-mix(in srgb,var(--card) 46%,transparent);--lg-edge-hi:rgb(255 255 255 / .30);--lg-edge-lo:rgb(255 255 255 / .06);--lg-shade:rgb(0 0 0 / .35)}
+}
+:root[data-theme="dark"]{--lg-tint:color-mix(in srgb,var(--card) 46%,transparent);--lg-edge-hi:rgb(255 255 255 / .30);--lg-edge-lo:rgb(255 255 255 / .06);--lg-shade:rgb(0 0 0 / .35)}
+
+.search,.sort-btn,.sort-menu,.head .btn-ghost{
+  background:var(--lg-tint);border-color:transparent;
+  -webkit-backdrop-filter:blur(14px) saturate(1.6) brightness(1.04);backdrop-filter:blur(14px) saturate(1.6) brightness(1.04);
+  box-shadow:inset 0 1px 0 var(--lg-edge-hi),inset 0 -1px 0 var(--lg-edge-lo),inset 1px 0 0 var(--lg-edge-lo),inset -1px 0 0 var(--lg-edge-lo),
+    0 6px 18px var(--lg-shade);
+}
+@supports (backdrop-filter:url(#lg)){
+  .search,.sort-btn,.sort-menu,.head .btn-ghost{backdrop-filter:blur(3px) url(#lg) saturate(1.6) brightness(1.04)}
+}
+.search:focus-within{box-shadow:inset 0 1px 0 var(--lg-edge-hi),inset 0 -1px 0 var(--lg-edge-lo),0 0 0 2px var(--accent),0 0 0 6px var(--glow),0 6px 18px var(--lg-shade)}
+.sort-menu[data-open="true"]{box-shadow:inset 0 1px 0 var(--lg-edge-hi),inset 0 -1px 0 var(--lg-edge-lo),0 18px 44px var(--lg-shade)}
+.sortwrap[data-open="true"] .sort-btn{box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+@media (hover:hover){.head .btn-ghost:hover:not(:disabled){background:color-mix(in srgb,var(--card) 70%,transparent)}}
+/* 不支持 backdrop-filter 的浏览器：给一个不透明底，免得文字压在列表上看不清 */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .search,.sort-btn,.sort-menu,.head .btn-ghost{background:var(--card);border-color:var(--line)}
+}
