@@ -111,7 +111,11 @@
         </div>
         <div class="row" id="accountRow" hidden>
           <span class="acct"><img id="acctAvatar" alt="" width="26" height="26"><span id="acctName"></span></span>
-          <button class="btn btn-ghost" id="logoutBtn" type="button">退出登录</button>
+          <!-- 退出登录的内联确认：第一次点按钮变成「确认退出」、左边展开「取消」，见 js/account.js 与 styles/sheet-settings.css -->
+          <span class="confirm" id="logoutConfirm">
+            <button class="btn btn-ghost confirm-cancel" id="logoutCancel" type="button" tabindex="-1" aria-hidden="true">取消</button>
+            <button class="btn btn-ghost" id="logoutBtn" type="button">退出登录</button>
+          </span>
         </div>
       </div>
 
