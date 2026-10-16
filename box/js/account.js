@@ -2,7 +2,7 @@
    支持收藏逐项时间戳（Tombstone CRDT）合并，以及外观、插件卡片、设置页偏好三组独立时间戳同步。 */
 
 import { SYNC_KEYS, LEGACY_AT, TOMBSTONE_TTL, SORT_KEY, LOGIN_HINT_KEY } from "./config.js";
-import { $id, setSwitch, lsGet, lsSet, lsRemove } from "./dom.js";
+import { $id, setSwitch, lsGet, lsSet, lsRemove, confirmable } from "./dom.js";
 import { SORTS, state, getSettings, setSettings } from "./state.js";
 import { toast } from "./toast.js";
 import { render, setFavorites } from "./render.js";
@@ -305,7 +305,42 @@ export function initAccount() {
     });
   }
 
-  $id("logoutBtn")?.addEventListener("click", async () => {
+  /* 退出登录的内联确认（借自 Bencho Confirm）：按钮自己变成确认，不弹窗、不挪位置。
+     第一次点：文字滑成「确认退出」并变红，左边展开「取消」，按钮底部一条细线在 4 秒内烧尽，烧完自动恢复；第二次点才真正退出 */
+  const ASK_MS = 4000;
+  const logoutBtn = $id("logoutBtn");
+  const logoutBox = $id("logoutConfirm");
+  const logoutCancel = $id("logoutCancel");
+  const logoutSwap = logoutBtn ? confirmable(logoutBtn, "确认退出") : null;
+  let askTimer = 0;
+  const asking = () => !!logoutBox?.hasAttribute("data-ask");
+  function askLogout(on) {
+    if (!logoutBox || !logoutSwap) return;
+    clearTimeout(askTimer);
+    logoutBox.toggleAttribute("data-ask", on);
+    logoutCancel.tabIndex = on ? 0 : -1;
+    logoutCancel.setAttribute("aria-hidden", String(!on));
+    if (on) {
+      logoutBtn.style.setProperty("--ask-ms", ASK_MS + "ms");
+      logoutSwap.on(ASK_MS + 400);
+      askTimer = setTimeout(() => askLogout(false), ASK_MS);
+    } else {
+      logoutSwap.off();
+    }
+  }
+  logoutCancel?.addEventListener("click", () => askLogout(false));
+  logoutBox?.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || !asking()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    askLogout(false);
+    logoutBtn.focus();
+  });
+  document.addEventListener("click", (e) => { if (asking() && !logoutBox.contains(e.target)) askLogout(false); });
+
+  logoutBtn?.addEventListener("click", async () => {
+    if (!asking()) { askLogout(true); return; }
+    askLogout(false);
     clearTimeout(timer);
     try {
       const res = await api("POST", "/api/logout");
