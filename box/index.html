@@ -67,15 +67,13 @@
       <div class="search" id="searchBox" role="search">
         <svg class="search-lens" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>
         <div class="search-field" id="searchField">
-          <!-- 已确认的关键词（.kw）由 js/search-sort.js 插在输入框前面 -->
-          <input id="searchInput" type="text" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="输入关键词" aria-label="搜索插件">
+          <input id="searchInput" type="text" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="搜索插件" aria-label="搜索插件">
         </div>
-        <button class="search-clear" id="searchClear" type="button" hidden aria-label="清除全部关键词"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        <button class="search-clear" id="searchClear" type="button" hidden aria-label="清除搜索"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         <button class="search-go" id="searchGo" type="button">搜索</button>
       </div>
       <div class="sortwrap" id="sortBox"></div>
     </div>
-    <div class="search-hint" id="searchHint" aria-live="polite"><div><span id="searchHintText"></span></div></div>
     <div class="filters" id="filters" role="group" aria-label="按分类筛选"></div>
     </div>
 
@@ -129,7 +127,7 @@
             <span class="muted" id="syncFavsState">始终同步</span>
           </div>
           <div class="row" id="syncLookRow">
-            <span class="row-text"><span>外观</span><span class="sub">主题、减少动画、搜索框样式、多关键词逻辑</span></span>
+            <span class="row-text"><span>外观</span><span class="sub">主题、减少动画</span></span>
             <button class="switch" id="syncLookSwitch" type="button" role="switch" aria-label="同步外观"></button>
           </div>
           <div class="row" id="syncCardsRow">
@@ -156,8 +154,6 @@
           <button type="button" class="tile" data-theme-opt="dark"><span class="tile-prev prev-dark" aria-hidden="true"><i></i><i></i><i></i></span><span class="tile-label">深色</span></button>
         </div>
         <p class="tiles-note">「跟随系统」会随设备的深色模式自动切换</p>
-        <div class="row"><span class="row-text"><span>多关键词逻辑</span><span class="sub" id="searchModeSub"></span></span>
-          <span class="opt2" id="searchModeOpt" role="group" aria-label="多关键词匹配逻辑" data-mode="and"><button type="button" data-mode-opt="and" aria-pressed="true">AND</button><button type="button" data-mode-opt="or" aria-pressed="false">OR</button></span></div>
         <div class="row"><span class="row-text"><span>设置页默认全屏</span><span class="sub">打开设置页时直接全屏显示</span></span><button class="switch" type="button" role="switch" data-switch="fullDefault" aria-label="设置页默认全屏"></button></div>
         <div class="row" id="fullColsRow" hidden><span class="row-text"><span>全屏布局</span><span class="sub">设置页全屏时的内容排版。仅保存在本设备，不同步到云端</span></span>
           <span class="opt2" id="fullColsOpt" role="group" aria-label="设置页全屏布局" data-mode="1"><button type="button" data-cols-opt="1" aria-pressed="true">单列</button><button type="button" data-cols-opt="2" aria-pressed="false">双列</button></span></div>
