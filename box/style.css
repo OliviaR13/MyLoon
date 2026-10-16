@@ -1,12 +1,13 @@
 /* OliviaR13's Loon Box — 样式聚合入口
    按职责拆分为 7 个原生 CSS 模块，保持原有级联顺序与视觉表现：
    1. base.css           字体、主题变量、全局重置、页头与基础按钮/工具类
-   2. toolbar.css        吸顶毛玻璃栏（Dock）、顶层页签、多关键词搜索、排序菜单与分类筛选
+   2. toolbar.css        吸顶毛玻璃栏（Dock）、顶层页签、搜索框、排序菜单与分类筛选
    3. cards.css          插件列表、卡片布局、星标爆发、紧凑模式、人机验证与骨架屏
    4. toast-pull.css     灵动岛提示条（Toast）与触屏下拉刷新动效
    5. sheet-settings.css 抽屉容器（顶底模糊渐隐与出血）、设置面板与双列全屏布局
    6. detail.css         插件详情全屏抽屉与进出场动效
-   7. tour-splash.css    新手引导向导、页面逐层开场动画、启动页与减少动态效果规则 */
+   7. tour-splash.css    新手引导向导、页面逐层开场动画、启动页与减少动态效果规则
+   8. liquid-glass.css   液态玻璃：搜索框、排序按钮与菜单、页头按钮 */
 
 @import url("./styles/base.css");
 @import url("./styles/toolbar.css");
@@ -15,3 +16,4 @@
 @import url("./styles/sheet-settings.css");
 @import url("./styles/detail.css");
 @import url("./styles/tour-splash.css");
+@import url("./styles/liquid-glass.css");

@@ -6,7 +6,7 @@
    - js/toast.js        灵动岛提示条（Toast）组件
    - js/detail.js       插件详情全屏抽屉组件
    - js/render.js       插件列表、卡片构建、FLIP 重排与分类页签渲染
-   - js/search-sort.js  多关键词搜索框、变形排序菜单与吸顶栏控制
+   - js/search-sort.js  搜索框、变形排序菜单与吸顶栏控制
    - js/tour-splash.js  四步新手引导向导与启动页控制
    - js/manifest.js     Cloudflare Turnstile 人机验证与清单加载
    - js/settings.js     设置面板、主题/双列布局与恢复默认设置
