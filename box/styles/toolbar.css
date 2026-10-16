@@ -1,5 +1,5 @@
 /* ==========================================================================
-   工具栏与导航（Toolbar & Dock）：吸顶毛玻璃栏、顶层页签、多关键词搜索、排序菜单与分类筛选
+   工具栏与导航（Toolbar & Dock）：吸顶毛玻璃栏、顶层页签、搜索框、排序菜单与分类筛选
    ========================================================================== */
 
 /* 顶层页签：全部插件 / 我的收藏
@@ -26,50 +26,39 @@
 
 /* 工具栏：搜索 + 排序 */
 .toolbar{display:flex;align-items:flex-start;gap:8px;position:relative;z-index:5}
-/* 搜索框脚注：聚焦时用 grid 行高 0fr→1fr 平滑展开，失焦折叠，不占位置 */
-.search-hint{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .28s cubic-bezier(.2,.8,.2,1),opacity .2s}
-.search-hint[data-show]{grid-template-rows:1fr;opacity:1}
-.search-hint>div{overflow:hidden;min-height:0}
-.search-hint span{display:block;padding:6px 4px 0;font-size:12px;line-height:1.5;color:var(--muted)}
-/* 搜索框：一个带边框的盒子，从左到右依次是 放大镜 · 已确认的关键词 + 输入框 · 红叉（清除全部）· 搜索按钮。
-   输入框本身没有边框，边框、聚焦光圈都画在盒子上；关键词多了会在盒子里换行，盒子随之长高。
-   输入框字号必须 ≥16px，否则 iOS Safari 聚焦时会自动放大页面 */
-/* 外观借自 Bencho Seek：圆角固定 22px（单行时正好是药丸，换行长高后也不会突然变形）、
-   放大镜固定在离左边 13px 的位置（和输入文字天然对齐）、静止时一层很淡的浮起阴影，聚焦时光圈带一点回弹地展开 */
-.search{flex:1;min-width:0;position:relative;display:flex;align-items:flex-start;min-height:43px;overflow:hidden;
+/* 搜索框：单行药丸，从左到右依次是 放大镜 · 输入框 · 清除（有内容才出现）· 搜索按钮。
+   外观借自 Bencho Seek：放大镜固定在离左边 13px 的位置、静止时一层很淡的浮起阴影、聚焦时光圈带一点回弹地展开。
+   输入框本身没有边框，边框、聚焦光圈都画在盒子上。输入框字号必须 ≥16px，否则 iOS Safari 聚焦时会自动放大页面 */
+.search{flex:1;min-width:0;position:relative;display:flex;align-items:center;height:43px;overflow:hidden;
   border:1px solid var(--line);border-radius:22px;background:var(--card);cursor:text;
   box-shadow:0 0 0 0 transparent,0 1px 2px rgb(var(--shadow) / .06);
   transition:border-color .25s,box-shadow .45s var(--spring)}
 .search:focus-within{border-color:var(--accent);box-shadow:0 0 0 3.5px var(--glow),0 8px 22px rgb(var(--shadow) / .10)}
-.search-lens{flex:none;margin:12.5px 8px 0 13px;color:var(--muted);pointer-events:none;transition:color .2s}
+.search-lens{flex:none;margin:0 9px 0 13px;color:var(--muted);pointer-events:none;transition:color .2s}
 .search-lens *{stroke-width:2;transition:stroke-width .3s var(--ease)}
 .search:focus-within .search-lens,.search[data-has="true"] .search-lens{color:var(--text)}
 .search:focus-within .search-lens *,.search[data-has="true"] .search-lens *{stroke-width:2.3}
-.search-field{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:7px 0}
-.search input{flex:1 1 96px;min-width:96px;height:27px;padding:0;border:0;outline:0;background:none;color:var(--text);
-  font:inherit;font-size:16px;line-height:27px;text-overflow:ellipsis;-webkit-appearance:none;appearance:none}
+.search-field{flex:1;min-width:0;height:100%;display:flex;align-items:center}
+.search input{flex:1;min-width:0;height:100%;padding:0;border:0;outline:0;background:none;color:var(--text);
+  font:inherit;font-size:16px;text-overflow:ellipsis;-webkit-appearance:none;appearance:none}
 .search input::placeholder{color:var(--muted)}
-/* 关键词胶囊：文字 + 红叉 */
-.kw{position:relative;display:inline-flex;align-items:center;gap:2px;max-width:100%;height:27px;padding:0 4px 0 10px;border-radius:999px;
-  background:var(--chip);box-shadow:inset 0 0 0 1px var(--line);font-size:14px;cursor:default}
-.kw-text{min-width:0;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.kw-in{transform-origin:left center;animation:kw-pop .36s var(--spring) backwards}
-@keyframes kw-pop{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:none}}
 /* 命中的关键词：浅色底，不改字色，深浅主题都读得清 */
 mark.hit{padding:0 .08em;border-radius:3px;background:color-mix(in srgb,var(--accent) 24%,transparent);color:inherit}
-.kw-x,.search-clear{flex:none;display:grid;place-items:center;border:0;padding:0;background:none;color:#e5484d;cursor:pointer}
-.kw-x{position:relative;width:20px;height:20px;border-radius:50%;transition:background-color .15s}
-.kw-x::after{content:"";position:absolute;inset:-6px}
-.search-clear{align-self:flex-start;width:36px;height:41px}
+/* 清除：一个小圆底的 ×，点击区域向外扩一圈 */
+.search-clear{position:relative;flex:none;display:grid;place-items:center;width:20px;height:20px;margin:0 8px 0 4px;padding:0;border:0;border-radius:50%;
+  background:var(--chip);color:var(--muted);cursor:pointer;transition:background-color .15s,color .15s,transform .35s var(--spring)}
+.search-clear::after{content:"";position:absolute;inset:-9px}
+.search-clear svg{width:11px;height:11px}
+.search-clear:active{transform:scale(.88)}
 .search-clear[hidden]{display:none}
-.search-clear:not([hidden]){animation:fade .18s backwards}
-.search-go{flex:none;margin:5px 5px 5px 0;height:31px;padding:0 13px;border:0;border-radius:17px;background:var(--accent);color:var(--accent-ink);
+.search-clear:not([hidden]){animation:clear-pop .3s var(--spring) backwards}
+@keyframes clear-pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
+.search-go{flex:none;margin:0 5px 0 0;height:31px;padding:0 14px;border:0;border-radius:17px;background:var(--accent);color:var(--accent-ink);
   font:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:filter .15s,transform .35s var(--spring)}
 .search-go:active{transform:scale(.94)}
-.kw-x:focus-visible,.search-clear:focus-visible,.search-go:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.search-clear:focus-visible,.search-go:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 @media (hover:hover){
-  .kw-x:hover{background:color-mix(in srgb,#e5484d 16%,transparent)}
-  .search-clear:hover{color:#c93036}
+  .search-clear:hover{background:color-mix(in srgb,var(--text) 14%,var(--chip));color:var(--text)}
   .search-go:hover{filter:brightness(1.08)}
 }
 
