@@ -18,8 +18,6 @@ export const els = {
   searchBox: $("#searchBox"),
   searchField: $("#searchField"),
   searchClear: $("#searchClear"),
-  searchHint: $("#searchHint"),
-  searchHintText: $("#searchHintText"),
 };
 
 export function el(tag, cls, text) {
