@@ -34,11 +34,19 @@
 /* 搜索框：一个带边框的盒子，从左到右依次是 放大镜 · 已确认的关键词 + 输入框 · 红叉（清除全部）· 搜索按钮。
    输入框本身没有边框，边框、聚焦光圈都画在盒子上；关键词多了会在盒子里换行，盒子随之长高。
    输入框字号必须 ≥16px，否则 iOS Safari 聚焦时会自动放大页面 */
+/* 外观借自 Bencho Seek：一个物件而不是两个——全圆角药丸（一条规则，没有“圆角随宽度插值”的第二个数）、
+   放大镜固定在离左边 13px 的位置（(43 − 17) / 2 ≈ 13，同时也是输入区想要的左内边距，所以图标和文字天然对齐）、
+   平面底色 + 一条发丝边、点按时先被“压”一下、打字时放大镜线条加粗一点。关键词多到换行时，圆角收成 22px，避免两头鼓成大椭圆 */
 .search{flex:1;min-width:0;position:relative;display:flex;align-items:flex-start;min-height:43px;overflow:hidden;
-  border:1px solid var(--line);border-radius:var(--r-md);background:var(--card);cursor:text;transition:border-color .15s,box-shadow .15s}
+  border:1px solid var(--line);border-radius:999px;background:var(--card);cursor:text;
+  transition:border-color .15s,box-shadow .15s,transform .35s var(--spring)}
+.search:has(.kw){border-radius:22px}
+.search:active:not(:focus-within){transform:scale(.985)}
 .search:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
-.search-lens{flex:none;margin:12px 8px 0 12px;color:var(--muted);pointer-events:none;transition:color .2s}
+.search-lens{flex:none;margin:12.5px 8px 0 13px;color:var(--muted);pointer-events:none;transition:color .2s}
+.search-lens *{stroke-width:2;transition:stroke-width .2s}
 .search:focus-within .search-lens,.search[data-has="true"] .search-lens{color:var(--text)}
+.search:focus-within .search-lens *,.search[data-has="true"] .search-lens *{stroke-width:2.4}
 .search-field{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:7px 0}
 .search input{flex:1 1 96px;min-width:96px;height:27px;padding:0;border:0;outline:0;background:none;color:var(--text);
   font:inherit;font-size:16px;line-height:27px;text-overflow:ellipsis;-webkit-appearance:none;appearance:none}
@@ -57,7 +65,7 @@ mark.hit{padding:0 .08em;border-radius:3px;background:color-mix(in srgb,var(--ac
 .search-clear{align-self:flex-start;width:36px;height:41px}
 .search-clear[hidden]{display:none}
 .search-clear:not([hidden]){animation:fade .18s backwards}
-.search-go{flex:none;margin:5px 5px 5px 0;height:31px;padding:0 13px;border:0;border-radius:calc(var(--r-md) - 3px);background:var(--accent);color:var(--accent-ink);
+.search-go{flex:none;margin:5px 5px 5px 0;height:31px;padding:0 13px;border:0;border-radius:999px;background:var(--accent);color:var(--accent-ink);
   font:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:filter .15s,transform .35s var(--spring)}
 .search-go:active{transform:scale(.94)}
 .kw-x:focus-visible,.search-clear:focus-visible,.search-go:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
@@ -112,7 +120,7 @@ mark.hit{padding:0 .08em;border-radius:3px;background:color-mix(in srgb,var(--ac
 /* 排序：一个按钮 + 弹出菜单（参考 Bencho 的 Create menu：一个形状，不是两个） */
 .sortwrap{position:relative;flex:none;height:43px}
 .sort-btn{height:100%;display:flex;align-items:center;gap:7px;padding:0 13px;font:inherit;font-size:14px;font-weight:600;color:var(--text);
-  background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);cursor:pointer;position:relative;z-index:2;
+  background:var(--card);border:1px solid var(--line);border-radius:22px;cursor:pointer;position:relative;z-index:2;
   transition:border-color .1s .3s,background-color .1s .3s,transform .35s var(--spring)}
 .sort-btn:active{transform:scale(.94)}
 .sort-btn svg{width:16px;height:16px;flex:none;color:var(--muted);fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -123,11 +131,11 @@ mark.hit{padding:0 .08em;border-radius:3px;background:color-mix(in srgb,var(--ac
 .sortwrap[data-open="true"] .sort-btn>*,.sortwrap[data-open="true"] .sort-btn[data-pin="true"]::after{opacity:0;transition:opacity .1s}
 .sort-menu{position:absolute;right:0;top:0;z-index:1;overflow:hidden;
   width:var(--bw,100px);height:var(--bh,43px);background:var(--card);border:1px solid var(--line);
-  border-radius:var(--r-md);box-shadow:0 0 0 rgb(var(--shadow) / 0);
+  border-radius:22px;box-shadow:0 0 0 rgb(var(--shadow) / 0);
   opacity:0;visibility:hidden;pointer-events:none;
   transition:width .36s cubic-bezier(.32,.72,0,1),height .36s cubic-bezier(.32,.72,0,1),border-radius .36s cubic-bezier(.32,.72,0,1),
     box-shadow .3s,opacity 0s .36s,visibility 0s .36s}
-.sort-menu[data-open="true"]{width:var(--mw);height:var(--mh);border-radius:calc(var(--r-md) + 4px);
+.sort-menu[data-open="true"]{width:var(--mw);height:var(--mh);border-radius:20px;
   box-shadow:0 14px 36px rgb(var(--shadow) / .22);opacity:1;visibility:visible;pointer-events:auto;
   transition:width .48s cubic-bezier(.22,1,.36,1),height .48s cubic-bezier(.22,1,.36,1),border-radius .48s cubic-bezier(.22,1,.36,1),
     box-shadow .3s,opacity 0s,visibility 0s}
