@@ -95,25 +95,15 @@ mark.hit{padding:0 .08em;border-radius:3px;background:color-mix(in srgb,var(--ac
    iOS Safari 等不支持 url() 滤镜的浏览器：模糊 + 提亮，没有折射。光和影（上缘亮带、对面较弱的一道、红蓝各偏 1px 的色散、向下的软影）两边一样。
    玻璃是半透明的，所以底色从 --card 降到约一半，再叠一层从左上到右下的白色高光渐变；深色主题下高光整体压低。 */
 .search.lg{
-  --lg-hi:rgb(255 255 255 / .9);--lg-hi2:rgb(255 255 255 / .42);--lg-edge:rgb(255 255 255 / .22);
-  --lg-sheen:linear-gradient(135deg,rgb(255 255 255 / .5),rgb(255 255 255 / .1) 46%,rgb(255 255 255 / .26));
   background:var(--lg-sheen),color-mix(in srgb,var(--card) 52%,transparent);
   -webkit-backdrop-filter:blur(14px) saturate(1.8) brightness(1.04);backdrop-filter:blur(14px) saturate(1.8) brightness(1.04);
   box-shadow:0 0 0 0 transparent,0 8px 22px rgb(var(--shadow) / .14),0 1px 2px rgb(var(--shadow) / .08);
   transition:border-color .25s,box-shadow .45s var(--spring),scale .5s var(--spring)}
 html[data-glass="refract"] .search.lg{
-  -webkit-backdrop-filter:var(--lg-filter) blur(2px) saturate(1.7) brightness(1.06);backdrop-filter:var(--lg-filter) blur(2px) saturate(1.7) brightness(1.06)}
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]) .search.lg{--lg-hi:rgb(255 255 255 / .4);--lg-hi2:rgb(255 255 255 / .16);--lg-edge:rgb(255 255 255 / .08);
-    --lg-sheen:linear-gradient(135deg,rgb(255 255 255 / .1),rgb(255 255 255 / .02) 46%,rgb(255 255 255 / .06))}
-}
-:root[data-theme="dark"] .search.lg{--lg-hi:rgb(255 255 255 / .4);--lg-hi2:rgb(255 255 255 / .16);--lg-edge:rgb(255 255 255 / .08);
-  --lg-sheen:linear-gradient(135deg,rgb(255 255 255 / .1),rgb(255 255 255 / .02) 46%,rgb(255 255 255 / .06))}
+  -webkit-backdrop-filter:var(--lg-filter,blur(0px)) blur(2px) saturate(1.7) brightness(1.06);backdrop-filter:var(--lg-filter,blur(0px)) blur(2px) saturate(1.7) brightness(1.06)}
 .search.lg:focus-within{box-shadow:0 0 0 3.5px var(--glow),0 12px 28px rgb(var(--shadow) / .18)}
 /* 边缘光：一层盖在上面、不挡点击的伪元素。顺序 = 朝左上的亮带、对面较弱的一道、一圈极淡的边、红蓝色散、底部的一点暗 */
-.search.lg::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
-  box-shadow:inset 1.5px 1.5px 1px -.5px var(--lg-hi),inset -1px -1.5px 1px -.5px var(--lg-hi2),inset 0 0 0 1px var(--lg-edge),
-    inset 1px 0 0 rgb(255 90 90 / .12),inset -1px 0 0 rgb(90 130 255 / .14),inset 0 -6px 10px -6px rgb(var(--shadow) / .16)}
+.search.lg::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:var(--lg-rim)}
 /* 按下的那一拍见下面「Seek 的手感」：先让一下，再弹回 */
 /* 描边在玻璃上要更轻，边缘光负责轮廓；聚焦 / 有内容时的颜色不动 */
 .search.lg:not([data-focus="true"]):not([data-filled="true"]) .lbi-ring path{stroke:color-mix(in srgb,var(--line) 55%,transparent)}
@@ -234,3 +224,26 @@ html[data-glass="refract"] .search.lg{
   .tab:active{opacity:.6}
   .sort-item:active{background:var(--chip)}
 }
+
+/* ══ 液态玻璃：排序按钮、排序菜单、分类 chip ══════════════════════
+   材质变量在 base.css。排序按钮和搜索框一样是「真玻璃」：下面有列表滚过，所以带 backdrop-filter 和折射（js/liquid-glass.js）；
+   分类 chip 十来个，每个都开 backdrop-filter 太重，而且吸顶栏本身已经有 8 层渐进模糊垫在下面，所以只用材质（高光 + 边缘光 + 软影）。 */
+.sort-btn.lg{background:var(--lg-sheen),color-mix(in srgb,var(--card) 52%,transparent);border-color:transparent;
+  -webkit-backdrop-filter:blur(14px) saturate(1.8) brightness(1.04);backdrop-filter:blur(14px) saturate(1.8) brightness(1.04);
+  box-shadow:var(--lg-rim),0 8px 22px rgb(var(--shadow) / .14),0 1px 2px rgb(var(--shadow) / .08)}
+html[data-glass="refract"] .sort-btn.lg{
+  -webkit-backdrop-filter:var(--lg-filter,blur(0px)) blur(2px) saturate(1.7) brightness(1.06);backdrop-filter:var(--lg-filter,blur(0px)) blur(2px) saturate(1.7) brightness(1.06)}
+/* 菜单展开时按钮本身变透明（菜单接手），它的玻璃也要一起撤掉 */
+.sortwrap[data-open="true"] .sort-btn.lg{box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+.sort-menu{background:var(--lg-sheen),color-mix(in srgb,var(--card) 72%,transparent);border-color:transparent;
+  -webkit-backdrop-filter:blur(18px) saturate(1.8);backdrop-filter:blur(18px) saturate(1.8)}
+.sort-menu[data-open="true"]{box-shadow:var(--lg-rim),0 14px 36px rgb(var(--shadow) / .22)}
+
+.chip-filter{background:var(--lg-sheen),color-mix(in srgb,var(--card) 45%,transparent);border-color:transparent;
+  box-shadow:var(--lg-rim),0 2px 7px rgb(var(--shadow) / .07)}
+.chip-filter[aria-pressed="true"]{background:var(--lg-sheen),color-mix(in srgb,var(--accent) 22%,transparent);
+  box-shadow:var(--lg-rim),0 0 0 1px color-mix(in srgb,var(--accent) 40%,transparent),0 3px 9px color-mix(in srgb,var(--accent) 18%,transparent)}
+/* chip 的软影会被 overflow-x:auto 的容器在下面裁掉，给底部留一点空间，再用负外边距把版面位置还回去 */
+.filters{padding-bottom:9px;margin-bottom:-6px}
+/* 搜索框里的「搜索」按钮：和其他主按钮一样的玻璃材质 */
+.search-go{background:var(--lg-sheen-p),var(--accent);box-shadow:var(--lg-rim)}

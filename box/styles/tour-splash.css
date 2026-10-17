@@ -13,15 +13,18 @@
 .tour.closing::backdrop{transition-duration:.3s;transition-timing-function:cubic-bezier(.4,0,1,1)}
 .tour:focus,.tour h2:focus{outline:none}
 .tour-card{display:flex;flex-direction:column;gap:18px;padding:26px 22px calc(18px + env(safe-area-inset-bottom))}
-.tour-stage{display:grid;overflow:hidden}
-.tour-step{grid-area:1 / 1;display:flex;flex-direction:column;align-items:flex-start;gap:12px;opacity:0;visibility:hidden;transform:translateX(26px);
+.tour-stage{display:grid;overflow:hidden;transition:height .38s var(--ease)}
+.tour-stage.snap{transition:none}
+.tour-step{grid-area:1 / 1;align-self:start;display:flex;flex-direction:column;align-items:flex-start;gap:12px;opacity:0;visibility:hidden;transform:translateX(26px);
   transition:opacity .26s var(--ease),transform .38s var(--ease),visibility 0s .38s}
 .tour-step[data-pos="before"]{transform:translateX(-26px)}
 .tour-step[data-pos="active"]{opacity:1;visibility:visible;transform:none;transition:opacity .34s var(--ease) .06s,transform .44s var(--ease) .06s,visibility 0s}
 .tour-icon{flex:none;display:grid;place-items:center;width:56px;height:56px;border-radius:var(--r-md);background:var(--chip);color:var(--accent);box-shadow:0 0 0 1px var(--line)}
 .tour-icon svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.tour-icon-logo{background:none;box-shadow:none}
-.tour-icon-logo img{width:56px;height:56px;border-radius:var(--r-md);box-shadow:0 0 0 1px var(--line);display:block}
+/* 欢迎页的图标：原图自带一圈浅灰的方框边距，再加上 CSS 的描边就成了「框里套图标」。
+   这里放大到 72px，把图放大 1.2 倍裁掉自带的边距，只留蓝色图标本身，圆角 22%，下面一层柔和的影 */
+.tour-icon.tour-icon-logo{width:72px;height:72px;border-radius:22%;overflow:hidden;background:none;box-shadow:0 8px 22px rgb(var(--shadow) / .16)}
+.tour-icon-logo img{width:100%;height:100%;display:block;object-fit:cover;transform:scale(1.2);border-radius:0;box-shadow:none}
 .tour-title{margin:4px 0 0;font-family:var(--font-accent);font-size:24px;line-height:1.3;font-weight:400;font-synthesis:none;letter-spacing:0}
 .tour-body{margin:0;font-family:var(--font-accent);font-size:15.5px;line-height:1.75;font-synthesis:none}
 .tour-hint{margin:0;font-size:13px;line-height:1.6;color:var(--muted)}
@@ -41,7 +44,8 @@
 .tour-step[data-pos="active"] .tour-body{animation:intro-up .5s var(--ease) .2s backwards}
 .tour-step[data-pos="active"] .tour-extra{animation:intro-up .5s var(--ease) .26s backwards}
 .tour-step[data-pos="active"] .tour-hint{animation:intro-up .5s var(--ease) .32s backwards}
-.tour-progress{display:flex;align-items:center;justify-content:space-between}
+/* 一行：播放器在左，「跳过」/「开始使用」靠右 */
+.tour-progress{display:flex;align-items:center;gap:10px;min-height:44px}
 .tour-dots{display:flex}
 /* 步骤播放器（js/step-player.js，移植自 Bencho 的 Step player，MIT）：一排圆点 + 一个播放键。
    原版的设计变量在这里就近映射到本站已有的颜色，只定义在 .spl 自己身上，不外泄：
@@ -65,13 +69,12 @@
 @media (hover:hover){.spl-go:hover{color:color-mix(in srgb,var(--spl-on) 55%,var(--spl-slab))}}
 .spl-go:focus-visible{outline:none;box-shadow:0 0 0 2px var(--spl-slab),0 0 0 4px var(--accent)}
 .tour-count{font-size:12.5px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
-.tour-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px}
-.tour-skip{padding:10px 4px;border:0;background:none;font:inherit;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer}
+.tour-skip{margin-left:auto;padding:10px 4px;border:0;background:none;font:inherit;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer}
 .tour-skip:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--r-sm)}
 .tour-skip[hidden]{display:none}
 @media (hover:hover){.tour-skip:hover{color:var(--text)}}
-.tour-actions .btn-primary{margin-left:auto;min-width:104px;padding:10px 20px;font-size:14.5px}
-.tour-actions .btn[hidden]{display:none}
+.tour-progress .btn-primary{margin-left:auto;min-width:104px;padding:10px 20px;font-size:14.5px}
+.tour-progress .btn[hidden]{display:none}
 @media (min-width:720px) and (hover:hover){
   .tour{--bleed:0px;width:min(440px,calc(100vw - 32px));margin:auto;inset:0;height:fit-content;border-radius:var(--r-lg);
     transform:translateY(14px) scale(.97);opacity:0;transition:transform .4s var(--ease),opacity .28s var(--ease);box-shadow:0 24px 70px rgb(var(--shadow) / .3)}
