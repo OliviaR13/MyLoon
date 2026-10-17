@@ -4,7 +4,6 @@ import { TOUR_KEY, SETTINGS_KEY, SORT_KEY, LOGIN_HINT_KEY, SPLASH_KEY, COLS_KEY 
 import { $id, el, lsGet, lsSet } from "./dom.js";
 import { state } from "./state.js";
 import { createStepPlayer } from "./step-player.js";
-import { mountGlassLens } from "./glass-lens.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -19,7 +18,6 @@ export const tour = (() => {
     dots: $id("tourDots"),
     count: $id("tourCount"),
     skip: $id("tourSkip"),
-    prev: $id("tourPrev"),
     next: $id("tourNext"),
   };
 
@@ -106,7 +104,7 @@ export const tour = (() => {
     },
   ];
 
-  let idx = 0, shownOnce = false, endClose = null, logoIcon = null, lensTried = false;
+  let idx = 0, shownOnce = false, endClose = null;
   const steps = TOUR_STEPS.map((s, i) => {
     const sec = el("section", "tour-step");
     const icon = el("span", "tour-icon" + (s.icon === "logo" ? " tour-icon-logo" : ""));
@@ -117,7 +115,6 @@ export const tour = (() => {
       img.width = 56;
       img.height = 56;
       icon.append(img);
-      logoIcon = icon;
     } else {
       icon.append(svg(ICONS[s.icon]));
     }
@@ -159,9 +156,9 @@ export const tour = (() => {
     player.set(idx);
     const last = idx === TOUR_STEPS.length - 1;
     ui.count.textContent = `${idx + 1} / ${TOUR_STEPS.length}`;
-    ui.prev.style.visibility = idx === 0 ? "hidden" : "visible";
+    /* 只剩步骤播放器翻页：最后一步时「跳过」换成「开始使用」 */
     ui.skip.hidden = last;
-    ui.next.textContent = last ? "开始使用" : "下一步";
+    ui.next.hidden = !last;
     dlg.setAttribute("aria-labelledby", "tourTitle" + idx);
   }
 
@@ -190,11 +187,6 @@ export const tour = (() => {
     }
     dlg.focus({ preventScroll: true });
     requestAnimationFrame(() => dlg.classList.add("open"));
-    /* 玻璃球（js/glass-lens.js）：第一次打开引导时才建 WebGL 上下文，失败就保留 56px 图标 */
-    if (!lensTried && logoIcon) {
-      lensTried = true;
-      mountGlassLens(logoIcon, { src: "./icon.png" }).catch(() => {});
-    }
   }
 
   function finish() {
@@ -209,8 +201,15 @@ export const tour = (() => {
     dlg.addEventListener("transitionend", fn);
   }
 
-  ui.next.addEventListener("click", () => (idx === TOUR_STEPS.length - 1 ? finish() : go(idx + 1)));
-  ui.prev.addEventListener("click", () => go(idx - 1));
+  ui.next.addEventListener("click", finish);
+  /* 在内容区左右滑动翻页：横向位移超过 48px 且明显大于纵向位移才算 */
+  let sx = 0, sy = 0;
+  ui.stage.addEventListener("touchstart", (e) => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+  ui.stage.addEventListener("touchend", (e) => {
+    const t = e.changedTouches[0];
+    const dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) go(idx + (dx < 0 ? 1 : -1));
+  }, { passive: true });
   ui.skip.addEventListener("click", finish);
   dlg.addEventListener("cancel", (e) => { e.preventDefault(); finish(); });
   dlg.addEventListener("keydown", (e) => {

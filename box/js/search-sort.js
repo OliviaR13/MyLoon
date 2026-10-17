@@ -146,11 +146,23 @@ export function initSearchAndSort() {
       e.preventDefault();
       applySearch();
       els.search.blur();
-    } else if (e.key === "Escape" && els.search.value) {
+    } else if (e.key === "Escape") {
+      /* 有内容先清空，已经是空的再按就收起键盘 / 失焦 */
       e.preventDefault();
-      els.search.value = "";
-      applySearch({ animate: true });
+      if (els.search.value) {
+        els.search.value = "";
+        applySearch({ animate: true });
+      } else {
+        els.search.blur();
+      }
     }
+  });
+  /* 桌面端：按 / 直接聚焦搜索框（正在输入、有对话框打开、带修饰键时不抢） */
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return;
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "") || document.querySelector("dialog[open]")) return;
+    e.preventDefault();
+    els.search.focus();
   });
 
   els.searchBox.addEventListener("mousedown", (e) => { if (e.target.closest("button")) e.preventDefault(); });
