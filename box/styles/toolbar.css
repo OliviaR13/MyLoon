@@ -114,10 +114,35 @@ html[data-glass="refract"] .search.lg{
 .search.lg::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
   box-shadow:inset 1.5px 1.5px 1px -.5px var(--lg-hi),inset -1px -1.5px 1px -.5px var(--lg-hi2),inset 0 0 0 1px var(--lg-edge),
     inset 1px 0 0 rgb(255 90 90 / .12),inset -1px 0 0 rgb(90 130 255 / .14),inset 0 -6px 10px -6px rgb(var(--shadow) / .16)}
-/* 按下：玻璃被捏扁一点（Glass bubble 里是拖动时沿运动方向拉长、横向变细，体积不变），松手弹回 */
-.search.lg:active{scale:1.018 .965}
+/* 按下的那一拍见下面「Seek 的手感」：先让一下，再弹回 */
 /* 描边在玻璃上要更轻，边缘光负责轮廓；聚焦 / 有内容时的颜色不动 */
 .search.lg:not([data-focus="true"]):not([data-filled="true"]) .lbi-ring path{stroke:color-mix(in srgb,var(--line) 55%,transparent)}
+
+/* ── 修复：聚焦时抬到上边框的标签被边缘光盖住了 ──────────────
+   边缘光的伪元素在 DOM 里排在标签后面，所以它的 1.5px 白色亮带画在了标签的字上，把字从中间「切」开；
+   而描边的缺口那一段下面，亮带又是一条白线。现在：标签和描边各自有层级（标签最上），
+   并且标签抬起时，边缘光在凹口那一段的最上面 8px 里挖掉（mask 相减），缺口就是真的缺口。 */
+.lbi-ring{z-index:1}
+.lbi-label{z-index:3}
+.search.lg::after{z-index:2}
+.search.lg.lbi[data-up="true"]::after{
+  -webkit-mask:linear-gradient(#000 0 0),linear-gradient(#000 0 0);-webkit-mask-size:100% 100%,var(--lbi-nw,0px) 8px;
+  -webkit-mask-position:0 0,var(--lbi-n0,0px) 0;-webkit-mask-repeat:no-repeat;-webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0),linear-gradient(#000 0 0);mask-size:100% 100%,var(--lbi-nw,0px) 8px;
+  mask-position:0 0,var(--lbi-n0,0px) 0;mask-repeat:no-repeat;mask-composite:exclude}
+.search input{caret-color:var(--accent)}
+
+/* ── Seek 的手感（js/seek-feel.js，借自 Bencho 的 Search，MIT；它的「图标展开成输入框」没有做）──
+   - 靠近：指针在 110px 内，搜索框朝指针偏几个像素（--lx / --ly，聚焦后关掉：输入框不能在你点它的时候躲你）；
+   - 悬停：整体微微抬起；
+   - 按下：先让一下（scale .972）再弹回——一个会在被按时退让的东西像被推了一下，只会移动的东西像被触发了；
+   - 打字：放大镜加粗、变深，一阵一次，不是一键一次。 */
+.search{translate:var(--lx,0) var(--ly,0)}
+.search.lg{transition:border-color .25s,box-shadow .45s var(--spring),scale .5s var(--spring),translate .22s cubic-bezier(.22,1,.36,1)}
+@media (hover:hover){.search.lg:not(:focus-within):hover{scale:1.012}}
+.search[data-press="true"]{scale:.972;transition:scale .16s cubic-bezier(.22,1,.36,1)}
+.search[data-busy="true"] .search-lens{color:var(--text)}
+.search[data-busy="true"] .search-lens *{stroke-width:2.6}
 
 /* 搜索框的几处优化：
    - 「搜索」按钮只在聚焦或有内容时出现（实时筛选下它只是「确认并收起键盘」），静止时整条药丸只剩放大镜和标签，更干净；
