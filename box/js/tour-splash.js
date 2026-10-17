@@ -267,21 +267,28 @@ export const tour = (() => {
 
 export const splash = (() => {
   const root = document.documentElement;
-  const MIN_SHOW = 900;
+  /* 启动页的显示时长，毫秒，从页面开始加载算起，固定不变：清单加载得再快或再慢都不改它。
+     想长一点或短一点只改这一个数。 */
+  const SHOW_MS = 1600;
   let called = root.getAttribute("data-splash") !== "on";
+  function leave() {
+    if (called) return;
+    called = true;
+    const el = $id("splash");
+    if (!el || getComputedStyle(el).visibility === "hidden") {
+      root.setAttribute("data-splash", "done");
+      return;
+    }
+    root.setAttribute("data-splash", "leaving");
+    setTimeout(() => root.setAttribute("data-splash", "done"), 600);
+  }
+  /* 到点就走，不等清单 */
+  if (!called) setTimeout(leave, Math.max(0, SHOW_MS - performance.now()));
   return {
-    hide() {
-      if (called) return;
-      called = true;
-      setTimeout(() => {
-        const el = $id("splash");
-        if (!el || getComputedStyle(el).visibility === "hidden") {
-          root.setAttribute("data-splash", "done");
-          return;
-        }
-        root.setAttribute("data-splash", "leaving");
-        setTimeout(() => root.setAttribute("data-splash", "done"), 600);
-      }, Math.max(0, MIN_SHOW - performance.now()));
+    /* 清单加载完成时也会调用 hide()，现在它什么也不做；只有 hide(true) 会立刻收起——
+       人机验证需要用户点一下复选框时用，否则启动页会盖住验证框 */
+    hide(force = false) {
+      if (force) leave();
     },
   };
 })();

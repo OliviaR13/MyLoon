@@ -64,7 +64,7 @@ async function getToken() {
         resolve(token);
       },
       "before-interactive-callback": () => {
-        splash.hide();
+        splash.hide(true);
         armTimer(CONFIG.turnstile.interactiveTimeout, reject);
         setInteractive(true);
         setPhase("请点击下方的复选框完成验证");
