@@ -254,13 +254,11 @@
   <dialog class="tour" id="tour" aria-label="新手引导">
     <div class="tour-card">
       <div class="tour-stage" id="tourStage"></div>
+      <!-- 一行：步骤播放器（点圆点、播放键；也可左右滑动、方向键）+ 右边的「跳过」，最后一步换成「开始使用」。页码只给读屏软件 -->
       <div class="tour-progress">
-        <span class="tour-dots" id="tourDots" aria-hidden="true"></span>
-        <span class="tour-count" id="tourCount" aria-live="polite"></span>
-      </div>
-      <div class="tour-actions">
+        <span class="tour-dots" id="tourDots"></span>
+        <span class="tour-count sr-only" id="tourCount" aria-live="polite"></span>
         <button class="tour-skip" id="tourSkip" type="button">跳过</button>
-        <!-- 翻页靠上面的步骤播放器（点圆点、播放键、左右滑动、方向键）；这个按钮只在最后一步出现 -->
         <button class="btn btn-primary" id="tourNext" type="button" hidden>开始使用</button>
       </div>
     </div>

@@ -33,6 +33,7 @@ initRender();
 initSearchAndSort();
 initLabelSearch();
 initLiquidGlass(els.searchBox);
+initLiquidGlass(els.sort.querySelector(".sort-btn"));
 initSeekFeel(els.searchBox, els.search);
 initSettings();
 initPullToRefresh();
