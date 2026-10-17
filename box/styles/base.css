@@ -9,6 +9,17 @@
   font-weight:100 900;
   font-display:swap;
 }
+/* 强调字体：霞鹜文楷 GB，只用于引导页和空状态这几句固定文案（约 5% 的界面）。
+   这是子集化后的文件，只含这些文案里用到的字（约 50 KB）；改了文案后若出现缺字，需重新生成子集。
+   只有 Regular 一个字重，所以用到它的地方一律 font-weight:400，并关掉浏览器的伪粗体。
+   字体按需加载：页面上没有元素使用它时不会下载。许可：SIL OFL 1.1，版权与许可信息保留在字体文件内 */
+@font-face{
+  font-family:"LXGW WenKai GB";
+  src:url("/fonts/LXGWWenKaiGB-subset.woff2") format("woff2");
+  font-style:normal;
+  font-weight:400;
+  font-display:swap;
+}
 
 /* OliviaR13's Loon Box
    设计取向：克制的工具型列表（低变化、低密度动效、中等信息密度）。
@@ -25,6 +36,7 @@
   /* z-index 层级 */
   --z-grain:1;--z-toast:10;
   --font:"Geist Sans",-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Noto Sans SC","Segoe UI",sans-serif;
+  --font-accent:"LXGW WenKai GB",var(--font);
   --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
 }
 /* 深色：跟随系统（除非用户强制浅色），或用户强制深色 */
@@ -106,4 +118,7 @@ button,a,.tab,.tile,.row-btn,.chip-filter,.star{-webkit-touch-callout:none;-webk
 .notice{padding:28px 18px;text-align:center;color:var(--muted)}
 .notice h2{color:var(--text);font-size:16px;margin-bottom:4px}
 .notice .btn{margin-top:12px}
+.notice.accent h2,.notice.accent p{font-family:var(--font-accent);font-weight:400;font-synthesis:none}
+.notice.accent h2{font-size:18px;margin-bottom:6px}
+.notice.accent p{font-size:15px;line-height:1.7}
 .foot{text-align:center;color:var(--muted);font-size:12.5px;margin-top:28px}

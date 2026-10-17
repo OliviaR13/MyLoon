@@ -22,8 +22,8 @@
 .tour-icon svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .tour-icon-logo{background:none;box-shadow:none}
 .tour-icon-logo img{width:56px;height:56px;border-radius:var(--r-md);box-shadow:0 0 0 1px var(--line);display:block}
-.tour-title{margin:4px 0 0;font-size:22px;line-height:1.25;font-weight:700;letter-spacing:-.025em}
-.tour-body{margin:0;font-size:15px;line-height:1.65}
+.tour-title{margin:4px 0 0;font-family:var(--font-accent);font-size:24px;line-height:1.3;font-weight:400;font-synthesis:none;letter-spacing:0}
+.tour-body{margin:0;font-family:var(--font-accent);font-size:15.5px;line-height:1.75;font-synthesis:none}
 .tour-hint{margin:0;font-size:13px;line-height:1.6;color:var(--muted)}
 .tour-extra{align-self:stretch}
 .tour-extra[hidden]{display:none}
