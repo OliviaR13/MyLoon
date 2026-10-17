@@ -7,13 +7,18 @@
 .toast{position:fixed;left:0;right:0;top:calc(10px + env(safe-area-inset-top));bottom:auto;margin:0 auto;padding:0;border:0;display:block;
   width:var(--tw,96px);height:var(--th,32px);border-radius:var(--tr,16px);overflow:hidden;
   opacity:0;visibility:hidden;z-index:var(--z-toast);pointer-events:none;
+  --ghost1:color-mix(in srgb,var(--text) 62%,var(--bg));--ghost2:color-mix(in srgb,var(--text) 34%,var(--bg));
   background:var(--text);color:var(--bg);font-size:13.5px;line-height:1.4;box-shadow:0 8px 24px rgb(var(--shadow) / .22);
-  transition:width .5s var(--spring),height .5s var(--spring),border-radius .5s var(--spring),opacity .2s,visibility .2s,background-color .25s,color .25s}
+  transition:width .5s var(--spring),height .5s var(--spring),border-radius .5s var(--spring),opacity .2s,visibility .2s,background-color .25s,color .25s,box-shadow .45s var(--spring)}
+/* 叠起来的提示（借自 Bencho 的 Toast stack）：前面一条是当前的，后面最多两条各小一圈、各矮一截，只露出一道边。
+   box-shadow 的负扩展 = 比药丸小一圈的同形状，向下偏移后露出下沿；下面一层再小一圈、再多露一点，颜色一层比一层淡，是纸叠着纸而不是渐变变暗。 */
+.toast[data-stack="1"]{box-shadow:0 5px 0 -3px var(--ghost1),0 8px 24px rgb(var(--shadow) / .22)}
+.toast[data-stack="2"]{box-shadow:0 5px 0 -3px var(--ghost1),0 9px 0 -6px var(--ghost2),0 8px 24px rgb(var(--shadow) / .22)}
 .toast.show{opacity:1;visibility:visible}
 /* 退场：尺寸走不回弹的曲线，药丸缩到一半才开始淡出，同时轻轻往上收一点 */
 .toast.show.leaving{opacity:0;translate:0 -4px;
   transition:width .34s cubic-bezier(.4,0,.2,1),height .34s cubic-bezier(.4,0,.2,1),border-radius .34s cubic-bezier(.4,0,.2,1),
-    opacity .2s ease-in .13s,translate .34s cubic-bezier(.4,0,.2,1),background-color .25s,color .25s}
+    opacity .2s ease-in .13s,translate .34s cubic-bezier(.4,0,.2,1),background-color .25s,color .25s,box-shadow .2s}
 .toast-in{position:absolute;left:50%;top:50%;translate:-50% -50%;width:max-content;max-width:min(92vw,420px);box-sizing:border-box;
   display:flex;align-items:center;justify-content:center;gap:12px;padding:10px 16px;text-align:center;
   opacity:0;transform:scale(.92);filter:blur(6px);transition:opacity .16s,transform .16s,filter .16s}

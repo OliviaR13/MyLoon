@@ -22,6 +22,12 @@
 .tour-icon svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .tour-icon-logo{background:none;box-shadow:none}
 .tour-icon-logo img{width:56px;height:56px;border-radius:var(--r-md);box-shadow:0 0 0 1px var(--line);display:block}
+/* 玻璃球（js/glass-lens.js，移植自 Bencho 的 Glass bubble，MIT）：欢迎这一步里，图标放大，上面有一颗可以拖动的玻璃球。
+   画布四周留的那圈空白是球的活动余量，是透明的；WebGL 不可用时仍是上面那张 56px 的图标。 */
+.tour-icon.has-lens{width:auto;height:auto;display:block;margin:-8px 0 -12px -22px;background:none;box-shadow:none}
+.tour-lens{display:block;touch-action:none;-webkit-user-select:none;user-select:none}
+.tour-lens[data-over="true"]{cursor:grab}
+.tour-lens[data-over="true"]:active{cursor:grabbing}
 .tour-title{margin:4px 0 0;font-family:var(--font-accent);font-size:24px;line-height:1.3;font-weight:400;font-synthesis:none;letter-spacing:0}
 .tour-body{margin:0;font-family:var(--font-accent);font-size:15.5px;line-height:1.75;font-synthesis:none}
 .tour-hint{margin:0;font-size:13px;line-height:1.6;color:var(--muted)}
@@ -42,9 +48,28 @@
 .tour-step[data-pos="active"] .tour-extra{animation:intro-up .5s var(--ease) .26s backwards}
 .tour-step[data-pos="active"] .tour-hint{animation:intro-up .5s var(--ease) .32s backwards}
 .tour-progress{display:flex;align-items:center;justify-content:space-between}
-.tour-dots{display:flex;gap:6px}
-.tour-dot{width:6px;height:6px;border-radius:3px;background:var(--line);transition:width .38s var(--ease),background-color .2s}
-.tour-dot[data-on]{width:22px;background:var(--accent)}
+.tour-dots{display:flex}
+/* 步骤播放器（js/step-player.js，移植自 Bencho 的 Step player，MIT）：一排圆点 + 一个播放键。
+   原版的设计变量在这里就近映射到本站已有的颜色，只定义在 .spl 自己身上，不外泄：
+   --fill-slab → --chip（药丸底）；--fill-on → --text（点和图标的墨）；--ink → --accent（走过的、正在填的那一段，沿用原来引导圆点的强调色）；
+   --font-ui → 继承；--pane-edge 对应的描边这里不用（本站没有 data-stroke 开关）。会动的东西都由脚本写在行内，这里不给运动的元素加过渡。 */
+.spl{--spl-slab:var(--chip);--spl-on:var(--text);--spl-ink:var(--accent);position:relative;display:flex;flex-direction:column;align-items:center;gap:16px;font-family:inherit}
+.spl-row{display:flex;align-items:center;gap:8px}
+.spl-slab{display:flex;align-items:center;justify-content:center;background:var(--spl-slab)}
+.spl-track{position:relative;flex:none}
+/* 一种实心灰，用混色而不是透明度：被浪拉长、压到邻居上的点，重叠处不会变深 */
+.spl-dot{position:absolute;left:0;top:0;height:100%;padding:0;border:0;border-radius:999px;cursor:pointer;
+  background:color-mix(in srgb,var(--spl-on) 16%,var(--spl-slab))}
+/* 点也是按钮，而且比看上去好按：8px 的圆就是 8px 的靶子，所以向外扩一圈 */
+.spl-dot::after{content:"";position:absolute;inset:-12px -4px}
+.spl-dot:focus-visible{outline:none;box-shadow:0 0 0 2px var(--spl-slab),0 0 0 4px var(--accent)}
+.spl-ink{position:absolute;left:0;top:0;height:100%;border-radius:999px;background:var(--spl-ink)}
+/* 按下时沉下去的是整颗药丸，不是里面的图标 */
+.spl-tool{flex:none;transition:scale .16s cubic-bezier(.22,1,.36,1)}
+.spl-tool:has(.spl-go:active){scale:.96}
+.spl-go{width:100%;height:100%;display:grid;place-items:center;padding:0;border:0;border-radius:inherit;background:transparent;color:var(--spl-on);cursor:pointer;transition:color .16s ease}
+@media (hover:hover){.spl-go:hover{color:color-mix(in srgb,var(--spl-on) 55%,var(--spl-slab))}}
+.spl-go:focus-visible{outline:none;box-shadow:0 0 0 2px var(--spl-slab),0 0 0 4px var(--accent)}
 .tour-count{font-size:12.5px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
 .tour-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px}
 .tour-skip{padding:10px 4px;border:0;background:none;font:inherit;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer}

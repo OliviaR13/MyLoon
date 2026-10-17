@@ -96,14 +96,22 @@ html[data-compact] .card-meta{margin-top:6px}
 .verify[data-interactive="true"] .verify-box{max-height:110px;opacity:1;transform:none;margin-top:14px}
 .verify ~ .sk-card{transition:filter .3s}
 .verify[data-interactive="true"] ~ .sk-card{filter:opacity(.4)}
-.status{display:flex;align-items:center;justify-content:center;gap:10px;color:var(--muted);font-size:13.5px}
+.status{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--muted);font-size:13.5px}
 @keyframes fade{from{opacity:0}to{opacity:1}}
-.spinner{position:relative;flex:none;width:16px;height:16px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);
-  animation:spin .8s linear infinite;transition:background-color .25s,border-color .25s}
-@keyframes spin{to{transform:rotate(360deg)}}
-.status[data-state="ok"] .spinner{animation:none;background:var(--accent);border-color:var(--accent)}
-.status[data-state="ok"] .spinner::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;
-  border:solid var(--accent-ink);border-width:0 2px 2px 0;transform:rotate(45deg)}
+/* 等待与通过的格子（js/verify-cells.js，移植自 Bencho 的 One-time code，MIT）。
+   原版的设计变量就近映射：--fill-slab → 灰（--text 混 --bg）再随融合过渡到 --accent；--fill-on → --accent-ink（胶囊上的字）；--font-ui → 继承；
+   都只定义在 .otp 自己身上。格子和胶囊始终同一种颜色（滤镜的阈值会把两种颜色涂在一起），颜色由脚本写的 --otp-mix 一起变。 */
+.otp{position:relative;display:grid;place-items:center;--otp-grey:color-mix(in srgb,var(--text) 13%,var(--bg))}
+.otp-row{position:relative}
+.otp-goo{position:absolute;inset:0;--otp-mix:0%}
+.otp-cell{position:absolute;left:0;top:0;height:100%;background:color-mix(in srgb,var(--accent) var(--otp-mix),var(--otp-grey))}
+/* 等待：一道呼吸从左到右走过四个格子。用 scale 属性，位置用 translate 属性，两者按「先平移后缩放」组合，互不影响 */
+.otp[data-phase="check"] .otp-cell:not(.otp-cap){animation:otp-breath 1.3s ease-in-out infinite;animation-delay:calc(var(--i) * 130ms)}
+@keyframes otp-breath{0%,55%,100%{scale:1}28%{scale:.86}}
+.otp-ok{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:6px;opacity:0;pointer-events:none;
+  font-size:13.5px;font-weight:600;letter-spacing:-.01em;color:var(--accent-ink);white-space:nowrap}
+/* defs 里什么也看不见；没有尺寸的 <svg> 会变成流里一个 300x150 的盒子，所以整个移出文档流 */
+.otp-defs{position:absolute;width:0;height:0;overflow:hidden}
 .sk-card{display:grid;grid-template-columns:40px 1fr;gap:12px 14px;padding:16px;
   animation:rise .4s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 90ms)}
 .sk-icon,.sk-line,.sk-chip,.sk-btn{border-radius:var(--r-sm);background:linear-gradient(90deg,var(--chip) 30%,color-mix(in srgb,var(--chip) 50%,var(--card)) 50%,var(--chip) 70%);

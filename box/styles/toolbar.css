@@ -62,6 +62,34 @@ mark.hit{padding:0 .08em;border-radius:3px;background:color-mix(in srgb,var(--ac
   .search-go:hover{filter:brightness(1.08)}
 }
 
+/* 搜索框的浮动标签（js/label-search.js，移植自 Bencho 的 Label input，MIT）。
+   原版的设计变量就近映射到本站已有的：--fill-on → --text，--fill-slab → --card，--ink → --accent（聚焦的描边，沿用原来的聚焦色），
+   --ink-3 / --ink-4 → --muted，--font-ui → 继承；都直接写在选择器里，没有新的全局变量。
+   框本身的边框改成透明，由脚本画的 svg 描边接手（上边框要能开缺口）；聚焦的光圈和阴影还是原来的 box-shadow。
+   overflow 放开，抬起的标签才不会被框裁掉。 */
+.search.lbi,.search.lbi:focus-within{border-color:transparent;overflow:visible}
+.lbi-ring{position:absolute;left:-1px;top:-1px;overflow:visible;pointer-events:none}
+.lbi-ring path{fill:none;stroke:var(--line);stroke-width:1;stroke-linecap:butt;transition:stroke .22s ease,stroke-width .22s ease}
+.lbi[data-focus="true"] .lbi-ring path{stroke:var(--accent);stroke-width:1.5}
+.lbi[data-filled="true"]:not([data-focus="true"]) .lbi-ring path{stroke:color-mix(in srgb,var(--muted) 45%,var(--line))}
+/* 缺口：静止时是完整的一段，标签抬起时从中点向两边收回。dash 比路径长，offset 0 是整条线，-1 是一点也没有 */
+.lbi-gap{stroke-dasharray:1 2;stroke-dashoffset:0;transition:stroke .22s ease,stroke-width .22s ease,stroke-dashoffset .42s cubic-bezier(.22,1,.36,1)}
+.lbi[data-up="true"] .lbi-gap{stroke-dashoffset:-1}
+/* 标签：静止时是在框正中的占位符，抬起时是正好压在上边框中线上的小号自己——后者是前者上移半个框高再缩小，从左边缘缩 */
+.lbi-label{position:absolute;left:var(--lbi-x,39px);top:50%;font-size:16px;line-height:1;letter-spacing:0;white-space:pre;color:var(--muted);
+  transform-origin:left center;transform:translateY(-50%);transition:transform .42s cubic-bezier(.22,1,.36,1),color .22s ease;
+  cursor:text;-webkit-user-select:none;user-select:none}
+.lbi[data-up="true"] .lbi-label{transform:translateY(-50%) translateY(calc(var(--lbi-lift,21px) * -1)) scale(.78)}
+.lbi[data-focus="true"] .lbi-label{color:var(--text)}
+.lbi-label span{display:inline-block}
+/* 跳一下：每个字依次抬一点再落回，整个词是带着涟漪升起来的 */
+.lbi[data-focus="true"] .lbi-label span{animation:lbi-hop .46s cubic-bezier(.3,.7,.3,1) both;animation-delay:calc(var(--i) * 24ms)}
+@keyframes lbi-hop{0%{transform:translateY(0)}38%{transform:translateY(-3px)}100%{transform:translateY(0)}}
+@media (prefers-reduced-motion:reduce){
+  .lbi-ring path,.lbi-gap,.lbi-label{transition-duration:.16s}
+  .lbi[data-focus="true"] .lbi-label span{animation:none}
+}
+
 /* 吸顶栏（#dock）：页签、搜索 / 排序、分类筛选一起固定在顶部，8 层渐进毛玻璃 */
 /* --dock-lift：下拉刷新时整页会下移（最多 80px），毛玻璃向上多铺一段，盖住吸顶栏上方露出的内容 */
 .dock{--dock-fade:48px;--dock-lift:96px;position:sticky;top:env(safe-area-inset-top);z-index:6;margin:0 -16px;padding:0 16px 8px}
