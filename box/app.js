@@ -10,6 +10,7 @@
    - js/label-search.js 搜索框的浮动标签与缺口描边（Bencho Label input）
    - js/tour-splash.js  四步新手引导向导与启动页控制
    - js/step-player.js  引导的进度条：圆点 + 播放键（Bencho Step player）
+   - js/seek-feel.js    搜索框的手感：靠近偏移、按下先让一下、打字时放大镜加粗（Bencho Search，不含展开收起）
    - js/liquid-glass.js 液态玻璃：搜索框的折射位移图 + 边缘光影（Glass bubble 的光学规则）
    - js/verify-cells.js 人机验证等待时的四个格子，通过后融合成胶囊（Bencho One-time code）
    - js/manifest.js     Cloudflare Turnstile 人机验证与清单加载
@@ -22,6 +23,7 @@ import { initRender } from "./js/render.js";
 import { initSearchAndSort } from "./js/search-sort.js";
 import { initLabelSearch } from "./js/label-search.js";
 import { initLiquidGlass } from "./js/liquid-glass.js";
+import { initSeekFeel } from "./js/seek-feel.js";
 import { initSettings } from "./js/settings.js";
 import { initPullToRefresh } from "./js/pull.js";
 import { initAccount } from "./js/account.js";
@@ -31,6 +33,7 @@ initRender();
 initSearchAndSort();
 initLabelSearch();
 initLiquidGlass(els.searchBox);
+initSeekFeel(els.searchBox, els.search);
 initSettings();
 initPullToRefresh();
 initAccount();
