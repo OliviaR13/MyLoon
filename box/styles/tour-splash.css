@@ -127,3 +127,6 @@ html[data-reduce-motion],html[data-reduce-motion] *,html[data-reduce-motion] *::
   transition-duration:.01ms !important;transition-delay:0s !important;scroll-behavior:auto !important}
 html[data-reduce-motion] ::backdrop{transition-duration:.01ms !important;transition-delay:0s !important}
 html[data-reduce-motion] .row-fuse{animation:none}
+
+/* 引导里的两个说明块：玻璃材质（变量在 base.css；写在这里是因为它们的底色在本文件前面已经定了，要后写才能覆盖） */
+.tour-legend,.tour-compare-col{background:var(--lg-sheen),color-mix(in srgb,var(--card) 62%,transparent);box-shadow:var(--lg-rim)}

@@ -179,3 +179,23 @@ html[data-reduce-motion] #settingsFull svg{animation:none}
 #settings.closing{transition-delay:.08s}
 #settings.closing .sheet-body{opacity:0;translate:0 10px;transition:opacity .16s ease-in,translate .2s ease-in}
 #settings.closing::backdrop{transition-delay:.08s}
+
+/* ══ 液态玻璃：设置页与详情页的控件 ═══════════════════════════════
+   材质变量（--lg-sheen / --lg-rim 等）在 base.css。设置页的底是纯色，下面没有可折射的内容，所以这里只用材质：高光 + 边缘光 + 软影，
+   不开 backdrop-filter（一页里几十个控件，每个都开会拖慢手机）。放在文件末尾，覆盖前面的同名规则。 */
+/* 顶部的返回 / 全屏按钮，详情页底部的「查看源码」，以及设置里各行的次要按钮（同步、退出登录、取消、撤销……） */
+.sheet-head .btn,.detail-actions .btn-ghost,.group .btn-ghost{background:var(--lg-sheen),color-mix(in srgb,var(--card) 50%,transparent);border-color:transparent;
+  box-shadow:var(--lg-rim),0 4px 12px rgb(var(--shadow) / .08)}
+#logoutBtn.btn-ghost.swap[data-done]{background:#e5484d;border-color:#e5484d;color:#fff}
+/* 分组：一整块玻璃，行与行之间还是细线 */
+.group{background:var(--lg-sheen),color-mix(in srgb,var(--card) 62%,transparent);border-color:transparent;
+  box-shadow:var(--lg-rim),0 10px 28px rgb(var(--shadow) / .08),0 1px 2px rgb(var(--shadow) / .05)}
+/* 开关：轨道是玻璃，滑块是一颗带高光的玻璃珠；打开时轨道是强调色玻璃 */
+.switch,.mini-switch{background:var(--lg-sheen),var(--chip);box-shadow:inset 0 0 0 1px var(--line),inset 0 1px 3px rgb(var(--shadow) / .12)}
+.switch[aria-checked="true"],.sort-pin[aria-checked="true"] .mini-switch{background:var(--lg-sheen-p),var(--accent);box-shadow:inset 0 1px 3px rgb(0 0 0 / .18),0 0 0 1px color-mix(in srgb,var(--accent) 60%,transparent)}
+.switch::after,.mini-switch::after{background:var(--lg-sheen),#fff;box-shadow:var(--lg-rim),0 2px 6px rgb(var(--shadow) / .3)}
+/* 分段控件：轨道是凹的玻璃槽，选中的那块是浮起的玻璃 */
+.opt2{background:var(--lg-sheen),var(--chip);box-shadow:inset 0 0 0 1px var(--line),inset 0 1px 3px rgb(var(--shadow) / .12)}
+.opt2::before{background:var(--lg-sheen),color-mix(in srgb,var(--card) 92%,transparent);box-shadow:var(--lg-rim),0 2px 6px rgb(var(--shadow) / .22)}
+/* 主题预览：缩略图上盖一层边缘光（::before；选中的对勾在 ::after，不冲突） */
+.tile-prev::before{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:var(--lg-rim);pointer-events:none}
