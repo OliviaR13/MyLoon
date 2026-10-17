@@ -206,14 +206,15 @@ export function render({ animate = false, flip = false } = {}) {
   );
 
   if (!visible.length) {
-    els.list.replaceChildren(
-      notice(
-        total ? (state.category === FAV && !state.favorites.size ? "还没有收藏" : "没有匹配的插件") : "清单里还没有插件",
-        total ? (state.category === FAV && !state.favorites.size ? "点击插件右上角的星标，就能把它加入收藏。" : "换个关键词，或把分类切回「全部」。") : "manifest.json 中没有插件条目。",
-        total ? "清除筛选" : "",
-        () => onResetFilters()
-      )
+    /* 空状态是固定文案，用强调字体（.accent）；notice() 本身还被加载失败等动态提示共用，所以不在 notice() 里加 */
+    const empty = notice(
+      total ? (state.category === FAV && !state.favorites.size ? "还没有收藏" : "没有匹配的插件") : "清单里还没有插件",
+      total ? (state.category === FAV && !state.favorites.size ? "点击插件右上角的星标，就能把它加入收藏。" : "换个关键词，或把分类切回「全部」。") : "manifest.json 中没有插件条目。",
+      total ? "清除筛选" : "",
+      () => onResetFilters()
     );
+    empty.classList.add("accent");
+    els.list.replaceChildren(empty);
     return;
   }
   els.list.classList.toggle("enter", animate);
