@@ -4,7 +4,7 @@ import { CONFIG, VERIFIED_KEY, VERIFIED_TTL } from "./config.js";
 import { els } from "./dom.js";
 import { state, normalize, loggedHint } from "./state.js";
 import { toast } from "./toast.js";
-import { notice, render, renderFilters, renderLoading, setPhase } from "./render.js";
+import { notice, render, renderFilters, renderLoading, setPhase, passSettled } from "./render.js";
 import { tour, splash } from "./tour-splash.js";
 
 /* ---------- Turnstile 人机验证 ---------- */
@@ -132,6 +132,8 @@ export async function load(announce = false) {
         setPhase("验证通过，正在加载清单…", true);
         res = await postJson(CONFIG.manifest, { token });
         if (res.ok) markVerified();
+        /* 让验证格子融合成「已通过」胶囊的那一下走完再换成清单（清单请求通常更快，所以这里多等的只是差额） */
+        await passSettled();
       }
     }
     if (!res.ok) {

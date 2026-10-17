@@ -1,7 +1,11 @@
-/* 提示条（灵动岛式，思路借自 Bencho 的 Dynamic Island）：
-   同一时间只显示一条，可带一个操作按钮；也供下拉刷新（pull.js）共用同一个药丸容器。 */
+/* 提示条（灵动岛式，思路借自 Bencho 的 Dynamic Island 与 Toast stack）：
+   同一时间只显示一条，可带一个操作按钮；也供下拉刷新（pull.js）共用同一个药丸容器。
+   - Dynamic Island：新的提示在上一条还没收起时到来，药丸会比自己大一点点再落回来（「有新活动开始」的那一下点头）。
+   - Toast stack：被顶掉的那一条不会凭空消失，而是缩在新的这一条后面，露出一道边（最多两层）。
+     这里不画真的多个元素，而是用药丸自己的 box-shadow 负扩展画出两层「后面的」，所以它们天然跟着药丸的圆角、
+     走顶层（popover）、一起淡出，也不需要额外的 DOM。 */
 
-import { els } from "./dom.js";
+import { els, motionOff } from "./dom.js";
 
 let toastTimer = 0;
 let toastHideTimer = 0;
@@ -26,10 +30,11 @@ export function toastSize(w, h, r) {
   s.setProperty("--tr", r + "px");
 }
 
-// 下拉刷新接管药丸时取消待执行的收起
+// 下拉刷新接管药丸时取消待执行的收起（同时把后面叠着的两层收掉）
 export function toastHold() {
   clearTimeout(toastTimer);
   clearTimeout(toastHideTimer);
+  els.toast.dataset.stack = "0";
 }
 
 export function toast(msg, action) {
@@ -38,8 +43,12 @@ export function toast(msg, action) {
   const act = box.querySelector(".toast-act");
   clearTimeout(toastTimer);
   clearTimeout(toastHideTimer);
+  /* 要在清掉状态类之前判断：药丸此刻是不是正好亮着一条「真的提示」（不是下拉刷新的圆环，也不是正在收起） */
+  const stacking = box.classList.contains("show") && box.classList.contains("open") &&
+    !box.classList.contains("pulling") && !box.classList.contains("working") && !box.classList.contains("leaving");
   box.style.opacity = "";
   box.classList.remove("leaving", "pulling", "armed", "working");
+  box.dataset.stack = stacking ? String(Math.min(2, Number(box.dataset.stack || 0) + 1)) : "0";
 
   const msgEl = box.querySelector(".toast-msg");
   msgEl.style.width = "";
@@ -69,6 +78,10 @@ export function toast(msg, action) {
   };
   if (wasShown) grow();
   else { void box.offsetWidth; requestAnimationFrame(grow); }
+  /* 点头：和药丸的尺寸弹簧分开，用单独的 scale 属性，两者不会互相打架 */
+  if (stacking && !motionOff() && box.animate) {
+    box.animate({ scale: [1, 1.07, 1] }, { duration: 420, easing: "cubic-bezier(.34,1.4,.64,1)" });
+  }
 
   toastTimer = setTimeout(hideToast, action ? 5000 : 1800);
 }
@@ -80,6 +93,7 @@ export function hideToast() {
   if (!box.classList.contains("show")) return;
   box.classList.remove("open", "pulling", "armed", "working");
   box.classList.add("leaving");
+  box.dataset.stack = "0";
   toastSize(TOAST_NUB.w, TOAST_NUB.h, TOAST_NUB.r);
   toastHideTimer = setTimeout(() => {
     box.classList.remove("show", "leaving");

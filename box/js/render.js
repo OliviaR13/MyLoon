@@ -5,6 +5,7 @@ import { $id, el, els, starIcon, infoIcon, motionOff, burstStar, setRollText, co
 import { SORTS, state, isRecent, splitDescription, searchTerms, matches, sortPlugins, saveFavMeta, saveFavs } from "./state.js";
 import { toast } from "./toast.js";
 import { openDetail, syncDetailFav, initDetail } from "./detail.js";
+import { createVerifyCells } from "./verify-cells.js";
 
 const GLIDE_EASE = "cubic-bezier(.2,.8,.2,1)";
 let onResetFilters = () => {};
@@ -287,10 +288,15 @@ export function syncTabs() {
   placeTabInd();
 }
 
+/* 加载 / 验证面板顶上的四个格子（js/verify-cells.js）：等待时轻轻呼吸，验证通过后融合成一颗「已通过」的胶囊 */
+let verifyCells = null;
+
 export function renderLoading(text) {
+  verifyCells?.destroy();
+  verifyCells = createVerifyCells();
   const status = el("div", "status");
   status.setAttribute("role", "status");
-  status.append(el("span", "spinner"), el("span", "status-text", text));
+  status.append(verifyCells.el, el("span", "status-text", text));
   const slot = el("div", "verify-box");
   slot.id = "tsBox";
   const verify = el("div", "verify");
@@ -316,7 +322,11 @@ export function setPhase(text, done = false) {
   if (!status) return;
   status.dataset.state = done ? "ok" : "wait";
   status.querySelector(".status-text").textContent = text;
+  if (done) verifyCells?.pass();
 }
+
+/* 胶囊融合完成时 resolve；没有在验证时立刻 resolve。manifest.js 在渲染清单前等它，让「通过」这一下能被看到 */
+export const passSettled = () => (verifyCells ? verifyCells.done : Promise.resolve());
 
 export function initRender() {
   els.tabs.append(tabInd);

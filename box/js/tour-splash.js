@@ -3,6 +3,8 @@
 import { TOUR_KEY, SETTINGS_KEY, SORT_KEY, LOGIN_HINT_KEY, SPLASH_KEY, COLS_KEY } from "./config.js";
 import { $id, el, lsGet, lsSet } from "./dom.js";
 import { state } from "./state.js";
+import { createStepPlayer } from "./step-player.js";
+import { mountGlassLens } from "./glass-lens.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -104,7 +106,7 @@ export const tour = (() => {
     },
   ];
 
-  let idx = 0, shownOnce = false, endClose = null;
+  let idx = 0, shownOnce = false, endClose = null, logoIcon = null, lensTried = false;
   const steps = TOUR_STEPS.map((s, i) => {
     const sec = el("section", "tour-step");
     const icon = el("span", "tour-icon" + (s.icon === "logo" ? " tour-icon-logo" : ""));
@@ -115,6 +117,7 @@ export const tour = (() => {
       img.width = 56;
       img.height = 56;
       icon.append(img);
+      logoIcon = icon;
     } else {
       icon.append(svg(ICONS[s.icon]));
     }
@@ -126,11 +129,17 @@ export const tour = (() => {
     ui.stage.append(sec);
     return { sec, extra, make: s.extra };
   });
-  const dots = TOUR_STEPS.map(() => {
-    const d = el("i", "tour-dot");
-    ui.dots.append(d);
-    return d;
+  /* 进度条是步骤播放器（js/step-player.js）：点上的条随步骤移动，右边的播放键可以让引导按节奏自动往下翻（默认暂停）。
+     点某个点 / 自动前进 → onStep → go；按钮和方向键 → go → player.set（已经在那一步时什么也不做，不会互相触发） */
+  const player = createStepPlayer(ui.dots, {
+    steps: TOUR_STEPS.length,
+    pace: 7,
+    wake: 100,
+    label: (i, n) => `第 ${i + 1} 步，共 ${n} 步`,
+    onStep: (i) => go(i),
   });
+  /* index.html 里这个容器原来是装饰用的 aria-hidden；现在里面是真正的按钮，必须让读屏软件和键盘都能到 */
+  ui.dots.removeAttribute("aria-hidden");
 
   function fill() {
     steps.forEach((s) => {
@@ -147,7 +156,7 @@ export const tour = (() => {
       s.sec.setAttribute("aria-hidden", String(pos !== "active"));
       s.sec.inert = pos !== "active";
     });
-    dots.forEach((d, i) => d.toggleAttribute("data-on", i === idx));
+    player.set(idx);
     const last = idx === TOUR_STEPS.length - 1;
     ui.count.textContent = `${idx + 1} / ${TOUR_STEPS.length}`;
     ui.prev.style.visibility = idx === 0 ? "hidden" : "visible";
@@ -172,6 +181,7 @@ export const tour = (() => {
   function open() {
     cancelClose();
     idx = 0;
+    player.reset();
     fill();
     renderStep();
     if (!dlg.open) {
@@ -180,10 +190,16 @@ export const tour = (() => {
     }
     dlg.focus({ preventScroll: true });
     requestAnimationFrame(() => dlg.classList.add("open"));
+    /* 玻璃球（js/glass-lens.js）：第一次打开引导时才建 WebGL 上下文，失败就保留 56px 图标 */
+    if (!lensTried && logoIcon) {
+      lensTried = true;
+      mountGlassLens(logoIcon, { src: "./icon.png" }).catch(() => {});
+    }
   }
 
   function finish() {
     markDone();
+    player.pause();
     if (!dlg.open || endClose) return;
     dlg.classList.add("closing");
     dlg.classList.remove("open");
