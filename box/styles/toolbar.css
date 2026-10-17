@@ -90,6 +90,42 @@ mark.hit{padding:0 .08em;border-radius:3px;background:color-mix(in srgb,var(--ac
   .lbi[data-focus="true"] .lbi-label span{animation:none}
 }
 
+/* 液态玻璃（js/liquid-glass.js；光学规则来自 Bencho 的 Glass bubble）。
+   Chromium 系：backdrop-filter 带上脚本生成的位移图，玻璃后面的列表在边缘处会弯、中间略放大；
+   iOS Safari 等不支持 url() 滤镜的浏览器：模糊 + 提亮，没有折射。光和影（上缘亮带、对面较弱的一道、红蓝各偏 1px 的色散、向下的软影）两边一样。
+   玻璃是半透明的，所以底色从 --card 降到约一半，再叠一层从左上到右下的白色高光渐变；深色主题下高光整体压低。 */
+.search.lg{
+  --lg-hi:rgb(255 255 255 / .9);--lg-hi2:rgb(255 255 255 / .42);--lg-edge:rgb(255 255 255 / .22);
+  --lg-sheen:linear-gradient(135deg,rgb(255 255 255 / .5),rgb(255 255 255 / .1) 46%,rgb(255 255 255 / .26));
+  background:var(--lg-sheen),color-mix(in srgb,var(--card) 52%,transparent);
+  -webkit-backdrop-filter:blur(14px) saturate(1.8) brightness(1.04);backdrop-filter:blur(14px) saturate(1.8) brightness(1.04);
+  box-shadow:0 0 0 0 transparent,0 8px 22px rgb(var(--shadow) / .14),0 1px 2px rgb(var(--shadow) / .08);
+  transition:border-color .25s,box-shadow .45s var(--spring),scale .5s var(--spring)}
+html[data-glass="refract"] .search.lg{
+  -webkit-backdrop-filter:var(--lg-filter) blur(2px) saturate(1.7) brightness(1.06);backdrop-filter:var(--lg-filter) blur(2px) saturate(1.7) brightness(1.06)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .search.lg{--lg-hi:rgb(255 255 255 / .4);--lg-hi2:rgb(255 255 255 / .16);--lg-edge:rgb(255 255 255 / .08);
+    --lg-sheen:linear-gradient(135deg,rgb(255 255 255 / .1),rgb(255 255 255 / .02) 46%,rgb(255 255 255 / .06))}
+}
+:root[data-theme="dark"] .search.lg{--lg-hi:rgb(255 255 255 / .4);--lg-hi2:rgb(255 255 255 / .16);--lg-edge:rgb(255 255 255 / .08);
+  --lg-sheen:linear-gradient(135deg,rgb(255 255 255 / .1),rgb(255 255 255 / .02) 46%,rgb(255 255 255 / .06))}
+.search.lg:focus-within{box-shadow:0 0 0 3.5px var(--glow),0 12px 28px rgb(var(--shadow) / .18)}
+/* 边缘光：一层盖在上面、不挡点击的伪元素。顺序 = 朝左上的亮带、对面较弱的一道、一圈极淡的边、红蓝色散、底部的一点暗 */
+.search.lg::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  box-shadow:inset 1.5px 1.5px 1px -.5px var(--lg-hi),inset -1px -1.5px 1px -.5px var(--lg-hi2),inset 0 0 0 1px var(--lg-edge),
+    inset 1px 0 0 rgb(255 90 90 / .12),inset -1px 0 0 rgb(90 130 255 / .14),inset 0 -6px 10px -6px rgb(var(--shadow) / .16)}
+/* 按下：玻璃被捏扁一点（Glass bubble 里是拖动时沿运动方向拉长、横向变细，体积不变），松手弹回 */
+.search.lg:active{scale:1.018 .965}
+/* 描边在玻璃上要更轻，边缘光负责轮廓；聚焦 / 有内容时的颜色不动 */
+.search.lg:not([data-focus="true"]):not([data-filled="true"]) .lbi-ring path{stroke:color-mix(in srgb,var(--line) 55%,transparent)}
+
+/* 搜索框的几处优化：
+   - 「搜索」按钮只在聚焦或有内容时出现（实时筛选下它只是「确认并收起键盘」），静止时整条药丸只剩放大镜和标签，更干净；
+   - 展开 / 收起用 max-width 过渡，标签和输入框的位置不用跟着跳。 */
+.search-go{max-width:90px;overflow:hidden;transition:filter .15s,transform .35s var(--spring),max-width .35s var(--ease),margin .35s var(--ease),padding .35s var(--ease),opacity .2s}
+.search:not(:focus-within):not([data-has="true"]) .search-go{max-width:0;margin:0;padding:0;opacity:0;pointer-events:none}
+.search:not(:focus-within):not([data-has="true"]) .search-field{padding-right:14px}
+
 /* 吸顶栏（#dock）：页签、搜索 / 排序、分类筛选一起固定在顶部，8 层渐进毛玻璃 */
 /* --dock-lift：下拉刷新时整页会下移（最多 80px），毛玻璃向上多铺一段，盖住吸顶栏上方露出的内容 */
 .dock{--dock-fade:48px;--dock-lift:96px;position:sticky;top:env(safe-area-inset-top);z-index:6;margin:0 -16px;padding:0 16px 8px}
