@@ -81,6 +81,9 @@ export function initLabelSearch() {
     right.setAttribute("d", `M${x1},${IN} L${W - r},${IN} A${a},${a} 0 0 1 ${R},${r} L${R},${H - r} A${a},${a} 0 0 1 ${W - r},${B} L${mid},${B}`);
     left.setAttribute("d", `M${x0},${IN} L${r},${IN} A${a},${a} 0 0 0 ${IN},${r} L${IN},${H - r} A${a},${a} 0 0 0 ${r},${B} L${mid},${B}`);
     box.style.setProperty("--lbi-x", lx + "px");
+    /* 凹口的位置和宽度（相对内边距盒的左边），液态玻璃的边缘光要在这一段让开，见 toolbar.css */
+    box.style.setProperty("--lbi-n0", x0 - bw + "px");
+    box.style.setProperty("--lbi-nw", x1 - x0 + "px");
     /* 抬起 = 把标签的中心从框的正中移到上边框上，也就是上移半个框高 */
     box.style.setProperty("--lbi-lift", H / 2 + "px");
   }

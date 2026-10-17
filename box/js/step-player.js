@@ -40,12 +40,13 @@ const quad = (a, b, t) => {
   return d + "Z";
 };
 
-/* 一个点、它变成的条、以及它们之间的空隙。故意做小：太大像玩具而不像控件。 */
-const DOT = 8;
-const BAR = 36;
-const GAP = 8;
+/* 一个点、它变成的条、以及它们之间的空隙。原版是 8 / 36 / 8（内边距 12），放进手机上的引导卡片里显得太小，
+   这里放大到 12 / 52 / 10（内边距 16）：药丸槽高 44，和旁边的播放键、本站的按钮同高。 */
+const DOT = 12;
+const BAR = 52;
+const GAP = 10;
 /* 药丸槽在这一排外面的内边距；它的高度 = 点 + 两倍内边距，旁边的按钮和它等高，两颗药丸高度天然一致 */
-const PAD = 12;
+const PAD = 16;
 const H = DOT + PAD * 2;
 
 /* 从一步滑到下一步用多久（ms）；浪比滑动晚多久开始、一个点站起来再落下用多久 */
@@ -125,8 +126,8 @@ export function createStepPlayer(mount, { steps = 4, pace = 7, wake = 100, label
   go.type = "button";
   go.className = "spl-go";
   const svg = document.createElementNS(NS, "svg");
-  svg.setAttribute("width", "14");
-  svg.setAttribute("height", "14");
+  svg.setAttribute("width", "18");
+  svg.setAttribute("height", "18");
   svg.setAttribute("viewBox", "0 0 24 24");
   svg.setAttribute("aria-hidden", "true");
   svg.setAttribute("fill", "currentColor");
