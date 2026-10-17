@@ -78,7 +78,7 @@ export function initLiquidGlass(box) {
   box.classList.add("lg");
   const refract = canRefract();
   /* 先按「没有折射」算；位移图生成好之后再升级成 refract，这样 --lg-filter 没就绪时不会出现一条无效的滤镜 */
-  document.documentElement.dataset.glass = "plain";
+  if (document.documentElement.dataset.glass !== "refract") document.documentElement.dataset.glass = "plain";
   if (!refract) return;
 
   const id = `lg-bend-${++uid}`;

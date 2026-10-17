@@ -138,6 +138,25 @@ export const tour = (() => {
   /* index.html 里这个容器原来是装饰用的 aria-hidden；现在里面是真正的按钮，必须让读屏软件和键盘都能到 */
   ui.dots.removeAttribute("aria-hidden");
 
+  /* 内容区的高度跟着当前这一步走：四步叠在同一格里，原来取最高的那一步，第一步下面就空出一大块。
+     现在量当前步骤自己的高度，换步时过渡；第一次打开时直接到位、不从 0 长出来。字体 / 内容变化由 ResizeObserver 追上。 */
+  let fitted = false;
+  function fit() {
+    if (!dlg.open) return;
+    const h = steps[idx].sec.offsetHeight;
+    if (!h) return;
+    const snap = !fitted;
+    ui.stage.classList.toggle("snap", snap);
+    ui.stage.style.height = h + "px";
+    fitted = true;
+    if (snap) requestAnimationFrame(() => ui.stage.classList.remove("snap"));
+  }
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(fit);
+    steps.forEach((s) => ro.observe(s.sec));
+  }
+  document.fonts?.ready.then(fit);
+
   function fill() {
     steps.forEach((s) => {
       const n = s.make ? s.make() : null;
@@ -154,6 +173,7 @@ export const tour = (() => {
       s.sec.inert = pos !== "active";
     });
     player.set(idx);
+    fit();
     const last = idx === TOUR_STEPS.length - 1;
     ui.count.textContent = `${idx + 1} / ${TOUR_STEPS.length}`;
     /* 只剩步骤播放器翻页：最后一步时「跳过」换成「开始使用」 */
@@ -178,6 +198,7 @@ export const tour = (() => {
   function open() {
     cancelClose();
     idx = 0;
+    fitted = false;
     player.reset();
     fill();
     renderStep();
@@ -185,6 +206,7 @@ export const tour = (() => {
       document.documentElement.style.setProperty("--page-sbw", window.innerWidth - document.documentElement.clientWidth + "px");
       dlg.showModal();
     }
+    fit();
     dlg.focus({ preventScroll: true });
     requestAnimationFrame(() => dlg.classList.add("open"));
   }
