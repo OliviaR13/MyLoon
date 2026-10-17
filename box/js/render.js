@@ -6,6 +6,7 @@ import { SORTS, state, isRecent, splitDescription, searchTerms, matches, sortPlu
 import { toast } from "./toast.js";
 import { openDetail, syncDetailFav, initDetail } from "./detail.js";
 import { createVerifyCells } from "./verify-cells.js";
+import { createWatcher } from "./watcher.js";
 
 const GLIDE_EASE = "cubic-bezier(.2,.8,.2,1)";
 let onResetFilters = () => {};
@@ -215,6 +216,11 @@ export function render({ animate = false, flip = false } = {}) {
       () => onResetFilters()
     );
     empty.classList.add("accent");
+    /* 空状态里的小方块（js/watcher.js）：眼睛跟着指针 / 手指转，戳一下会说话 */
+    const eyes = document.createElement("div");
+    eyes.className = "notice-eyes";
+    createWatcher(eyes, { size: 64, say: "right" });
+    empty.prepend(eyes);
     els.list.replaceChildren(empty);
     return;
   }
