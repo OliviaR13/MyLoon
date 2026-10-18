@@ -5,7 +5,8 @@
    - js/state.js        中心状态管理、插件数据标准化与搜索排序逻辑
    - js/toast.js        灵动岛提示条（Toast）组件
    - js/detail.js       插件详情全屏抽屉组件
-   - js/render.js       插件列表、卡片构建、FLIP 重排与分类页签渲染
+   - js/render.js       插件列表、卡片构建、FLIP 重排与分类筛选渲染
+   - js/nav-dock.js     底部放大 Dock：主页 / 收藏 / 设置（Bencho Magnifying dock）
    - js/search-sort.js  搜索框、变形排序菜单与吸顶栏控制
    - js/label-search.js 搜索框的浮动标签与缺口描边（Bencho Label input）
    - js/tour-splash.js  四步新手引导向导与启动页控制
@@ -24,6 +25,7 @@ import { initRender } from "./js/render.js";
 import { initSearchAndSort } from "./js/search-sort.js";
 import { initLabelSearch } from "./js/label-search.js";
 import { initLiquidGlass } from "./js/liquid-glass.js";
+import { initNavDock } from "./js/nav-dock.js";
 import { initSeekFeel } from "./js/seek-feel.js";
 import { createWatcher } from "./js/watcher.js";
 import { initSettings } from "./js/settings.js";
@@ -36,6 +38,8 @@ initSearchAndSort();
 initLabelSearch();
 initLiquidGlass(els.searchBox);
 initLiquidGlass(els.sort.querySelector(".sort-btn"));
+initNavDock();
+initLiquidGlass(els.navDock);
 initSeekFeel(els.searchBox, els.search);
 /* 设置页「关于」卡片右边的小方块：气泡朝左冒出，不会被卡片的圆角裁掉 */
 const aboutCard = document.querySelector(".about-card");

@@ -22,6 +22,7 @@
   <link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="./styles/base.css">
   <link rel="stylesheet" href="./styles/toolbar.css">
+  <link rel="stylesheet" href="./styles/nav-dock.css">
   <link rel="stylesheet" href="./styles/cards.css">
   <link rel="stylesheet" href="./styles/toast-pull.css">
   <link rel="stylesheet" href="./styles/sheet-settings.css">
@@ -49,19 +50,12 @@
         <p>OliviaR13's Loon Library</p>
       </div>
       <button class="btn btn-ghost" id="refreshBtn" type="button" disabled aria-label="刷新清单">刷新</button>
-      <button class="btn btn-ghost btn-icon" id="settingsBtn" type="button" aria-label="设置" aria-haspopup="dialog">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg>
-      </button>
     </header>
 
-    <!-- 吸顶栏：页签、搜索 / 排序、分类筛选一起固定在屏幕顶部，见 styles/toolbar.css 和 js/search-sort.js -->
+    <!-- 吸顶栏：搜索 / 排序、分类筛选一起固定在屏幕顶部（原来的页签挪到了底部的 #navDock），见 styles/toolbar.css 和 js/search-sort.js -->
     <div class="dock" id="dock">
     <!-- 吸顶栏的渐进模糊：8 层叠起来的毛玻璃，每层的蒙版不同，越往下越少、越轻 -->
     <div class="dock-blur" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-    <div class="tabs" id="tabs" role="group" aria-label="切换视图">
-      <button class="tab" type="button" data-view="all" aria-pressed="true">全部插件</button>
-      <button class="tab" type="button" data-view="fav" aria-pressed="false">我的收藏<small id="favCount">0</small></button>
-    </div>
 
     <div class="toolbar">
       <div class="search" id="searchBox" role="search">
@@ -87,6 +81,23 @@
 
     <footer class="foot">OliviaR13's Loon Box · <a href="https://github.com/OliviaR13/MyLoon">GitHub</a> · <a href="https://github.com/OliviaR13/MyLoon/blob/main/LICENSE">版权与许可</a></footer>
   </main>
+
+  <!-- 底部放大 Dock（Bencho Magnifying dock，MIT，bencho.dev/licence）：主页 / 收藏 / 设置。
+       行为见 js/nav-dock.js，样式见 styles/nav-dock.css。三个按钮是静态写好的，没有 JS 时「主页」「设置」点不了，但页面仍可浏览 -->
+  <nav class="mdock" id="navDock" aria-label="主导航">
+    <button class="mdock-item" type="button" data-key="home" data-view="all" aria-label="主页" data-label="主页">
+      <span class="mdock-glyph"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+      <span class="mdock-dot"></span>
+    </button>
+    <button class="mdock-item" type="button" data-key="fav" data-view="fav" aria-label="我的收藏" data-label="收藏">
+      <span class="mdock-glyph"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg><small class="mdock-badge" id="favCount" data-zero="true">0</small></span>
+      <span class="mdock-dot"></span>
+    </button>
+    <button class="mdock-item" type="button" data-key="settings" aria-label="设置" aria-haspopup="dialog" data-label="设置">
+      <span class="mdock-glyph"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg></span>
+      <span class="mdock-dot"></span>
+    </button>
+  </nav>
 
   <dialog class="sheet" id="settings" aria-labelledby="settingsTitle">
     <div class="sheet-head">
