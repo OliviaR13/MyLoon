@@ -48,7 +48,7 @@
   /* z-index 层级 */
   --z-grain:1;--z-toast:10;
   --font:"Geist Sans","LXGW Neo XiHei",-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Noto Sans SC","Segoe UI",sans-serif;
---font-accent:"LXGW Neo XiHei",var(--font);
+  --font-accent:"LXGW WenKai GB",var(--font);
   --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
 }
 /* 深色：跟随系统（除非用户强制浅色），或用户强制深色 */
