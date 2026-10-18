@@ -54,6 +54,8 @@ html:has(.sheet[open],.tour[open]){overflow:hidden;padding-right:var(--page-sbw,
 .row[data-off="true"]{opacity:.5}
 .row-text{display:grid;gap:2px;min-width:0;text-align:left}
 .sub{font-size:12.5px;line-height:1.4;color:var(--muted)}
+/* 「仅本机」小标：这一项只存在这台设备上，不会同步到云端 */
+.tag-local{display:inline-block;margin-left:8px;padding:0 7px;border-radius:999px;background:var(--chip);color:var(--muted);font-size:11px;font-weight:600;line-height:1.7;letter-spacing:.02em;vertical-align:.1em}
 .sub[hidden]{display:none}
 .row-end{display:flex;align-items:center;gap:6px;flex:none}
 .row-chev{flex:none;width:7px;height:7px;border:solid var(--muted);border-width:2px 2px 0 0;transform:rotate(45deg);opacity:.7}
