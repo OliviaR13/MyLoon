@@ -29,10 +29,17 @@
      scrolling, not picking. */
   touch-action:pan-y;
   -webkit-tap-highlight-color:transparent}
+/* 手机（触屏、没有悬停）上不叠折射：它每帧都要重算位移图，页面滚动时底下的内容一直在变，容易掉帧；
+   同样的原因，模糊也轻一点（见 app.js：触屏不初始化折射） */
+@media (hover:none),(pointer:coarse){
+  .mdock{-webkit-backdrop-filter:blur(10px) saturate(1.5);backdrop-filter:blur(10px) saturate(1.5)}
+}
 /* Chromium 里叠上折射（js/liquid-glass.js 把位移图写进 --lg-filter）；折射自己会把后面的字弯开，模糊就可以轻一点 */
+@media (hover:hover) and (pointer:fine){
 html[data-glass="refract"] .mdock.lg{
   -webkit-backdrop-filter:var(--lg-filter,blur(0px)) blur(6px) saturate(1.7) brightness(1.06);
   backdrop-filter:var(--lg-filter,blur(0px)) blur(6px) saturate(1.7) brightness(1.06)}
+}
 
 /* no tile behind the icon: scaling a translucent rectangle over
    glass is what made this look cheap. The glyph scales instead,
@@ -49,6 +56,8 @@ html[data-glass="refract"] .mdock.lg{
    their own size and their own distance from the bar */
 .mdock-glyph{
   position:relative;display:grid;place-items:center;
+  /* 手指滑过时每帧都在改它的 transform：提前交给合成器，不用每帧重新绘制 */
+  will-change:transform;
   transform-origin:center bottom;
   transition:transform 420ms cubic-bezier(.24,1.34,.38,1)}
 
