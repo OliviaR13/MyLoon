@@ -1,28 +1,6 @@
 /* ==========================================================================
-   工具栏与导航（Toolbar & Dock）：吸顶毛玻璃栏、顶层页签、搜索框、排序菜单与分类筛选
+   工具栏与导航（Toolbar & Dock）：吸顶毛玻璃栏、搜索框、排序菜单与分类筛选
    ========================================================================== */
-
-/* 顶层页签：全部插件 / 我的收藏
-   用下划线标记选中页，和下方分类 chip 的填充样式区分开，两套控件不会看起来一样 */
-.tabs{position:relative;display:flex;gap:20px;border-bottom:1px solid var(--line);margin-bottom:14px}
-.tab{font:inherit;font-size:15px;font-weight:600;color:var(--muted);background:none;border:0;
-  border-bottom:2px solid transparent;margin-bottom:-1px;padding:8px 2px;cursor:pointer;
-  display:inline-flex;align-items:center;gap:6px;
-  transition:color .2s,border-color .2s}
-.tab[aria-pressed="true"]{color:var(--text);border-bottom-color:var(--accent)}
-.tab small{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--muted);
-  background:var(--chip);border-radius:999px;padding:1px 7px;line-height:1.5}
-.tab[aria-pressed="true"] small{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent-text)}
-.tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-@media (hover:hover){.tab:hover{color:var(--text)}}
-
-/* 页签指示器：一条下划线，切换时两段式移动（借自 Bencho Icon bar）。
-   前进方向的那一端先走（快），后面那一端稍晚带回弹地追上（慢）。 */
-.tabs.has-ind .tab[aria-pressed="true"]{border-bottom-color:transparent}
-.tab-ind{position:absolute;bottom:-1px;height:2px;border-radius:2px;background:var(--accent);pointer-events:none}
-.tab-ind[data-dir="fwd"]{transition:right .18s var(--ease),left .45s var(--spring) .07s}
-.tab-ind[data-dir="back"]{transition:left .18s var(--ease),right .45s var(--spring) .07s}
-.tab-ind.no-anim{transition:none}
 
 /* 工具栏：搜索 + 排序 */
 .toolbar{display:flex;align-items:flex-start;gap:8px;position:relative;z-index:5}
@@ -221,7 +199,6 @@ html[data-glass="refract"] .search.lg{
 .sort-sep{height:1px;margin:6px 4px;background:var(--line)}
 @media (hover:hover){.sort-item:hover{background:var(--chip)}.sort-btn:hover{border-color:var(--muted)}}
 @media (hover:none){
-  .tab:active{opacity:.6}
   .sort-item:active{background:var(--chip)}
 }
 
