@@ -81,6 +81,7 @@ export const state = {
   plugins: [],
   generatedAt: "",
   category: CONFIG.all,
+  page: "list", // 当前页面：list（主页 / 收藏共用的插件列表）或 settings；见 js/views.js
   query: "",
   sort: readSort(),
   favorites: readFavs(),

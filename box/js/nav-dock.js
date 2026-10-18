@@ -2,13 +2,12 @@
    来自 Bencho 的 Magnifying dock（MIT，bencho.dev/licence），从 React 改成了原生 JS，指针处理和注释基本保留。
    和原版的差别：
    - 三个图标是 index.html 里写好的静态按钮，这里只负责「放大」「提示条」「选择」；
-   - 「主页」「收藏」是视图（state.category = 全部 / 收藏），「设置」是一个动作（打开设置面板），不会变成选中态；
+   - 「主页」「收藏」「设置」是三个并列的视图，切换逻辑在 js/views.js，这里只管 Dock 本身；
    - 只有三个图标，spread 默认取 1（两边各一个邻居）；取 2 的话中间那个一悬停，两边几乎和它一样大，就不像「被顶起来」了。 */
 
-import { CONFIG, FAV } from "./config.js";
 import { els, motionOff } from "./dom.js";
-import { state } from "./state.js";
-import { render, syncTabs } from "./render.js";
+import { syncTabs } from "./render.js";
+import { showView } from "./views.js";
 
 /* ══ dock, distance based magnification ═══════════════════
    Scale falls off with distance from the cursor rather than
@@ -41,26 +40,8 @@ export function initNavDock({
      not undo the choice. A mouse never sets it. */
   let chose = false;
 
-  /* ── 选择：主页 / 收藏切换视图，设置打开面板 ─────────────── */
-  const toTop = () => {
-    if ((window.scrollY || 0) > 2) window.scrollTo({ top: 0, behavior: motionOff() ? "auto" : "smooth" });
-  };
-  const choose = (i) => {
-    const key = items[i]?.dataset.key;
-    if (key === "settings") {
-      document.dispatchEvent(new Event("mlb:settings"));
-      return;
-    }
-    const target = key === "fav" ? FAV : CONFIG.all;
-    if (state.category === target) { toTop(); return; } // 已经在这个视图：回到顶部
-    state.category = target;
-    els.filters.querySelectorAll(".chip-filter").forEach((x) =>
-      x.setAttribute("aria-pressed", String(x.dataset.name === state.category))
-    );
-    syncTabs();
-    render({ animate: true });
-    toTop();
-  };
+  /* ── 选择：交给 js/views.js 切换视图 ─────────────── */
+  const choose = (i) => showView(items[i]?.dataset.key === "settings" ? "settings" : items[i]?.dataset.key === "fav" ? "fav" : "home");
 
   /* ── THE BAR READS THE POINTER, THE ITEMS DO NOT ─────────
      Each item used to carry its own onMouseEnter, which fails

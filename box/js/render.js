@@ -232,14 +232,18 @@ export function render({ animate = false, flip = false } = {}) {
       return card;
     })
   );
-  requestAnimationFrame(() =>
+  /* 「展开」按钮要不要显示，要等量过描述的高度才知道。以前只在下一帧量，这一帧里卡片比最终矮一截（少一个按钮），
+     下一帧一起变高，整页被撑长，浏览器的滚动锚定就把滚动位置顶偏了（从设置切回主页时能看到页面跳一下）。
+     所以先同步量一次，让第一帧就是最终高度；下一帧（字体、图片可能改变换行）再量一次兜底 */
+  const measure = () =>
     els.list.querySelectorAll(".card").forEach((c) => {
       const d = c.querySelector(".card-desc");
       const overflow = d.scrollHeight > d.clientHeight + 2;
       d.dataset.overflow = String(overflow);
       c.querySelector(".more").hidden = !overflow;
-    })
-  );
+    });
+  measure();
+  requestAnimationFrame(measure);
   if (before && before.size) glide(before);
 }
 
@@ -266,12 +270,14 @@ export function renderFilters() {
   syncTabs();
 }
 
-/* 底部 Dock 的选中状态：「主页」= 没有在看收藏，「收藏」= 正在看收藏；「设置」不是一个视图，不参与。
-   收藏数显示在收藏图标右上角的小徽标上（原来在顶部页签里）。函数名沿用 syncTabs，调用方不用改 */
+/* 底部 Dock 的选中状态：在设置页时「设置」选中；否则「收藏」= 正在看收藏，「主页」= 没有在看收藏。
+   收藏数显示在收藏图标右上角的小徽标上。函数名沿用 syncTabs，调用方不用改 */
 export function syncTabs() {
   const onFav = state.category === FAV;
-  els.navDock?.querySelectorAll(".mdock-item[data-view]").forEach((b) => {
-    const on = (b.dataset.view === "fav") === onFav;
+  const onSettings = state.page === "settings";
+  els.navDock?.querySelectorAll(".mdock-item").forEach((b) => {
+    const k = b.dataset.key;
+    const on = k === "settings" ? onSettings : !onSettings && (k === "fav") === onFav;
     b.dataset.active = String(on);
     if (on) b.setAttribute("aria-current", "page");
     else b.removeAttribute("aria-current");

@@ -24,7 +24,6 @@ export const LOGIN_HINT_KEY = "myloon_box_login";
 
 export const SETTINGS_KEY = "myloon_box_settings";
 export const COLS_KEY = "myloon_box_full_cols";
-export const FULL_KEY = "myloon_box_full"; // 设置页上次是不是全屏（仅本机，替代原来的「设置页默认全屏」开关）
 export const SPLASH_KEY = "myloon_box_splash";
 export const TOUR_KEY = "myloon_onboarding_completed";
 
