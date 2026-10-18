@@ -47,13 +47,14 @@ function page({ menu, open }) {
 <link rel="icon" href="${LOGO}">
 <style>
 @font-face{font-family:"Geist Sans";src:url("/fonts/Geist-Variable.woff2") format("woff2");font-weight:100 900;font-display:swap}
+@font-face{font-family:"LXGW Neo XiHei";src:url("/fonts/LXGWNeoXiHei.woff2") format("woff2");font-weight:400;font-display:swap}
 :root{
   --bg:#f6f4ef;--card:#fdfcf9;--text:#1d1b17;--muted:#6a655a;--line:#e6e2d8;--chip:#efece4;
   --accent:#0f7f69;--accent-text:#0a6250;--accent-ink:#f7fbf9;--shadow:40 30 10;
   --glow:color-mix(in srgb,var(--accent) 16%,transparent);
   --r-lg:16px;--r-md:10px;--r-sm:6px;
   --ease:cubic-bezier(.2,.8,.2,1);--spring:cubic-bezier(.34,1.4,.64,1);
-  --font:"Geist Sans",-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Noto Sans SC","Segoe UI",sans-serif;
+  --font:"Geist Sans","LXGW Neo XiHei",-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Noto Sans SC","Segoe UI",sans-serif;
 }
 @media (prefers-color-scheme:dark){
   :root{--bg:#12110f;--card:#191815;--text:#efece5;--muted:#a39e92;--line:#2b2924;--chip:#23211d;
