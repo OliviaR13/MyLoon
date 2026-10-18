@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-10-18T01:24:56.979837+00:00",
+  "generatedAt": "2026-10-18T01:44:38.242467+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -205,26 +205,6 @@
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png",
       "description": "① 属地分流：仅 api.weibo.cn（微博 IP 属地判定域名）走代理，其余流量不受影响。② 来源机型：自定义发博、评论、转发时显示的来源机型，插件设置中可选 iPhone 11 至 iPhone 18 Pro Max 等共 32 款。切换机型后，请到微博「微博来源」中重新选择一次。"
-    },
-    {
-      "id": "weibo_adblocker",
-      "name": "微博去广告@ddgksf2013",
-      "file": "plugin/weibo_adblocker.plugin",
-      "version": null,
-      "author": "@ddgksf2013",
-      "category": "ddgksf2013",
-      "tags": [
-        "ddgksf2013"
-      ],
-      "mitm": true,
-      "script": true,
-      "args": true,
-      "rule": true,
-      "proxy": false,
-      "date": null,
-      "homepage": null,
-      "icon": "https://github.com/Toperlock/Quantumult/raw/main/icon/Doraemon/Doraemon-1043.png",
-      "description": "微博及轻享版净化"
     }
   ]
 }
