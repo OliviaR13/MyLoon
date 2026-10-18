@@ -1,7 +1,8 @@
 /* 设置面板（<dialog id="settings">）：
-   主题切换、单/双列全屏布局、插件卡片显示项、减少动画、行内撤销恢复默认与复制收藏链接。 */
+   主题、减少动画、插件卡片显示项（这三组可同步到云端，见 js/account.js），
+   以及只存本机的启动页、全屏与单/双列布局；行内撤销恢复默认与复制收藏链接。 */
 
-import { SETTINGS_KEY, DEFAULTS, BOOL_KEYS, COLS_KEY, SPLASH_KEY, SORT_KEY, rawUrl } from "./config.js";
+import { SETTINGS_KEY, DEFAULTS, BOOL_KEYS, COLS_KEY, FULL_KEY, SPLASH_KEY, SORT_KEY, rawUrl } from "./config.js";
 import { $id, sysReduce, motionOff, setSwitch, afterPaint, copyText, lsGet, lsSet, lsRemove } from "./dom.js";
 import { state, readSort, registerSettingsAPI } from "./state.js";
 import { toast } from "./toast.js";
@@ -22,6 +23,9 @@ export function initSettings() {
     const out = { ...DEFAULTS };
     if (["system", "light", "dark"].includes(s.theme)) out.theme = s.theme;
     for (const k of BOOL_KEYS) if (typeof s[k] === "boolean") out[k] = s[k];
+    // 旧版有个「设置页默认全屏」开关（还会同步到云端）。现在改成自动记住上次的全屏选择、只存本机；
+    // 开过那个开关的人，第一次打开时把它的值带过来
+    if (s.fullDefault === true && lsGet(FULL_KEY) === null) lsSet(FULL_KEY, "1");
     return out;
   }
 
@@ -149,12 +153,13 @@ export function initSettings() {
     b.setAttribute("aria-label", on ? "退出全屏" : "全屏显示");
   }
 
-  let fullTouched = false;
+  // 全屏与否：记住上次的选择，只存本机（手机和电脑的合适尺寸不一样，不上云）
   $id("settingsFull").addEventListener("click", () => {
-    fullTouched = true;
-    setFull(!sheet.classList.contains("full"));
+    const on = !sheet.classList.contains("full");
+    setFull(on);
+    lsSet(FULL_KEY, on ? "1" : "0");
   });
-  setFull(settings.fullDefault);
+  setFull(lsGet(FULL_KEY) === "1");
 
   const sheetBody = sheet.querySelector(".sheet-body");
   const syncScrollbar = () => sheet.style.setProperty("--sbw", sheetBody.offsetWidth - sheetBody.clientWidth + "px");
@@ -203,8 +208,6 @@ export function initSettings() {
       save();
       apply();
       if ((k === "showDesc" || k === "compact") && state.plugins.length) afterPaint(() => render());
-      if (k === "pinFavs" && state.plugins.length) afterPaint(() => render({ animate: true }));
-      if (k === "fullDefault" && settings.fullDefault) { fullTouched = true; setFull(true); }
     }
   });
 
@@ -260,11 +263,9 @@ export function initSettings() {
     get: () => ({ ...settings }),
     set(next) {
       const prev = settings.showDesc;
-      const prevFull = settings.fullDefault;
       settings = { ...settings, ...next };
       lsSet(SETTINGS_KEY, JSON.stringify(settings));
       apply();
-      if (prevFull !== settings.fullDefault && !sheet.open && !fullTouched) setFull(settings.fullDefault);
       if (prev !== settings.showDesc && state.plugins.length) render();
     },
   });

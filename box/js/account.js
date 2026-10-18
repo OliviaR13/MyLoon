@@ -1,5 +1,7 @@
 /* GitHub 账号与云端同步（/api/me、/api/logout）：
-   支持收藏逐项时间戳（Tombstone CRDT）合并，以及外观、插件卡片、设置页偏好三组独立时间戳同步。 */
+   支持收藏逐项时间戳（Tombstone CRDT）合并，以及外观、插件卡片两组独立时间戳同步。
+   云端数据格式没有变：服务端（functions/api/me.js）原样兼容。设置页偏好那一组（fullDefault / panelAt）已经下线，
+   客户端不再读写它，云端里残留的旧值会被忽略。 */
 
 import { SYNC_KEYS, LEGACY_AT, TOMBSTONE_TTL, SORT_KEY, LOGIN_HINT_KEY } from "./config.js";
 import { $id, setSwitch, lsGet, lsSet, lsRemove, confirmable } from "./dom.js";
@@ -11,7 +13,6 @@ import { syncSort } from "./search-sort.js";
 const GROUPS = {
   look: { keys: ["theme", "reduceMotion"], at: "myloon_box_look_at", cloud: "lookAt", label: "外观" },
   cards: { keys: ["showDesc", "showVer", "showCat", "compact", "pinFavs"], sort: true, at: "myloon_box_cards_at", cloud: "cardsAt", label: "插件卡片设置" },
-  panel: { keys: ["fullDefault"], at: "myloon_box_panel_at", cloud: "panelAt", label: "设置页偏好", noLegacy: true },
 };
 
 const api = (method, url, body) =>
@@ -45,12 +46,15 @@ export function initAccount() {
   if (lsGet(SYNC_KEYS.cards) === null) lsSet(SYNC_KEYS.cards, own("look") ? "1" : "0");
   const on = (g) => ownMaster() && own(g);
 
+  // 已下线的「设置页偏好」同步组留下的本机记录，清掉
+  ["myloon_box_sync_panel", "myloon_box_panel_at"].forEach(lsRemove);
+
   const getAt = (g) => {
     const v = lsGet(GROUPS[g].at);
-    return v !== null ? Number(v) || 0 : GROUPS[g].noLegacy ? 0 : Number(lsGet(LEGACY_AT)) || 0;
+    return v !== null ? Number(v) || 0 : Number(lsGet(LEGACY_AT)) || 0;
   };
   const setAt = (g, t) => lsSet(GROUPS[g].at, String(t));
-  const settingsDirty = { look: false, cards: false, panel: false };
+  const settingsDirty = { look: false, cards: false };
 
   const groupValues = (g) => {
     const s = getSettings();
@@ -79,20 +83,20 @@ export function initAccount() {
     const m = ownMaster();
     $id("loginRow").hidden = !!user;
     $id("accountRow").hidden = !user;
-    $id("syncSection").hidden = !user;
+    // 登录后，同一张卡片里才出现同步相关的行
+    for (const id of ["syncRow", "syncLookRow", "syncCardsRow"]) $id(id).hidden = !user;
+    $id("syncFoot").hidden = !user;
     if (user) $id("loginSub").textContent = "登录后，收藏和设置可以在多台设备间同步";
     setSwitch($id("syncMasterSwitch"), m);
     $id("syncNowRow").hidden = !user || !m;
-    $id("syncFavsRow").dataset.off = String(!m);
-    $id("syncFavsState").textContent = m ? "始终同步" : "已暂停";
-    for (const [g, id] of [["look", "syncLook"], ["cards", "syncCards"], ["panel", "syncPanel"]]) {
+    for (const [g, id] of [["look", "syncLook"], ["cards", "syncCards"]]) {
       $id(id + "Row").dataset.off = String(!m);
       const sw = $id(id + "Switch");
       setSwitch(sw, own(g));
       sw.disabled = !m;
     }
     $id("syncFoot").textContent = m
-      ? "收藏会始终同步。外观、插件卡片和设置页偏好可以分别关闭，关闭后只保存在这台设备。如果多台设备修改了同一项，以最后一次修改为准。"
+      ? "收藏始终同步，逐个插件合并。外观和插件卡片可以分别关闭，关闭后只保存在这台设备；多台设备改了同一项时，以最后一次修改为准。启动页、设置页的全屏与布局只存本机，不上传。"
       : "云端同步已关闭：收藏和设置只保存在这台设备，不会上传，也不会读取云端的内容。";
     if (user) {
       $id("acctName").textContent = user.login;
@@ -172,7 +176,7 @@ export function initAccount() {
     for (const g of Object.keys(GROUPS)) {
       if (!on(g) || !remote?.settings) continue;
       const { keys, sort, cloud } = GROUPS[g];
-      const remoteAt = Number(remote[cloud] ?? (GROUPS[g].noLegacy ? 0 : remote.settingsAt)) || 0;
+      const remoteAt = Number(remote[cloud] ?? remote.settingsAt) || 0;
       const localAt = getAt(g);
       const useRemote = remoteAt > localAt || (remoteAt === 0 && localAt === 0 && !settingsDirty[g]);
       if (!useRemote) continue;
@@ -287,7 +291,7 @@ export function initAccount() {
     }
   });
 
-  for (const [g, id] of [["look", "syncLookSwitch"], ["cards", "syncCardsSwitch"], ["panel", "syncPanelSwitch"]]) {
+  for (const [g, id] of [["look", "syncLookSwitch"], ["cards", "syncCardsSwitch"]]) {
     $id(id)?.addEventListener("click", () => {
       if (!ownMaster()) return;
       const next = !own(g);
@@ -351,7 +355,7 @@ export function initAccount() {
     }
     user = null;
     dirty = false;
-    settingsDirty.look = settingsDirty.cards = settingsDirty.panel = false;
+    settingsDirty.look = settingsDirty.cards = false;
     lastSyncAt = 0;
     pushWarned = false;
     setHint(false);
