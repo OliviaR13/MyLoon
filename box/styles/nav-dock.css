@@ -108,3 +108,8 @@ html[data-glass="refract"] .mdock.lg{
 @media (hover:none) and (pointer:coarse){
   body:has(.search-field input:focus) .mdock{opacity:0;pointer-events:none;translate:-50% 12px}
 }
+
+/* ── 页面视图：主页 / 收藏共用列表，设置是另一块内容 ───────────
+   <html data-page="list|settings"> 由 js/views.js 维护。没有 JS 时没有这个属性，设置页不显示、列表照常。 */
+html[data-page="settings"] :is(#dock,.meta,#results){display:none}
+html:not([data-page="settings"]) #settings{display:none}
