@@ -1,4 +1,4 @@
-/* 插件列表渲染、卡片构建、FLIP 平滑重排、顶栏页签与分类筛选渲染 */
+/* 插件列表渲染、卡片构建、FLIP 平滑重排、底部 Dock 选中状态与分类筛选渲染 */
 
 import { CONFIG, FAV, FAV_KEY, rawUrl, installUrl } from "./config.js";
 import { $id, el, els, starIcon, infoIcon, motionOff, burstStar, setRollText, confirmable, copyText, lsSet } from "./dom.js";
@@ -266,32 +266,21 @@ export function renderFilters() {
   syncTabs();
 }
 
-const tabInd = el("i", "tab-ind");
-tabInd.setAttribute("aria-hidden", "true");
-let tabPrev = -1;
-
-export function placeTabInd() {
-  const tabs = [...els.tabs.querySelectorAll(".tab")];
-  const idx = tabs.findIndex((b) => b.getAttribute("aria-pressed") === "true");
-  const act = tabs[idx];
-  if (!act || !els.tabs.clientWidth) return;
-  els.tabs.classList.add("has-ind");
-  const move = tabPrev !== -1 && idx !== tabPrev && !motionOff();
-  tabInd.dataset.dir = idx > tabPrev ? "fwd" : "back";
-  tabInd.classList.toggle("no-anim", !move);
-  tabInd.style.left = act.offsetLeft + "px";
-  tabInd.style.right = els.tabs.clientWidth - act.offsetLeft - act.offsetWidth + "px";
-  tabPrev = idx;
-}
-
+/* 底部 Dock 的选中状态：「主页」= 没有在看收藏，「收藏」= 正在看收藏；「设置」不是一个视图，不参与。
+   收藏数显示在收藏图标右上角的小徽标上（原来在顶部页签里）。函数名沿用 syncTabs，调用方不用改 */
 export function syncTabs() {
   const onFav = state.category === FAV;
-  els.tabs.querySelectorAll(".tab").forEach((b) => {
-    b.setAttribute("aria-pressed", String((b.dataset.view === "fav") === onFav));
+  els.navDock?.querySelectorAll(".mdock-item[data-view]").forEach((b) => {
+    const on = (b.dataset.view === "fav") === onFav;
+    b.dataset.active = String(on);
+    if (on) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
   });
   const fc = $id("favCount");
-  if (fc) setRollText(fc, String(state.favorites.size));
-  placeTabInd();
+  if (fc) {
+    setRollText(fc, String(state.favorites.size));
+    fc.dataset.zero = String(state.favorites.size === 0);
+  }
 }
 
 /* 加载 / 验证面板顶上的四个格子（js/verify-cells.js）：等待时轻轻呼吸，验证通过后融合成一颗「已通过」的胶囊 */
@@ -335,13 +324,6 @@ export function setPhase(text, done = false) {
 export const passSettled = () => (verifyCells ? verifyCells.done : Promise.resolve());
 
 export function initRender() {
-  els.tabs.append(tabInd);
-  if (window.ResizeObserver) {
-    const ro = new ResizeObserver(() => placeTabInd());
-    ro.observe(els.tabs);
-    els.tabs.querySelectorAll(".tab").forEach((t) => ro.observe(t));
-  }
-
   initDetail({ onToggleFav: toggleFav, onOpenInLoon: openInLoon });
 
   // 点卡片空白处（名称、描述、标签）打开插件详情；按钮、链接、正在选中文字时不触发

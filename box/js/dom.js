@@ -13,7 +13,7 @@ export const els = {
   tpl: $("#rowTpl"),
   toast: $("#toast"),
   sort: $("#sortBox"),
-  tabs: $("#tabs"),
+  navDock: $("#navDock"),
   dock: $("#dock"),
   searchBox: $("#searchBox"),
   searchField: $("#searchField"),

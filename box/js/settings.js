@@ -165,7 +165,8 @@ export function initSettings() {
     sheet.addEventListener("close", () => document.dispatchEvent(new Event("mlb:tour")), { once: true });
     close();
   });
-  $id("settingsBtn").addEventListener("click", open);
+  // 入口在底部 Dock 的「设置」（js/nav-dock.js 派发这个事件）
+  document.addEventListener("mlb:settings", open);
   $id("settingsClose").addEventListener("click", close);
   sheet.addEventListener("cancel", (e) => { e.preventDefault(); close(); });
   sheet.addEventListener("click", (e) => { if (e.target === sheet) close(); });

@@ -3,7 +3,7 @@
 import { CONFIG, FAV, SORT_KEY } from "./config.js";
 import { el, els, sortIcon, chevronIcon, setSwitch, lsSet } from "./dom.js";
 import { SORTS, SORT_OPTIONS, state, getSettings, setSettings } from "./state.js";
-import { render, renderFilters, syncTabs, setResetFiltersHandler } from "./render.js";
+import { render, renderFilters, setResetFiltersHandler } from "./render.js";
 
 /* ---------- 搜索框（单关键词） ---------- */
 
@@ -175,17 +175,6 @@ export function initSearchAndSort() {
     }
     if (e.target.closest("#searchGo")) { applySearch({ animate: true }); els.search.blur(); return; }
     els.search.focus();
-  });
-
-  els.tabs.addEventListener("click", (e) => {
-    const b = e.target.closest(".tab");
-    if (!b) return;
-    state.category = b.dataset.view === "fav" ? FAV : CONFIG.all;
-    syncTabs();
-    els.filters.querySelectorAll(".chip-filter").forEach((x) =>
-      x.setAttribute("aria-pressed", String(x.dataset.name === state.category))
-    );
-    render({ animate: true });
   });
 
   sortUI.btn.addEventListener("click", (e) => setSortOpen(!sortIsOpen(), e.detail === 0));
