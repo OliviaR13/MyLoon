@@ -79,40 +79,10 @@
         <a href="https://github.com/OliviaR13/MyLoon/tree/main/plugin">GitHub 的 plugin 目录</a>复制 raw 链接到 Loon。</p>
     </noscript>
 
-    <footer class="foot">OliviaR13's Loon Box · <a href="https://github.com/OliviaR13/MyLoon">GitHub</a> · <a href="https://github.com/OliviaR13/MyLoon/blob/main/LICENSE">版权与许可</a></footer>
-  </main>
-
-  <!-- 底部放大 Dock（Bencho Magnifying dock，MIT，bencho.dev/licence）：主页 / 收藏 / 设置。
-       行为见 js/nav-dock.js，样式见 styles/nav-dock.css。三个按钮是静态写好的，没有 JS 时「主页」「设置」点不了，但页面仍可浏览 -->
-  <nav class="mdock" id="navDock" aria-label="主导航">
-    <button class="mdock-item" type="button" data-key="home" data-view="all" aria-label="主页" data-label="主页">
-      <span class="mdock-glyph"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
-      <span class="mdock-dot"></span>
-    </button>
-    <button class="mdock-item" type="button" data-key="fav" data-view="fav" aria-label="我的收藏" data-label="收藏">
-      <span class="mdock-glyph"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg><small class="mdock-badge" id="favCount" data-zero="true">0</small></span>
-      <span class="mdock-dot"></span>
-    </button>
-    <button class="mdock-item" type="button" data-key="settings" aria-label="设置" aria-haspopup="dialog" data-label="设置">
-      <span class="mdock-glyph"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg></span>
-      <span class="mdock-dot"></span>
-    </button>
-  </nav>
-
-  <dialog class="sheet" id="settings" aria-labelledby="settingsTitle">
-    <div class="sheet-head">
-      <div class="sheet-nav">
-        <button class="btn btn-ghost btn-icon" id="settingsClose" type="button" aria-label="返回">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
-        </button>
-        <button class="btn btn-ghost btn-icon" id="settingsFull" type="button" aria-label="全屏显示" aria-pressed="false">
-          <svg class="ico-expand" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg>
-          <svg class="ico-shrink" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10h-6V4M4 14h6v6M14 10l7-7M3 21l7-7"/></svg>
-        </button>
-      </div>
-      <h2 id="settingsTitle" tabindex="-1" autofocus>设置</h2>
-    </div>
-    <div class="sheet-body">
+    <!-- 设置页：和「主页」「收藏」并列的页面，不是弹层。点底部 Dock 的「设置」切过来，Dock 一直在。
+         显示 / 隐藏由 <html data-page> 控制（styles/nav-dock.css），切换逻辑见 js/views.js，内容逻辑见 js/settings.js -->
+    <section class="spage" id="settings" aria-labelledby="settingsTitle">
+      <h2 class="spage-title" id="settingsTitle" tabindex="-1">设置</h2>
       <div class="sheet-cols">
       <!-- 账号与同步：登录前只有登录行；登录后同一张卡片里多出同步行（由 js/account.js 控制显示）。
            同步的范围：收藏（始终）、外观（主题、减少动画）、插件卡片（显示项、紧凑、收藏置顶、排序）。
@@ -160,8 +130,6 @@
         <p class="tiles-note">「跟随系统」会随设备的深色模式自动切换</p>
         <div class="row"><span class="row-text"><span>减少动画</span><span class="sub" id="reduceMotionSub">关闭过渡和入场动画。系统已开启「减少动态效果」时自动生效</span></span><button class="switch" type="button" role="switch" data-switch="reduceMotion" aria-label="减少动画"></button></div>
         <div class="row"><span class="row-text"><span>启动页<small class="tag-local">仅本机</small></span><span class="sub">打开页面时先显示欢迎画面，加载好后淡出，下次打开生效</span></span><button class="switch" type="button" role="switch" id="splashSwitch" data-local-switch="splash" aria-label="启动页"></button></div>
-        <div class="row" id="fullColsRow" hidden><span class="row-text"><span>设置页全屏布局<small class="tag-local">仅本机</small></span><span class="sub">设置页全屏时的内容排版</span></span>
-          <span class="opt2" id="fullColsOpt" role="group" aria-label="设置页全屏布局" data-mode="1"><button type="button" data-cols-opt="1" aria-pressed="true">单列</button><button type="button" data-cols-opt="2" aria-pressed="false">双列</button></span></div>
       </div>
 
       <h3 class="group-title">插件卡片</h3>
@@ -208,8 +176,28 @@
       </div>
       <p class="group-foot privacy">本站不接入统计分析，不追踪用户，也不收集浏览记录等个人隐私数据。未登录时，收藏和设置仅保存在本机浏览器。登录仅通过 GitHub 授权读取公开资料（用户名、头像），不申请其他权限，也不保存 GitHub 访问令牌；登录后，收藏与已开启同步的偏好设置会按账号 ID 保存到云端，用于多设备同步。人机验证由 Cloudflare Turnstile 提供。</p>
       </div>
-    </div>
-  </dialog>
+    </section>
+
+    <footer class="foot">OliviaR13's Loon Box · <a href="https://github.com/OliviaR13/MyLoon">GitHub</a> · <a href="https://github.com/OliviaR13/MyLoon/blob/main/LICENSE">版权与许可</a></footer>
+  </main>
+
+  <!-- 底部放大 Dock（Bencho Magnifying dock，MIT，bencho.dev/licence）：主页 / 收藏 / 设置。
+       行为见 js/nav-dock.js，样式见 styles/nav-dock.css。三个按钮是静态写好的，没有 JS 时「主页」「设置」点不了，但页面仍可浏览 -->
+  <nav class="mdock" id="navDock" aria-label="主导航">
+    <button class="mdock-item" type="button" data-key="home" data-view="all" aria-label="主页" data-label="主页">
+      <span class="mdock-glyph"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+      <span class="mdock-dot"></span>
+    </button>
+    <button class="mdock-item" type="button" data-key="fav" data-view="fav" aria-label="我的收藏" data-label="收藏">
+      <span class="mdock-glyph"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg><small class="mdock-badge" id="favCount" data-zero="true">0</small></span>
+      <span class="mdock-dot"></span>
+    </button>
+    <button class="mdock-item" type="button" data-key="settings" aria-label="设置" data-label="设置">
+      <span class="mdock-glyph"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg></span>
+      <span class="mdock-dot"></span>
+    </button>
+  </nav>
+
 
   <!-- 插件详情全屏页（由 js/detail.js 按 manifest.json 的字段动态填充） -->
   <dialog class="sheet full detail" id="detail" aria-labelledby="detailName">

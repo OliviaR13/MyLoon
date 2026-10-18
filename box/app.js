@@ -7,6 +7,7 @@
    - js/detail.js       插件详情全屏抽屉组件
    - js/render.js       插件列表、卡片构建、FLIP 重排与分类筛选渲染
    - js/nav-dock.js     底部放大 Dock：主页 / 收藏 / 设置（Bencho Magnifying dock）
+   - js/views.js        主页 / 收藏 / 设置三个视图的切换（滚动位置、淡入、不闪烁）
    - js/search-sort.js  搜索框、变形排序菜单与吸顶栏控制
    - js/label-search.js 搜索框的浮动标签与缺口描边（Bencho Label input）
    - js/tour-splash.js  四步新手引导向导与启动页控制
@@ -16,7 +17,7 @@
    - js/liquid-glass.js 液态玻璃：搜索框的折射位移图 + 边缘光影（Glass bubble 的光学规则）
    - js/verify-cells.js 人机验证等待时的四个格子，通过后融合成胶囊（Bencho One-time code）
    - js/manifest.js     Cloudflare Turnstile 人机验证与清单加载
-   - js/settings.js     设置面板、主题/双列布局与恢复默认设置
+   - js/settings.js     设置页（主页面里的一个视图）：主题、卡片显示项、恢复默认设置
    - js/account.js      GitHub 账号登录与收藏/偏好云端同步
    - js/pull.js         触屏下拉刷新 × 灵动岛动效 */
 
