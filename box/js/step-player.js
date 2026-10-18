@@ -93,6 +93,8 @@ export function createStepPlayer(mount, { steps = 4, pace = 7, wake = 100, label
 
   let at = 0;
   let playing = false;
+  /* 按住 / 悬停时暂停填充，但不改变「播放中」的状态和播放键的样子；松开后接着填 */
+  let held = false;
   let prog = 0;
   let raf = 0;
   let wave = null;
@@ -171,7 +173,7 @@ export function createStepPlayer(mount, { steps = 4, pace = 7, wake = 100, label
       let busy = false;
 
       /* 填充，以及填满之后发生什么 */
-      if (playing) {
+      if (playing && !held) {
         prog += (dt * 16.67) / (secs * 1000);
         busy = true;
         if (prog >= 1) {
@@ -364,7 +366,11 @@ export function createStepPlayer(mount, { steps = 4, pace = 7, wake = 100, label
     el: root,
     /* 外部换了步骤（按钮、方向键）：只动画，不回调 onStep；已经在那一步就什么也不做 */
     set(i) { move(clamp(i, 0, n - 1), true); },
+    /* 自动播放：从当前步骤开始填充（引导打开后调用）。已经在播放就什么也不做 */
+    play() { if (!playing) toggle(); },
     pause() { setPlaying(false); },
+    /* 按住内容 / 鼠标悬停时暂停计时，松开继续（像 Stories）；不影响播放键 */
+    hold(v) { held = !!v; if (!held) run(); },
     reset,
     destroy() { cancelAnimationFrame(raf); raf = 0; },
   };

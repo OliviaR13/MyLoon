@@ -4,7 +4,7 @@
    以及只存本机的启动页；行内撤销恢复默认与复制收藏链接。 */
 
 import { SETTINGS_KEY, DEFAULTS, BOOL_KEYS, SPLASH_KEY, SORT_KEY, rawUrl } from "./config.js";
-import { $id, sysReduce, setSwitch, afterPaint, copyText, lsGet, lsSet, lsRemove } from "./dom.js";
+import { $id, els, sysReduce, setSwitch, afterPaint, copyText, lsGet, lsSet, lsRemove } from "./dom.js";
 import { state, readSort, registerSettingsAPI } from "./state.js";
 import { toast } from "./toast.js";
 import { render } from "./render.js";
@@ -14,9 +14,11 @@ import { showView } from "./views.js";
 const REDUCE_HINT = "关闭过渡和入场动画。系统已开启「减少动态效果」时自动生效";
 const GRACE = 5000;
 
-/* 设置页打开时列表是藏起来的（量不出卡片高度），所以这时候不画；回到列表时 js/views.js 会统一重画一次 */
+/* 设置页打开时列表是藏起来的（量不出卡片高度），所以这时候不画，只记个「过期」标记；回到列表时 js/views.js 看到标记再重画一次 */
 const redraw = (opts) => {
-  if (state.page !== "settings" && state.plugins.length) render(opts);
+  if (!state.plugins.length) return;
+  if (state.page === "settings") els.list.dataset.stale = "1";
+  else render(opts);
 };
 
 export function initSettings() {

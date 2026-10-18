@@ -1,4 +1,4 @@
-/* 四步新手引导向导（<dialog id="tour">）与 Android 风格启动页（#splash） */
+/* 四步新手引导向导（<dialog id="tour">，打开后自动播放）与 Android 风格启动页（#splash） */
 
 import { TOUR_KEY, SETTINGS_KEY, SORT_KEY, LOGIN_HINT_KEY, SPLASH_KEY, COLS_KEY } from "./config.js";
 import { $id, el, lsGet, lsSet } from "./dom.js";
@@ -79,7 +79,7 @@ export const tour = (() => {
       icon: "logo",
       title: "欢迎使用 Loon Box",
       body: "Loon Box 汇集常用的 Loon 插件，支持浏览、搜索与一键安装：点击「安装」即可唤起 Loon 完成配置。",
-      hint: "本引导共 4 步，可随时跳过；如需再次查看，请前往「设置 → 关于 → 新手引导」。",
+      hint: "引导会自动播放，按住内容（电脑上悬停）可暂停；共 4 步，可随时跳过。如需再次查看，请前往「设置 → 关于 → 新手引导」。",
     },
     {
       icon: "search",
@@ -104,7 +104,8 @@ export const tour = (() => {
     },
   ];
 
-  let idx = 0, shownOnce = false, endClose = null;
+  let idx = 0, shownOnce = false, endClose = null, autoTimer = 0;
+  const reduced = () => document.documentElement.hasAttribute("data-reduce-motion") || !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   const steps = TOUR_STEPS.map((s, i) => {
     const sec = el("section", "tour-step");
     const icon = el("span", "tour-icon" + (s.icon === "logo" ? " tour-icon-logo" : ""));
@@ -130,7 +131,7 @@ export const tour = (() => {
      点某个点 / 自动前进 → onStep → go；按钮和方向键 → go → player.set（已经在那一步时什么也不做，不会互相触发） */
   const player = createStepPlayer(ui.dots, {
     steps: TOUR_STEPS.length,
-    pace: 7,
+    pace: 8, // 每步自动停留的秒数：第三步（标记图例）字最多，7 秒读不完
     wake: 100,
     label: (i, n) => `第 ${i + 1} 步，共 ${n} 步`,
     onStep: (i) => go(i),
@@ -209,10 +210,15 @@ export const tour = (() => {
     fit();
     dlg.focus({ preventScroll: true });
     requestAnimationFrame(() => dlg.classList.add("open"));
+    /* 自动播放：等打开动画走完再开始计时，免得第一步还没看清就在走了。
+       系统或页面设置里开了「减少动画」的人不自动播（自动翻页属于会动的内容），播放键还在，想看可以自己按 */
+    clearTimeout(autoTimer);
+    if (!reduced()) autoTimer = setTimeout(() => { if (dlg.open && !endClose) player.play(); }, 450);
   }
 
   function finish() {
     markDone();
+    clearTimeout(autoTimer);
     player.pause();
     if (!dlg.open || endClose) return;
     dlg.classList.add("closing");
@@ -232,6 +238,13 @@ export const tour = (() => {
     const dx = t.clientX - sx, dy = t.clientY - sy;
     if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) go(idx + (dx < 0 ? 1 : -1));
   }, { passive: true });
+  /* 按住内容暂停、松开继续；鼠标悬停也暂停。只暂停计时，不动播放键 */
+  const holdOn = () => player.hold(true);
+  const holdOff = () => player.hold(false);
+  ui.stage.addEventListener("pointerdown", holdOn);
+  ["pointerup", "pointercancel"].forEach((t) => window.addEventListener(t, holdOff));
+  ui.stage.addEventListener("pointerenter", (e) => { if (e.pointerType === "mouse") holdOn(); });
+  ui.stage.addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse") holdOff(); });
   ui.skip.addEventListener("click", finish);
   dlg.addEventListener("cancel", (e) => { e.preventDefault(); finish(); });
   dlg.addEventListener("keydown", (e) => {

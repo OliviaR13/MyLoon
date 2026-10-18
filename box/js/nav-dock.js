@@ -58,16 +58,27 @@ export function initNavDock({
      magnified — the geometry moves as you sweep, which is
      exactly what makes a dock a dock, and an arithmetic guess
      would lag it. */
+  /* 手机上的响应：每次 pointermove 都去量三个按钮的位置，是白白的强制布局。放大的是里面的图标（transform），
+     按钮自己的盒子不会动，所以中心点量一次就够：手势开始时（和窗口变化时）量，滑动过程中直接用缓存 */
+  let centers = [];
+  const measure = () => {
+    centers = items.map((el) => {
+      const b = el.getBoundingClientRect();
+      return b.left + b.width / 2;
+    });
+  };
   const at = (clientX) => {
+    if (!centers.length) measure();
     let best = 0;
     let gap = Infinity;
-    items.forEach((el, i) => {
-      const b = el.getBoundingClientRect();
-      const d = Math.abs(clientX - (b.left + b.width / 2));
+    centers.forEach((c, i) => {
+      const d = Math.abs(clientX - c);
       if (d < gap) { gap = d; best = i; }
     });
     return best;
   };
+  window.addEventListener("resize", measure);
+  window.addEventListener("orientationchange", measure);
 
   /* A raised cosine over the reach, rather than the three
      hand-picked steps this used to carry. Those could not
@@ -96,13 +107,19 @@ export function initNavDock({
     tip?.show(i);
   };
 
+  /* 手指滑动时 pointermove 可能一帧来好几个，每个都重画是浪费；记下最新的 x，每帧只算一次 */
+  let moveRaf = 0;
+  let moveX = 0;
   const track = (e) => {
     /* a mouse magnifies on hover, the way it always did; a
        finger has to be down, or the bar would answer a scroll
        passing over it */
     if (e.pointerType !== "mouse" && !down) return;
-    to(at(e.clientX));
+    moveX = e.clientX;
+    if (moveRaf) return;
+    moveRaf = requestAnimationFrame(() => { moveRaf = 0; to(at(moveX)); });
   };
+  const stopMove = () => { cancelAnimationFrame(moveRaf); moveRaf = 0; };
 
   /* ── CAPTURE PHASE, and no pointer capture ───────────
      Two different things with confusingly similar names.
@@ -126,6 +143,7 @@ export function initNavDock({
        of the next gesture instead, which is true whatever the
        browser decided to do with the last one. */
     chose = false;
+    measure();
     to(at(e.clientX));
   }, true);
   bar.addEventListener("pointermove", track, true);
@@ -135,6 +153,7 @@ export function initNavDock({
      picks: whichever item it came to rest over. A mouse is
      untouched by this — it still clicks the button. */
   bar.addEventListener("pointerup", (e) => {
+    stopMove();
     if (down && e.pointerType !== "mouse") {
       chose = true;
       choose(at(e.clientX));
@@ -142,7 +161,8 @@ export function initNavDock({
     down = false;
     if (e.pointerType !== "mouse") to(null);
   }, true);
-  bar.addEventListener("pointercancel", () => { down = false; to(null); }, true);
+  bar.addEventListener("pointercancel", () => { stopMove(); down = false; to(null); }, true);
+  bar.addEventListener("pointerenter", measure);
   bar.addEventListener("pointerleave", () => { if (!down) to(null); });
 
   items.forEach((el, i) => {

@@ -196,6 +196,10 @@ export function notice(title, body, label, onClick) {
 }
 
 export function render({ animate = false, flip = false } = {}) {
+  /* 设置页打开时列表是藏起来的，这时画出来的卡片量不出「展开」按钮要不要显示：记个标记，
+     回到列表时 js/views.js 看到标记会重画一次；没有标记（设置里什么都没改）就不重画，切回来更快 */
+  if (state.page === "settings") els.list.dataset.stale = "1";
+  else delete els.list.dataset.stale;
   syncDetailFav();
   const before = flip && !animate && !motionOff() && els.list.animate ? cardTops() : null;
   const terms = searchTerms();
