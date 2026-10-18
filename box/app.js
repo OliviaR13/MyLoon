@@ -40,7 +40,8 @@ initLabelSearch();
 initLiquidGlass(els.searchBox);
 initLiquidGlass(els.sort.querySelector(".sort-btn"));
 initNavDock();
-initLiquidGlass(els.navDock);
+// 触屏上 Dock 不做折射（样式里也关了）：省掉一张位移图和每帧的重算
+if (matchMedia("(hover:hover) and (pointer:fine)").matches) initLiquidGlass(els.navDock);
 initSeekFeel(els.searchBox, els.search);
 /* 设置页「关于」卡片右边的小方块：气泡朝左冒出，不会被卡片的圆角裁掉 */
 const aboutCard = document.querySelector(".about-card");
