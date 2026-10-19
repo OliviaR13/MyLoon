@@ -94,8 +94,10 @@ button,a,.mdock-item,.tile,.row-btn,.chip-filter,.star{-webkit-touch-callout:non
 .h1-eyebrow{display:block;font-size:13px;font-weight:600;letter-spacing:0;color:var(--muted);margin-bottom:3px}
 .head p{color:var(--muted);font-size:13px;font-weight:500;margin-top:5px;line-break:strict;text-wrap:balance}
 @supports (word-break:auto-phrase){.head p{word-break:auto-phrase}}
-#refreshBtn{height:40px;padding:0 14px;flex:none} /* 与右边的设置按钮等高 */
-#refreshBtn:disabled{opacity:.6}
+/* 当前页面的名字，放在头部右边（原来「刷新」按钮的位置）；换页时淡入一下 */
+.head-view{flex:none;margin:0;padding-left:8px;font-size:26px;line-height:1;font-weight:700;letter-spacing:-.02em;text-align:right}
+.head-view.swap{animation:view-title .3s var(--ease)}
+@keyframes view-title{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 
 /* 按钮 */
 .btn{font:inherit;font-size:14px;font-weight:600;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:var(--r-md);

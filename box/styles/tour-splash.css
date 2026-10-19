@@ -90,7 +90,7 @@
 html:not([data-splash="on"]) body::after{animation:intro-glow 1.3s ease-out backwards}
 html:not([data-splash="on"]) .head .logo{animation:intro-pop .7s cubic-bezier(.34,1.3,.64,1) backwards}
 html:not([data-splash="on"]) .head-text{animation:intro-up .6s var(--ease) .08s backwards}
-html:not([data-splash="on"]) .head .btn{animation:intro-up .6s var(--ease) .16s backwards}
+html:not([data-splash="on"]) .head-view{animation:intro-up .6s var(--ease) .16s backwards}
 html:not([data-splash="on"]) .mdock{animation:intro-up .6s var(--ease) .4s backwards}
 html:not([data-splash="on"]) .toolbar{animation:intro-up .6s var(--ease) .28s backwards}
 html:not([data-splash="on"]) .filters{animation:intro-up .6s var(--ease) .34s backwards}

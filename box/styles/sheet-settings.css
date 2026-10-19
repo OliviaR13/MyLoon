@@ -162,10 +162,9 @@ html:has(.sheet[open],.tour[open]){overflow:hidden;padding-right:var(--page-sbw,
 }
 
 /* 设置页（主页面里的一个视图，不是弹层）：标题 + 分组。进入时每个大项各自带一条并行的入场（见 js/settings.js 的 enter） */
-.spage-title{margin:4px 4px 0;font-size:26px;line-height:1.1;font-weight:700;letter-spacing:-.02em}
+/* 页面名字显示在头部（#viewTitle），这里的标题只给读屏软件用 */
 .spage-title:focus{outline:none}
 .spage .group-title:first-child{margin-top:14px}
-#settings.enter .spage-title{animation:intro-up .5s var(--ease) backwards}
 #settings.enter .sheet-cols > *{animation:intro-up .45s var(--ease) .05s backwards}
 #settings.enter .group > *{animation:rise .34s var(--ease) calc(.12s + min(var(--r,0), 8) * 45ms) backwards}
 
