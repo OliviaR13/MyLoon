@@ -106,7 +106,6 @@ const postJson = (url, payload) =>
 
 export async function load(announce = false) {
   els.list.setAttribute("aria-busy", "true");
-  els.refresh.disabled = true;
   els.count.textContent = "加载中";
   els.updated.textContent = "";
   const needVerify = CONFIG.turnstile.siteKey && !recentlyVerified() && !loggedHint();
@@ -170,7 +169,6 @@ export async function load(announce = false) {
   } finally {
     clearTimeout(slowTimer);
     removeTurnstile();
-    els.refresh.disabled = false;
     els.list.setAttribute("aria-busy", "false");
     splash.hide();
   }

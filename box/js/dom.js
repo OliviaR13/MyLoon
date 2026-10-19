@@ -9,7 +9,6 @@ export const els = {
   updated: $("#updatedText"),
   filters: $("#filters"),
   search: $("#searchInput"),
-  refresh: $("#refreshBtn"),
   tpl: $("#rowTpl"),
   toast: $("#toast"),
   sort: $("#sortBox"),

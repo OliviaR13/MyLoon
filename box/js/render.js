@@ -284,6 +284,15 @@ export function syncTabs() {
     if (on) b.setAttribute("aria-current", "page");
     else b.removeAttribute("aria-current");
   });
+  /* 头部右边的页面名字，跟着 Dock 走 */
+  const vt = $id("viewTitle");
+  const name = onSettings ? "设置" : onFav ? "收藏" : "主页";
+  if (vt && vt.textContent !== name) {
+    vt.textContent = name;
+    vt.classList.remove("swap");
+    void vt.offsetWidth;
+    vt.classList.add("swap");
+  }
   const fc = $id("favCount");
   if (fc) {
     setRollText(fc, String(state.favorites.size));
