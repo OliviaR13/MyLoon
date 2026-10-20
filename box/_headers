@@ -6,3 +6,18 @@
 
 /apple-touch-icon.png
   Cache-Control: public, max-age=86400
+
+/
+  Cache-Control: no-cache
+
+/index.html
+  Cache-Control: no-cache
+
+/app.js
+  Cache-Control: no-cache
+
+/js/*
+  Cache-Control: no-cache
+
+/styles/*
+  Cache-Control: no-cache

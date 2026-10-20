@@ -34,22 +34,30 @@ import { initPullToRefresh } from "./js/pull.js";
 import { initAccount } from "./js/account.js";
 import { load } from "./js/manifest.js";
 
-initRender();
-initSearchAndSort();
-initLabelSearch();
-initLiquidGlass(els.searchBox);
-initLiquidGlass(els.sort.querySelector(".sort-btn"));
-initNavDock();
-// 触屏上 Dock 不做折射（样式里也关了）：省掉一张位移图和每帧的重算
-if (matchMedia("(hover:hover) and (pointer:fine)").matches) initLiquidGlass(els.navDock);
-initSeekFeel(els.searchBox, els.search);
-/* 设置页「关于」卡片右边的小方块：气泡朝左冒出，不会被卡片的圆角裁掉 */
-const aboutCard = document.querySelector(".about-card");
-if (aboutCard) createWatcher(aboutCard, { size: 52, say: "left" });
-initSettings();
-initPullToRefresh();
-initAccount();
+/* 每个初始化各自兜底：任何一个功能出错，只影响它自己，不会让后面的 load()（人机验证 + 清单）跟着不执行。
+   之前正是一行 els.refresh.addEventListener 抛错，让整个页面停在「请完成人机验证…」。 */
+const run = (name, fn) => {
+  try { fn(); } catch (e) { console.error("[init:" + name + "]", e); }
+};
 
-/* 头部的「刷新」按钮已经由下拉刷新代替、页面上没有这个元素了：不能直接 .addEventListener，否则这里抛错，下面的 load() 永远不会执行（= 人机验证和清单都不加载） */
+run("render", initRender);
+run("search", initSearchAndSort);
+run("label-search", initLabelSearch);
+run("glass-search", () => initLiquidGlass(els.searchBox));
+run("glass-sort", () => initLiquidGlass(els.sort.querySelector(".sort-btn")));
+run("nav-dock", initNavDock);
+// 触屏上 Dock 不做折射（样式里也关了）：省掉一张位移图和每帧的重算
+run("glass-dock", () => { if (matchMedia("(hover:hover) and (pointer:fine)").matches) initLiquidGlass(els.navDock); });
+run("seek-feel", () => initSeekFeel(els.searchBox, els.search));
+/* 设置页「关于」卡片右边的小方块：气泡朝左冒出，不会被卡片的圆角裁掉 */
+run("watcher", () => {
+  const aboutCard = document.querySelector(".about-card");
+  if (aboutCard) createWatcher(aboutCard, { size: 52, say: "left" });
+});
+run("settings", initSettings);
+run("pull", initPullToRefresh);
+run("account", initAccount);
+
+/* 头部的「刷新」按钮已经由下拉刷新代替，页面上没有这个元素了 */
 els.refresh?.addEventListener("click", () => load(true));
 load();
