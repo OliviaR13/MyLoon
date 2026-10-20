@@ -85,9 +85,14 @@ html[data-full-cols] .sheet.full.detail{--full-col:760px}
 .detail .btn.lg,.detail .star.lg{border-radius:999px;border-color:transparent;
   background:var(--lg-sheen),color-mix(in srgb,var(--card) 52%,transparent);
   -webkit-backdrop-filter:blur(14px) saturate(1.8) brightness(1.04);backdrop-filter:blur(14px) saturate(1.8) brightness(1.04);
-  box-shadow:var(--d-rim),0 8px 22px rgb(var(--shadow) / .14)}
+  box-shadow:var(--d-rim)}
+/* 投影放在自己的伪元素上，不和带 backdrop-filter 的玻璃抢同一层（iOS 上，模糊玻璃自带的大范围投影会被渲染成一块带硬边的灰影；Dock 同样处理过）。
+   又小又贴：只在正下方露出一道软边 */
+.detail .btn.lg::before,.detail .star.lg::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;
+  box-shadow:0 8px 18px -8px rgb(var(--shadow) / .28),0 2px 5px -2px rgb(var(--shadow) / .12)}
+.detail .btn-primary.lg::before{box-shadow:0 8px 18px -8px color-mix(in srgb,var(--accent) 50%,transparent),0 2px 5px -2px rgb(var(--shadow) / .12)}
 .detail .btn-primary.lg{color:var(--accent-ink);background:var(--lg-sheen-p),color-mix(in srgb,var(--accent) 82%,transparent);
-  box-shadow:var(--d-rim),0 8px 20px color-mix(in srgb,var(--accent) 28%,transparent)}
+  box-shadow:var(--d-rim)}
 html[data-glass="refract"] .detail .lg:not(.lg-flat){
   -webkit-backdrop-filter:var(--lg-filter,blur(0px)) blur(2px) saturate(1.7) brightness(1.06);backdrop-filter:var(--lg-filter,blur(0px)) blur(2px) saturate(1.7) brightness(1.06)}
 .detail .star.lg[aria-pressed="true"]{background:var(--lg-sheen),color-mix(in srgb,var(--accent) 20%,transparent)}
