@@ -29,6 +29,8 @@
   <link rel="stylesheet" href="./styles/detail.css">
   <link rel="stylesheet" href="./styles/tour-splash.css">
   <!-- 不需要人机验证：把 box/js/config.js 里 CONFIG.turnstile.siteKey 设为空字符串，并删除下面这行 -->
+  <!-- 提前和 Cloudflare 建好连接（DNS + TLS），验证脚本和挑战请求少等一两个来回；手机网络上能省下可感知的时间 -->
+  <link rel="preconnect" href="https://challenges.cloudflare.com" crossorigin>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 </head>
 <body>
