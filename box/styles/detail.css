@@ -90,6 +90,10 @@ html[data-full-cols] .sheet.full.detail{--full-col:760px}
    又小又贴：只在正下方露出一道软边 */
 .detail .btn.lg::before,.detail .star.lg::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;
   box-shadow:0 8px 18px -8px rgb(var(--shadow) / .28),0 2px 5px -2px rgb(var(--shadow) / .12)}
+/* 顶栏的返回 / 收藏：顶栏下缘有一层模糊 + 底色渐隐（.sheet-head::before/::after，z-index 2），会盖住并糊掉按钮下面的投影，
+   看起来就是星标底下一道脏边。所以把这两个按钮抬到渐隐层上面，并且不要投影，只留玻璃的边缘光 */
+.detail .sheet-head .lg{z-index:3}
+.detail .sheet-head .lg::before{display:none}
 .detail .btn-primary.lg::before{box-shadow:0 8px 18px -8px color-mix(in srgb,var(--accent) 50%,transparent),0 2px 5px -2px rgb(var(--shadow) / .12)}
 .detail .btn-primary.lg{color:var(--accent-ink);background:var(--lg-sheen-p),color-mix(in srgb,var(--accent) 82%,transparent);
   box-shadow:var(--d-rim)}
