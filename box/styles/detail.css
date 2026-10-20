@@ -78,13 +78,16 @@ html[data-full-cols] .sheet.full.detail{--full-col:760px}
 /* ══ 液态玻璃（材质变量在 base.css；折射见 js/liquid-glass.js）═══════════
    浮在滚动内容上的 4 个控件是「真玻璃」：backdrop-filter + 折射；其余是只有材质的玻璃（高光 + 边缘光 + 软影），
    不开 backdrop-filter。底部渐隐从 120px 收到 72px，好让内容能从按钮下面透出来。 */
-.detail .lg{position:relative}
+.detail .lg{position:relative;
+  /* 边缘光去掉最后一道「底部的一点暗」：在小圆形玻璃底边上它就是一条横线阴影（和 Dock 同样的处理） */
+  --d-rim:inset 1.5px 1.5px 1px -.5px var(--lg-hi),inset -1px -1.5px 1px -.5px var(--lg-hi2),inset 0 0 0 1px var(--lg-edge),
+    inset 1px 0 0 rgb(255 90 90 / .12),inset -1px 0 0 rgb(90 130 255 / .14)}
 .detail .btn.lg,.detail .star.lg{border-radius:999px;border-color:transparent;
   background:var(--lg-sheen),color-mix(in srgb,var(--card) 52%,transparent);
   -webkit-backdrop-filter:blur(14px) saturate(1.8) brightness(1.04);backdrop-filter:blur(14px) saturate(1.8) brightness(1.04);
-  box-shadow:var(--lg-rim),0 8px 22px rgb(var(--shadow) / .14),0 1px 2px rgb(var(--shadow) / .08)}
+  box-shadow:var(--d-rim),0 8px 22px rgb(var(--shadow) / .14)}
 .detail .btn-primary.lg{color:var(--accent-ink);background:var(--lg-sheen-p),color-mix(in srgb,var(--accent) 82%,transparent);
-  box-shadow:var(--lg-rim),0 8px 20px color-mix(in srgb,var(--accent) 28%,transparent)}
+  box-shadow:var(--d-rim),0 8px 20px color-mix(in srgb,var(--accent) 28%,transparent)}
 html[data-glass="refract"] .detail .lg:not(.lg-flat){
   -webkit-backdrop-filter:var(--lg-filter,blur(0px)) blur(2px) saturate(1.7) brightness(1.06);backdrop-filter:var(--lg-filter,blur(0px)) blur(2px) saturate(1.7) brightness(1.06)}
 .detail .star.lg[aria-pressed="true"]{background:var(--lg-sheen),color-mix(in srgb,var(--accent) 20%,transparent)}
