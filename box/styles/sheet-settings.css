@@ -97,8 +97,8 @@ html:has(.sheet[open],.tour[open]){overflow:hidden;padding-right:var(--page-sbw,
   box-shadow:0 1px 3px rgb(var(--shadow) / .3);transition:transform .4s var(--spring)}
 .switch{cursor:pointer}
 .switch:disabled{cursor:default}
-.switch[aria-checked="true"],.sort-pin[aria-checked="true"] .mini-switch{background:var(--accent);box-shadow:none}
-.switch[aria-checked="true"]::after,.sort-pin[aria-checked="true"] .mini-switch::after{transform:translateX(calc(var(--w) - var(--h)))}
+.switch[aria-checked="true"]{background:var(--accent);box-shadow:none}
+.switch[aria-checked="true"]::after{transform:translateX(calc(var(--w) - var(--h)))}
 .switch:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 /* 两选一分段控件（AND / OR、单列 / 双列）与主题预览卡片 */
@@ -180,7 +180,7 @@ html:has(.sheet[open],.tour[open]){overflow:hidden;padding-right:var(--page-sbw,
   box-shadow:var(--lg-rim),0 10px 28px rgb(var(--shadow) / .08),0 1px 2px rgb(var(--shadow) / .05)}
 /* 开关：轨道是玻璃，滑块是一颗带高光的玻璃珠；打开时轨道是强调色玻璃 */
 .switch,.mini-switch{background:var(--lg-sheen),var(--chip);box-shadow:inset 0 0 0 1px var(--line),inset 0 1px 3px rgb(var(--shadow) / .12)}
-.switch[aria-checked="true"],.sort-pin[aria-checked="true"] .mini-switch{background:var(--lg-sheen-p),var(--accent);box-shadow:inset 0 1px 3px rgb(0 0 0 / .18),0 0 0 1px color-mix(in srgb,var(--accent) 60%,transparent)}
+.switch[aria-checked="true"]{background:var(--lg-sheen-p),var(--accent);box-shadow:inset 0 1px 3px rgb(0 0 0 / .18),0 0 0 1px color-mix(in srgb,var(--accent) 60%,transparent)}
 .switch::after,.mini-switch::after{background:var(--lg-sheen),#fff;box-shadow:var(--lg-rim),0 2px 6px rgb(var(--shadow) / .3)}
 /* 分段控件：轨道是凹的玻璃槽，选中的那块是浮起的玻璃 */
 .opt2{background:var(--lg-sheen),var(--chip);box-shadow:inset 0 0 0 1px var(--line),inset 0 1px 3px rgb(var(--shadow) / .12)}

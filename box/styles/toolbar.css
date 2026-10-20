@@ -168,11 +168,10 @@ html[data-glass="refract"] .search.lg{
   transition:border-color .1s .3s,background-color .1s .3s,transform .35s var(--spring)}
 .sort-btn:active{transform:scale(.94)}
 .sort-btn svg{width:16px;height:16px;flex:none;color:var(--muted);fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.sort-btn>*,.sort-btn[data-pin="true"]::after{transition:opacity .16s .16s}
-.sort-btn[data-pin="true"]::after{content:"";position:absolute;top:6px;right:6px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.sort-btn>*{transition:opacity .16s .16s}
 .sortwrap[data-open="true"] .sort-btn{background:transparent;border-color:transparent;pointer-events:none;
   transition:border-color 0s,background-color 0s,transform .35s var(--spring)}
-.sortwrap[data-open="true"] .sort-btn>*,.sortwrap[data-open="true"] .sort-btn[data-pin="true"]::after{opacity:0;transition:opacity .1s}
+.sortwrap[data-open="true"] .sort-btn>*{opacity:0;transition:opacity .1s}
 .sort-menu{position:absolute;right:0;top:0;z-index:1;overflow:hidden;
   width:var(--bw,100px);height:var(--bh,43px);background:var(--card);border:1px solid var(--line);
   border-radius:22px;box-shadow:0 0 0 rgb(var(--shadow) / 0);
@@ -192,11 +191,10 @@ html[data-glass="refract"] .search.lg{
 .sort-title svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .sort-item{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;padding:10px;font:inherit;font-size:14.5px;color:var(--text);
   background:none;border:0;border-radius:var(--r-md);text-align:left;cursor:pointer;transition:background-color .15s}
-.sort-item[aria-checked="true"]:not(.sort-pin){color:var(--accent-text);font-weight:600}
+.sort-item[aria-checked="true"]{color:var(--accent-text);font-weight:600}
 .sort-item:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .sort-check{flex:none;width:6px;height:11px;margin-right:4px;border:solid currentColor;border-width:0 2px 2px 0;transform:rotate(45deg) translateY(-1px);opacity:0;transition:opacity .15s}
 .sort-item[aria-checked="true"] .sort-check{opacity:1}
-.sort-sep{height:1px;margin:6px 4px;background:var(--line)}
 @media (hover:hover){.sort-item:hover{background:var(--chip)}.sort-btn:hover{border-color:var(--muted)}}
 @media (hover:none){
   .sort-item:active{background:var(--chip)}
