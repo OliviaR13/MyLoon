@@ -10,6 +10,10 @@ const detailEls = {
   body: $("#detailBody"),
   icon: $("#detailIcon"),
   name: $("#detailName"),
+  title: $("#detailTitle"),
+  letter: $("#detailLetter"),
+  meta: $("#detailMeta"),
+  fold: $("#detailFold"),
   sub: $("#detailSub"),
   chips: $("#detailChips"),
   intro: $("#detailIntro"),
@@ -26,6 +30,8 @@ let detailPlugin = null;
 let detailEnd = null;
 let detailStar = null;
 let detailInstalling = null;
+let detailPushed = false;
+let lastFocus = null;
 let handleToggleFav = null;
 let handleOpenInLoon = null;
 
@@ -56,7 +62,6 @@ function troubleNotes(p) {
   if (needsPolicy(p)) notes.push("确认在插件详情里选的策略组或节点可用。建议选固定的单一节点，自动测速类的策略组切换节点时可能中断已建立的连接。");
   if (p.mitm || p.script) notes.push("同时启用了对相同域名做 MITM 解密或改写响应体的其他插件（如去广告类）时，各插件独立生效，出现异常需要分别排查。");
   if (needsPolicy(p)) notes.push("连接偶尔失败不一定是插件的问题：插件只决定走代理还是直连，连接被取消、重置或超时，原因可能在 App、节点、CDN 或链路。");
-  if (!notes.length) notes.push("暂时没有针对这个插件的特别排查项。");
   return notes;
 }
 
@@ -74,20 +79,20 @@ function noteItem(text) {
 
 const shownVersion = (p) => (p.version ? (/^\d/.test(p.version) ? "v" + p.version : p.version) : "");
 
+function metaCells(p) {
+  return [["作者", p.author], ["版本", shownVersion(p)], ["更新", p.date]].filter(([, v]) => v);
+}
+
 function infoRows(p) {
-  return [
-    ["作者", p.author],
-    ["版本", p.version],
-    ["最近更新", p.date],
-    ["配置参数", p.args ? "可在 Loon 中调整" : "无"],
-    ["标签", p.allTags.join("、")],
-  ]
-    .filter(([, v]) => v)
-    .map(([k, v]) => {
-      const r = el("div", "row");
-      r.append(el("span", "muted", k), el("span", "d-val", v));
-      return r;
-    });
+  const rows = [];
+  const add = (k, v) => { const r = el("div", "row"); r.append(el("span", "muted", k), v); rows.push(r); };
+  add("配置参数", el("span", "d-val", p.args ? "可在 Loon 中调整" : "无"));
+  if (p.allTags.length) {
+    const wrap = el("span", "d-val d-tagwrap");
+    wrap.append(...p.allTags.map((t) => el("span", "chip", t)));
+    add("标签", wrap);
+  }
+  return rows;
 }
 
 export function syncDetailFav() {
@@ -99,9 +104,17 @@ export function syncDetailFav() {
 
 function fillDetail(p) {
   const d = detailEls;
-  if (p.icon) { d.icon.src = p.icon; d.icon.hidden = false; }
-  else { d.icon.removeAttribute("src"); d.icon.hidden = true; }
+  const letterIcon = () => { d.icon.hidden = true; d.icon.removeAttribute("src"); d.letter.hidden = false; };
+  d.letter.textContent = ([...p.name.trim()][0] || "?").toUpperCase();
+  d.icon.onerror = letterIcon;
+  if (p.icon) { d.icon.src = p.icon; d.icon.hidden = false; d.letter.hidden = true; }
+  else letterIcon();
   d.name.textContent = p.name;
+  d.title.textContent = p.name;
+  const cells = metaCells(p);
+  d.meta.hidden = !cells.length;
+  d.meta.style.setProperty("--n", cells.length);
+  d.meta.replaceChildren(...cells.map(([k, v]) => { const c = el("div", "d-cell"); c.append(el("span", "d-k", k), el("span", "d-v", v)); return c; }));
   const sub = [shownVersion(p), p.category].filter(Boolean).join(" · ");
   d.sub.textContent = sub;
   d.sub.hidden = !sub;
@@ -115,9 +128,12 @@ function fillDetail(p) {
   const segs = introSegments(p, splitDescription(p.description));
   d.intro.replaceChildren(...(segs.length ? segs.map((s) => el("span", "seg", s)) : [el("span", "seg d-empty", "这个插件还没有填写介绍。")]));
   d.notes.replaceChildren(...installNotes(p).map(noteItem));
-  d.trouble.replaceChildren(...troubleNotes(p).map(noteItem));
+  const trouble = troubleNotes(p);
+  d.fold.hidden = !trouble.length;
+  d.fold.open = false;
+  d.trouble.replaceChildren(...trouble.map(noteItem));
   d.info.replaceChildren(...infoRows(p));
-  [...d.body.children].forEach((c, i) => c.style.setProperty("--i", Math.ceil(i / 2)));
+  [...d.body.children].forEach((c, i) => c.style.setProperty("--i", i));
   d.source.href = sourceUrl(p);
   detailInstalling?.off();
   syncDetailFav();
@@ -137,24 +153,41 @@ export function openDetail(p) {
   cancelDetailClose();
   detailPlugin = p;
   fillDetail(p);
-  if (!dlg.open) document.documentElement.style.setProperty("--page-sbw", window.innerWidth - document.documentElement.clientWidth + "px");
-  if (!dlg.open) dlg.showModal();
+  if (!dlg.open) {
+    lastFocus = document.activeElement;
+    document.documentElement.style.setProperty("--page-sbw", window.innerWidth - document.documentElement.clientWidth + "px");
+    dlg.showModal();
+    // 压入一条历史记录：手机返回键 / 侧滑返回时关闭详情，而不是离开整个页面
+    if (!detailPushed) { history.pushState({ mlbDetail: 1 }, ""); detailPushed = true; }
+  }
   detailEls.body.scrollTop = 0;
-  dlg.classList.remove("enter");
+  dlg.classList.remove("scrolled", "enter");
   void dlg.offsetWidth;
   dlg.classList.add("enter");
   requestAnimationFrame(() => dlg.classList.add("open"));
 }
 
-export function closeDetail() {
+function animateClose() {
   const dlg = detailEls.dlg;
   if (!dlg.open || detailEnd) return;
   dlg.classList.add("closing");
   dlg.classList.remove("open");
-  const finish = () => { cancelDetailClose(); if (dlg.open) dlg.close(); detailPlugin = null; };
+  const finish = () => {
+    cancelDetailClose();
+    if (dlg.open) dlg.close();
+    detailPlugin = null;
+    if (lastFocus && lastFocus.isConnected && lastFocus !== document.body) lastFocus.focus({ preventScroll: true });
+    lastFocus = null;
+  };
   const fn = (e) => { if (e.target === dlg && e.propertyName === "transform") finish(); };
   detailEnd = { fn, timer: setTimeout(finish, 600) };
   dlg.addEventListener("transitionend", fn);
+}
+
+export function closeDetail() {
+  if (!detailEls.dlg.open || detailEnd) return;
+  if (detailPushed) history.back();
+  else animateClose();
 }
 
 export function initDetail({ onToggleFav, onOpenInLoon }) {
@@ -181,6 +214,17 @@ export function initDetail({ onToggleFav, onOpenInLoon }) {
   if (window.ResizeObserver) {
     new ResizeObserver(() => detailEls.dlg.style.setProperty("--sbw", detailEls.body.offsetWidth - detailEls.body.clientWidth + "px")).observe(detailEls.body);
   }
+  window.addEventListener("popstate", () => {
+    if (!detailPushed) return;
+    detailPushed = false;
+    animateClose();
+  });
+  // 滚过头部后，顶栏淡入插件名
+  let scrolled = false;
+  detailEls.body.addEventListener("scroll", () => {
+    const now = detailEls.body.scrollTop > 64;
+    if (now !== scrolled) { scrolled = now; detailEls.dlg.classList.toggle("scrolled", now); }
+  }, { passive: true });
   detailEls.close.addEventListener("click", closeDetail);
   detailEls.dlg.addEventListener("cancel", (e) => { e.preventDefault(); closeDetail(); });
   detailEls.dlg.addEventListener("click", (e) => { if (e.target === detailEls.dlg) closeDetail(); });

@@ -210,24 +210,29 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
         </button>
       </div>
+      <p class="d-title" id="detailTitle" aria-hidden="true"></p>
       <div class="detail-fav" id="detailFav"></div>
     </div>
     <div class="sheet-body" id="detailBody">
       <div class="d-top">
         <img class="d-icon" id="detailIcon" alt="" width="56" height="56" hidden>
+        <span class="d-icon d-letter" id="detailLetter" aria-hidden="true" hidden></span>
         <div class="d-id">
           <h2 id="detailName" tabindex="-1" autofocus></h2>
           <p class="d-sub" id="detailSub"></p>
           <div class="d-chips" id="detailChips"></div>
         </div>
       </div>
+      <div class="d-meta" id="detailMeta" hidden></div>
       <h3 class="group-title">插件介绍</h3>
       <div class="d-intro" id="detailIntro"></div>
       <h3 class="group-title">安装前须知</h3>
       <ul class="d-notes" id="detailNotes"></ul>
-      <h3 class="group-title">遇到问题时</h3>
-      <ul class="d-notes d-trouble" id="detailTrouble"></ul>
-      <h3 class="group-title">插件信息</h3>
+      <details class="d-fold" id="detailFold">
+        <summary class="group-title">遇到问题时<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
+        <ul class="d-notes d-trouble" id="detailTrouble"></ul>
+      </details>
+      <h3 class="group-title">配置与标签</h3>
       <div class="group" id="detailInfo"></div>
     </div>
     <div class="detail-actions">
