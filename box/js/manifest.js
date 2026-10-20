@@ -1,10 +1,11 @@
 /* Cloudflare Turnstile 人机验证与插件清单加载流程 */
 
-import { CONFIG, VERIFIED_KEY, VERIFIED_TTL } from "./config.js";
+import { CONFIG, FAV, VERIFIED_KEY, VERIFIED_TTL } from "./config.js";
 import { els } from "./dom.js";
 import { state, normalize, loggedHint } from "./state.js";
 import { toast } from "./toast.js";
-import { notice, render, renderFilters, renderLoading, setPhase, passSettled } from "./render.js";
+import { notice, render, renderFilters, renderLoading, setPhase, passSettled, setVerifying } from "./render.js";
+import { showView } from "./views.js";
 import { tour, splash } from "./tour-splash.js";
 
 /* ---------- Turnstile 人机验证 ---------- */
@@ -12,16 +13,31 @@ import { tour, splash } from "./tour-splash.js";
 let tsWidget = null;
 let tsTimer = 0;
 
+const TS_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+
+/* 等组件脚本就绪。网络慢 / 第一次请求失败时，不是直接判失败：超时后把脚本标签换成新的再等一轮（只重试一次） */
 function whenTurnstileReady() {
-  return new Promise((resolve, reject) => {
-    const start = Date.now();
-    (function check() {
-      if (window.turnstile && typeof window.turnstile.render === "function") return resolve();
-      if (Date.now() - start > CONFIG.turnstile.loadTimeout) return reject(new Error("script"));
-      setTimeout(check, 100);
-    })();
+  const wait = () =>
+    new Promise((resolve, reject) => {
+      const start = Date.now();
+      (function check() {
+        if (window.turnstile && typeof window.turnstile.render === "function") return resolve();
+        if (Date.now() - start > CONFIG.turnstile.loadTimeout) return reject(new Error("script"));
+        setTimeout(check, 100);
+      })();
+    });
+  return wait().catch(() => {
+    document.querySelectorAll('script[src^="https://challenges.cloudflare.com/turnstile/"]').forEach((s) => s.remove());
+    const s = document.createElement("script");
+    s.src = TS_SRC;
+    s.async = true;
+    document.head.append(s);
+    return wait();
   });
 }
+
+/* 这几类错误码（站点密钥 / 域名 / action / 浏览器不受支持）重试没有用，直接报；其余（网络抖动、内部错误）交给组件自己重试 */
+const FATAL = /^(1101|1102|1104|1105|4000)/;
 
 const verifyPanel = () => els.list.querySelector(".verify");
 function setInteractive(on) {
@@ -48,6 +64,7 @@ function armTimer(ms, reject) {
 async function getToken() {
   await whenTurnstileReady();
   removeTurnstile();
+  let errors = 0;
   return new Promise((resolve, reject) => {
     armTimer(CONFIG.turnstile.totalTimeout, reject);
     tsWidget = window.turnstile.render("#tsBox", {
@@ -57,7 +74,10 @@ async function getToken() {
       language: "zh-cn",
       appearance: "interaction-only",
       size: "flexible",
-      retry: "never",
+      retry: "auto",
+      "retry-interval": 3000,
+      "refresh-expired": "auto",
+      "refresh-timeout": "auto",
       callback: (token) => {
         clearTimeout(tsTimer);
         removeTurnstile();
@@ -65,6 +85,8 @@ async function getToken() {
       },
       "before-interactive-callback": () => {
         splash.hide(true);
+        /* 验证需要点一下时，人得在主页看得到那个复选框：正在设置页的话先回主页 */
+        if (state.page === "settings") showView("home");
         armTimer(CONFIG.turnstile.interactiveTimeout, reject);
         setInteractive(true);
         setPhase("请点击下方的复选框完成验证");
@@ -77,10 +99,16 @@ async function getToken() {
       "expired-callback": () => window.turnstile.reset(tsWidget),
       "timeout-callback": () => window.turnstile.reset(tsWidget),
       "error-callback": (code) => {
-        clearTimeout(tsTimer);
-        removeTurnstile();
-        reject(new Error("turnstile " + code));
-        return true;
+        const c = String(code || "");
+        errors += 1;
+        if (FATAL.test(c) || errors > 2) {
+          clearTimeout(tsTimer);
+          removeTurnstile();
+          reject(new Error("turnstile " + c));
+          return true;
+        }
+        setPhase("验证遇到点问题，正在重试…");
+        return true; // 已处理；组件会按 retry:"auto" 自己再来一次
       },
     });
   });
@@ -143,7 +171,10 @@ export async function load(announce = false) {
     const data = await res.json();
     state.plugins = (data.plugins || []).map(normalize);
     state.generatedAt = data.generatedAt || "";
-    state.category = CONFIG.all;
+    /* 分类只在它已经不存在时才回到「全部」：验证期间用户可能已经点了 Dock 的「收藏」，不能一加载完又被拉回主页 */
+    const known = new Set(state.plugins.map((p) => p.category));
+    if (state.category !== FAV && state.category !== CONFIG.all && !known.has(state.category)) state.category = CONFIG.all;
+    setVerifying(false);
     renderFilters();
     render({ animate: true });
     if (data.generatedAt) {
@@ -167,6 +198,7 @@ export async function load(announce = false) {
       )
     );
   } finally {
+    setVerifying(false);
     clearTimeout(slowTimer);
     removeTurnstile();
     els.list.setAttribute("aria-busy", "false");

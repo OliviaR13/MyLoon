@@ -10,7 +10,7 @@
    2. 先把滚动位置落好再换内容：html 上有 scroll-behavior:smooth，直接 scrollTo 会变成慢慢滚，
       内容换了、页面高度缩了，还在边滚边夹，所以一律用 behavior:"instant"；
    3. 每个视图记住自己的滚动位置，切回来还在原处（和 App 里的标签页一样）；
-   4. 换内容后只让列表整体从 55% 不透明度回到 100%，从来不会变成全透明。 */
+   4. 换内容后新内容从来的方向滑进来，起点是 40% 不透明度，从来不会变成全透明（见 enter）。 */
 
 import { CONFIG, FAV } from "./config.js";
 import { els, motionOff, afterPaint } from "./dom.js";
@@ -28,6 +28,27 @@ const fade = () => {
   if (motionOff() || !els.list.animate) return;
   els.list.animate([{ opacity: 0.55 }, { opacity: 1 }], { duration: 200, easing: "cubic-bezier(.2,.8,.2,1)" });
 };
+
+/* 切换时新内容从「来的方向」滑进来：Dock 从左到右是 主页 → 收藏 → 设置，往右切就从右边进，往左切就从左边进。
+   只做进场、不做出场（出场要等一段时间才能换内容，会拖慢切换，也是以前闪的原因之一）；
+   起点不透明度 .4 而不是 0，所以从来不会有一瞬间是空白。设置页自己有逐行入场，这里只让整块位移，不再叠一层淡入 */
+const ORDER = { home: 0, fav: 1, settings: 2 };
+function enter(from, to) {
+  if (motionOff()) return;
+  const x = (ORDER[to] > ORDER[from] ? 1 : -1) * 26;
+  const move = (node, fadeIn) =>
+    node?.animate?.(
+      fadeIn ? [{ opacity: 0.4, transform: `translateX(${x}px)` }, { opacity: 1, transform: "none" }] : [{ transform: `translateX(${x}px)` }, { transform: "none" }],
+      { duration: 380, easing: "cubic-bezier(.2,.85,.25,1)" }
+    );
+  if (to === "settings") {
+    move(document.getElementById("settings"), false);
+  } else {
+    move(document.querySelector(".meta"), true);
+    move(els.list, true);
+    if (from === "settings") move(els.dock, false); // 搜索 / 分类栏是从设置页回来时才重新出现的
+  }
+}
 
 const syncChips = () =>
   els.filters.querySelectorAll(".chip-filter").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.name === state.category)));
@@ -86,12 +107,10 @@ export function showView(view) {
       /* 画不画：换了分类一定画；从设置回来，只有设置里改过显示项（列表被标过期）才画。
          没改过就沿用原来的列表，切回来不用重画几十张卡片 */
       const redraw = from !== "settings" || state.category !== prevCategory || els.list.dataset.stale === "1";
-      if (redraw) {
-        render();
-        fade();
-      }
+      if (redraw) render();
     }
     jump(toSettings ? 0 : memo[view] || 0);
+    enter(from, view);
     document.dispatchEvent(new CustomEvent("mlb:page", { detail: state.page }));
   });
 }

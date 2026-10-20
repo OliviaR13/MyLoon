@@ -10,7 +10,7 @@ export const CONFIG = {
   turnstile: {
     siteKey: "0x4AAAAAAFM6TQJfkewCeO_g", // 留空则不启用人机验证
     action: "load_manifest",             // 需与 functions/api/manifest.js 中的 ACTION 一致
-    loadTimeout: 8000,                   // 验证组件加载超时
+    loadTimeout: 12000,                  // 验证组件加载超时（每一轮；超时后会重新插入一次脚本再等一轮）
     totalTimeout: 30000,                 // 无需交互时，整个验证的总时限
     interactiveTimeout: 90000,           // 需要用户点击时，给更长的时限
   },

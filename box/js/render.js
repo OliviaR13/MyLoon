@@ -196,6 +196,7 @@ export function notice(title, body, label, onClick) {
 }
 
 export function render({ animate = false, flip = false } = {}) {
+  if (verifying) return;
   /* 设置页打开时列表是藏起来的，这时画出来的卡片量不出「展开」按钮要不要显示：记个标记，
      回到列表时 js/views.js 看到标记会重画一次；没有标记（设置里什么都没改）就不重画，切回来更快 */
   if (state.page === "settings") els.list.dataset.stale = "1";
@@ -303,7 +304,14 @@ export function syncTabs() {
 /* 加载 / 验证面板顶上的四个格子（js/verify-cells.js）：等待时轻轻呼吸，验证通过后融合成一颗「已通过」的胶囊 */
 let verifyCells = null;
 
+/* 人机验证 / 清单加载期间，列表里放的是验证面板（Turnstile 的小组件就挂在里面）。
+   这时任何 render()（点底部 Dock 的主页 / 收藏、搜索、排序……）如果把列表换掉，组件的容器就没了，验证永远等不到结果。
+   所以加载期间 render() 一律不动列表；加载结束时 manifest.js 会先放开再画一次。 */
+let verifying = false;
+export const setVerifying = (on) => { verifying = on; };
+
 export function renderLoading(text) {
+  verifying = true;
   verifyCells?.destroy();
   verifyCells = createVerifyCells();
   const status = el("div", "status");

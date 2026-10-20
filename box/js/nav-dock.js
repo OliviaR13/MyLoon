@@ -41,7 +41,65 @@ export function initNavDock({
   let chose = false;
 
   /* ── 选择：交给 js/views.js 切换视图 ─────────────── */
-  const choose = (i) => showView(items[i]?.dataset.key === "settings" ? "settings" : items[i]?.dataset.key === "fav" ? "fav" : "home");
+  const choose = (i) => {
+    const key = items[i]?.dataset.key;
+    pop(i);
+    showView(key === "settings" ? "settings" : key === "fav" ? "fav" : "home");
+  };
+
+  /* ── 选中那一下：图标自己动一下（主页：小跳；收藏：先压后弹；设置：滑杆微转），和下面滑过去的小圆点是一对 ── */
+  const POP = {
+    home: [{ transform: "translateY(0) scale(1)" }, { transform: "translateY(-4px) scale(1.12)", offset: 0.4 }, { transform: "translateY(0) scale(1)" }],
+    fav: [{ transform: "scale(1)" }, { transform: "scale(.78)", offset: 0.25 }, { transform: "scale(1.18)", offset: 0.62 }, { transform: "scale(1)" }],
+    settings: [{ transform: "rotate(0) scale(1)" }, { transform: "rotate(-20deg) scale(1.1)", offset: 0.4 }, { transform: "rotate(0) scale(1)" }],
+  };
+  function pop(i) {
+    if (motionOff()) return;
+    const svg = glyphs[i]?.querySelector("svg");
+    svg?.animate?.(POP[items[i].dataset.key] || POP.fav, { duration: 460, easing: "cubic-bezier(.25,.8,.3,1)" });
+  }
+
+  /* ── 会滑动的选中点 ───────────────────────────────
+     以前每个图标下面各有一个点，切换时一个灭一个亮；现在只有一个点，从旧图标下面滑到新图标下面：
+     走的时候被拉成一条细线（距离越远拉得越长），到站时弹回成点——液体一样的手感。
+     它只读各个按钮的 data-active（render.js 的 syncTabs 写的），所以 Dock、页签、键盘切换都会带着它走。 */
+  const ind = document.createElement("span");
+  ind.className = "mdock-ind";
+  ind.setAttribute("aria-hidden", "true");
+  bar.append(ind);
+  bar.dataset.ind = "";
+  let indX = null;
+  let indAnim = null;
+  const DOT = 4;
+  const placeInd = (animate) => {
+    const act = items.find((b) => b.dataset.active === "true");
+    if (!act) { ind.style.opacity = "0"; return; }
+    ind.style.opacity = "";
+    const x = act.offsetLeft + act.offsetWidth / 2 - DOT / 2;
+    ind.style.top = act.offsetTop + act.offsetHeight - 3 - DOT + "px";
+    const from = indX;
+    indX = x;
+    ind.style.transform = `translateX(${x}px)`;
+    if (!animate || from === null || from === x || motionOff() || !ind.animate) { indAnim?.cancel(); return; }
+    /* 动画还没走完时又点了别的：从点现在的位置接着走，不跳回起点 */
+    let cur = from;
+    if (indAnim && indAnim.playState === "running") {
+      const ir = ind.getBoundingClientRect();
+      cur = ir.left + ir.width / 2 - bar.getBoundingClientRect().left - DOT / 2;
+    }
+    indAnim?.cancel();
+    const stretch = 1 + Math.min(Math.abs(x - cur) / 4.5, 9);
+    indAnim = ind.animate(
+      [
+        { transform: `translateX(${cur}px) scaleX(1)`, easing: "cubic-bezier(.4,0,.2,1)" },
+        { transform: `translateX(${(cur + x) / 2}px) scaleX(${stretch})`, offset: 0.42, easing: "cubic-bezier(.2,.9,.25,1.2)" },
+        { transform: `translateX(${x}px) scaleX(1)` },
+      ],
+      { duration: 480 }
+    );
+  };
+  new MutationObserver(() => placeInd(true)).observe(bar, { subtree: true, attributes: true, attributeFilter: ["data-active"] });
+  window.addEventListener("resize", () => placeInd(false));
 
   /* ── THE BAR READS THE POINTER, THE ITEMS DO NOT ─────────
      Each item used to carry its own onMouseEnter, which fails
@@ -100,11 +158,20 @@ export function initNavDock({
   };
 
   const tip = labels ? makeTip(bar, items) : null;
+  /* 触屏上轻点一下就切页，提示条刚冒头就收了，看着是闪一下：手指要按住 170ms 以上才显示；鼠标悬停照旧立刻显示 */
+  let lastType = "mouse";
+  let tipTimer = 0;
+  const showTip = (i) => {
+    clearTimeout(tipTimer);
+    if (!tip) return;
+    if (i === null || lastType === "mouse") tip.show(i);
+    else tipTimer = setTimeout(() => tip.show(i), 170);
+  };
   const to = (i) => {
     if (i === hover) return;
     hover = i;
     paint();
-    tip?.show(i);
+    showTip(i);
   };
 
   /* 手指滑动时 pointermove 可能一帧来好几个，每个都重画是浪费；记下最新的 x，每帧只算一次 */
@@ -115,6 +182,7 @@ export function initNavDock({
        finger has to be down, or the bar would answer a scroll
        passing over it */
     if (e.pointerType !== "mouse" && !down) return;
+    lastType = e.pointerType;
     moveX = e.clientX;
     if (moveRaf) return;
     moveRaf = requestAnimationFrame(() => { moveRaf = 0; to(at(moveX)); });
@@ -133,6 +201,9 @@ export function initNavDock({
      click and take it from the item — breaking the mouse to
      fix the finger. */
   bar.addEventListener("pointerdown", (e) => {
+    /* 多指同时按时只认第一根，不然两根手指会把放大和选择搅在一起 */
+    if (!e.isPrimary) return;
+    lastType = e.pointerType;
     down = true;
     /* ── disarmed HERE, not by the click ────────────────
        `chose` used to be cleared by the click it was meant
@@ -153,10 +224,14 @@ export function initNavDock({
      picks: whichever item it came to rest over. A mouse is
      untouched by this — it still clicks the button. */
   bar.addEventListener("pointerup", (e) => {
+    if (!e.isPrimary) return;
     stopMove();
     if (down && e.pointerType !== "mouse") {
       chose = true;
-      choose(at(e.clientX));
+      /* 手指在 Dock 附近抬起才算选中；按住后拖到很远的地方再松手 = 取消，和 iOS 的 Dock 一样 */
+      const r = bar.getBoundingClientRect();
+      const near = e.clientX > r.left - 40 && e.clientX < r.right + 40 && e.clientY > r.top - 48 && e.clientY < r.bottom + 40;
+      if (near) choose(at(e.clientX));
     }
     down = false;
     if (e.pointerType !== "mouse") to(null);
@@ -178,6 +253,7 @@ export function initNavDock({
 
   paint();
   syncTabs();
+  placeInd(false);
 }
 
 /* ── ONE TIP THAT TRAVELS ─────────────────────────────────
