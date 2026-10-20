@@ -50,5 +50,6 @@ initSettings();
 initPullToRefresh();
 initAccount();
 
-els.refresh.addEventListener("click", () => load(true));
+/* 头部的「刷新」按钮已经由下拉刷新代替、页面上没有这个元素了：不能直接 .addEventListener，否则这里抛错，下面的 load() 永远不会执行（= 人机验证和清单都不加载） */
+els.refresh?.addEventListener("click", () => load(true));
 load();
