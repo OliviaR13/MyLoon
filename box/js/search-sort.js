@@ -1,8 +1,8 @@
 /* 搜索框、变形排序菜单与吸顶栏（#dock）控制 */
 
 import { CONFIG, FAV, SORT_KEY } from "./config.js";
-import { el, els, sortIcon, chevronIcon, setSwitch, lsSet } from "./dom.js";
-import { SORTS, SORT_OPTIONS, state, getSettings, setSettings } from "./state.js";
+import { el, els, sortIcon, chevronIcon, lsSet } from "./dom.js";
+import { SORTS, SORT_OPTIONS, state } from "./state.js";
 import { render, renderFilters, setResetFiltersHandler } from "./render.js";
 
 /* ---------- 搜索框（单关键词） ---------- */
@@ -55,9 +55,6 @@ export function syncSort() {
   sortUI.text.textContent = SORTS[key].short[dir];
   sortUI.btn.setAttribute("aria-label", `排序：${SORTS[key].label} ${SORTS[key].hint[dir]}`);
   sortUI.items.forEach((b) => b.setAttribute("aria-checked", String(b.dataset.key === key && b.dataset.dir === dir)));
-  const pinned = !!getSettings().pinFavs;
-  setSwitch(sortUI.pin, pinned, sortUI.pin.querySelector(".mini-switch"));
-  sortUI.btn.dataset.pin = String(pinned);
 }
 
 const sortIsOpen = () => sortUI.menu?.dataset.open === "true";
@@ -104,17 +101,11 @@ export function buildSort() {
     inner.append(b);
     return b;
   });
-  inner.append(el("div", "sort-sep"));
-  const pin = el("button", "sort-item sort-pin");
-  pin.type = "button";
-  pin.setAttribute("role", "menuitemcheckbox");
-  pin.append(el("span", "", "收藏置顶"), el("i", "mini-switch"));
-  inner.append(pin);
 
   [...inner.children].forEach((c, i) => c.style.setProperty("--i", i));
   inner.style.setProperty("--n", inner.children.length);
 
-  Object.assign(sortUI, { btn, menu, inner, pin });
+  Object.assign(sortUI, { btn, menu, inner });
   els.sort.replaceChildren(btn, menu);
   sizeSortMenu();
   syncSort();
@@ -186,19 +177,12 @@ export function initSearchAndSort() {
     }
     const item = e.target.closest(".sort-item");
     if (!item) return;
-    if (item === sortUI.pin) {
-      const nextPin = !getSettings().pinFavs;
-      setSettings({ pinFavs: nextPin });
-      document.dispatchEvent(new Event("settings:change"));
-      syncSort();
-    } else {
-      state.sort = { key: item.dataset.key, dir: item.dataset.dir };
-      lsSet(SORT_KEY, state.sort.key + ":" + state.sort.dir);
-      document.dispatchEvent(new Event("settings:change"));
-      syncSort();
-      setSortOpen(false);
-      if (e.detail === 0) sortUI.btn.focus();
-    }
+    state.sort = { key: item.dataset.key, dir: item.dataset.dir };
+    lsSet(SORT_KEY, state.sort.key + ":" + state.sort.dir);
+    document.dispatchEvent(new Event("settings:change"));
+    syncSort();
+    setSortOpen(false);
+    if (e.detail === 0) sortUI.btn.focus();
     if (state.plugins.length) render({ animate: true });
   });
 
@@ -208,7 +192,7 @@ export function initSearchAndSort() {
     if (e.key === "Escape") { setSortOpen(false); sortUI.btn.focus(); return; }
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
-      const list = [...sortUI.items, sortUI.pin];
+      const list = [...sortUI.items];
       const i = list.indexOf(document.activeElement);
       list[(i + (e.key === "ArrowDown" ? 1 : -1) + list.length) % list.length].focus();
     }

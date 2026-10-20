@@ -43,7 +43,6 @@ export const DEFAULTS = {
   showDesc: true,
   showVer: true,
   showCat: true,
-  pinFavs: false,
   compact: false,
   reduceMotion: false,
 };

@@ -12,7 +12,7 @@ import { syncSort } from "./search-sort.js";
 
 const GROUPS = {
   look: { keys: ["theme", "reduceMotion"], at: "myloon_box_look_at", cloud: "lookAt", label: "外观" },
-  cards: { keys: ["showDesc", "showVer", "showCat", "compact", "pinFavs"], sort: true, at: "myloon_box_cards_at", cloud: "cardsAt", label: "插件卡片设置" },
+  cards: { keys: ["showDesc", "showVer", "showCat", "compact"], sort: true, at: "myloon_box_cards_at", cloud: "cardsAt", label: "插件卡片设置" },
 };
 
 const api = (method, url, body) =>
