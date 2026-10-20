@@ -14,7 +14,7 @@
 
 import { CONFIG, FAV } from "./config.js";
 import { els, motionOff, afterPaint } from "./dom.js";
-import { state } from "./state.js";
+import { state, matches, searchTerms } from "./state.js";
 import { render, syncTabs } from "./render.js";
 
 const root = document.documentElement;
@@ -29,47 +29,53 @@ const fade = () => {
   els.list.animate([{ opacity: 0.55 }, { opacity: 1 }], { duration: 200, easing: "cubic-bezier(.2,.8,.2,1)" });
 };
 
-/* 切换时新内容从「来的方向」滑进来：Dock 从左到右是 主页 → 收藏 → 设置，往右切就从右边进，往左切就从左边进。
-   只做进场、不做出场（出场要等一段时间才能换内容，会拖慢切换，也是以前闪的原因之一）；
-   起点不透明度 .4 而不是 0，所以从来不会有一瞬间是空白。设置页自己有逐行入场，这里只让整块位移，不再叠一层淡入 */
+/* ══ 切换动效 ══════════════════════════════════════════════
+   之前闪，是因为「旧内容 100% 不透明地立刻换掉，新内容却从 40% 开始淡入」——中间那一下掉了亮度。
+   现在是连续的：旧内容先淡出（110ms），在完全看不见的时候换内容、搬滚动位置，新内容再从同样的 0 淡入，亮度始终是一条连续的线。
+
+   主页 ⇄ 收藏是例外（它们是同一个列表，只是筛选不同）：整块淡出淡入会把「没变的卡片」也一起闪一下，
+   而且开了「收藏置顶」时，收藏排在最上面，主页和收藏的前几张本来就一样，整块淡入淡出看上去就是「没变化」。
+   所以这里只让「要消失的卡片」淡出，留下的卡片原地不动，其余的滑到新位置、新出现的淡入（render 的 flip）。
+   主页→收藏：别的卡片消失，收藏留在原地；收藏→主页：别的卡片从下面长出来。 */
 const ORDER = { home: 0, fav: 1, settings: 2 };
+const settingsEl = () => document.getElementById("settings");
+const metaEl = () => document.querySelector(".meta");
+const outNodes = (from, to) => (from === "settings" ? [settingsEl()] : [metaEl(), els.list, ...(to === "settings" ? [els.dock] : [])]);
+const inNodes = (from, to) => (to === "settings" ? [settingsEl()] : [metaEl(), els.list, ...(from === "settings" ? [els.dock] : [])]);
+
+/* 新内容从「来的方向」滑进来并淡入：Dock 从左到右是 主页 → 收藏 → 设置，往右切就从右边进 */
 function enter(from, to) {
   if (motionOff()) return;
-  const x = (ORDER[to] > ORDER[from] ? 1 : -1) * 26;
-  const move = (node, fadeIn) =>
-    node?.animate?.(
-      fadeIn ? [{ opacity: 0.4, transform: `translateX(${x}px)` }, { opacity: 1, transform: "none" }] : [{ transform: `translateX(${x}px)` }, { transform: "none" }],
-      { duration: 380, easing: "cubic-bezier(.2,.85,.25,1)" }
-    );
-  if (to === "settings") {
-    move(document.getElementById("settings"), false);
-  } else {
-    move(document.querySelector(".meta"), true);
-    move(els.list, true);
-    if (from === "settings") move(els.dock, false); // 搜索 / 分类栏是从设置页回来时才重新出现的
-  }
+  const x = (ORDER[to] > ORDER[from] ? 1 : -1) * 22;
+  inNodes(from, to).forEach((n) =>
+    n?.animate?.([{ opacity: 0, transform: `translateX(${x}px)` }, { opacity: 1, transform: "none" }], { duration: 320, easing: "cubic-bezier(.2,.85,.25,1)" })
+  );
 }
 
 const syncChips = () =>
   els.filters.querySelectorAll(".chip-filter").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.name === state.category)));
 
-/* 点 Dock 时先让 Dock 自己立刻有反应（选中态是同步改的），把换内容（重画列表、搬滚动位置）推迟到 Dock 画完之后：
-   手机上重画几十张卡片要几十毫秒，同步做的话 Dock 的反馈会被一起拖慢。
-   连点时先把还没做完的那一次立刻做完，保证滚动位置的记录不会错位 */
-let job = null;
+/* 离场动画放完才换内容；连点时先把还没做完的那一次立刻做完（并取消它的离场动画），保证滚动位置的记录不会错位。
+   点 Dock 时 Dock 自己的选中态是同步改的，不会被这里拖慢 */
+let pending = null;
 const flush = () => {
-  const j = job;
-  job = null;
-  if (j) j();
+  const p = pending;
+  pending = null;
+  if (!p) return;
+  p.anims.forEach((a) => a.cancel());
+  p.swap();
 };
-const defer = (fn) => {
-  job = fn;
-  afterPaint(() => {
-    if (job === fn) {
-      job = null;
-      fn();
-    }
-  });
+const queue = (swap, anims = []) => {
+  const p = { swap, anims };
+  pending = p;
+  const go = () => { if (pending === p) flush(); };
+  if (anims.length) anims[0].finished.then(go, () => {}); // 被 flush 取消时会 reject，忽略
+  else afterPaint(go);
+};
+
+const onScreen = (n) => {
+  const r = n.getBoundingClientRect();
+  return r.bottom > 0 && r.top < innerHeight;
 };
 
 export function showView(view) {
@@ -81,7 +87,7 @@ export function showView(view) {
     if (view === "home" && state.category !== CONFIG.all) {
       state.category = CONFIG.all;
       syncTabs();
-      defer(() => {
+      queue(() => {
         syncChips();
         jump(0);
         render();
@@ -100,19 +106,43 @@ export function showView(view) {
   state.page = toSettings ? "settings" : "list";
   syncTabs(); // Dock 的选中态马上变
 
-  defer(() => {
+  const target = toSettings ? 0 : memo[view] || 0;
+  /* 主页 ⇄ 收藏、而且滚动位置不用变（通常在顶部）：只动「要消失的卡片」 */
+  const listToList = from !== "settings" && !toSettings;
+  const filterOnly = listToList && !motionOff() && Math.abs(scrollY - target) < 2 && els.list.animate;
+
+  const swap = () => {
     root.dataset.page = state.page;
     if (!toSettings) {
       syncChips();
       /* 画不画：换了分类一定画；从设置回来，只有设置里改过显示项（列表被标过期）才画。
          没改过就沿用原来的列表，切回来不用重画几十张卡片 */
       const redraw = from !== "settings" || state.category !== prevCategory || els.list.dataset.stale === "1";
-      if (redraw) render();
+      if (redraw) render({ flip: !!filterOnly });
     }
-    jump(toSettings ? 0 : memo[view] || 0);
-    enter(from, view);
+    if (!filterOnly) {
+      jump(target);
+      enter(from, view);
+    }
     document.dispatchEvent(new CustomEvent("mlb:page", { detail: state.page }));
-  });
+  };
+
+  let anims = [];
+  if (!motionOff()) {
+    if (filterOnly) {
+      const terms = searchTerms();
+      const keep = new Set(state.plugins.filter((p) => matches(p, terms)).map((p) => p.id));
+      anims = [...els.list.querySelectorAll(".card")]
+        .filter((c) => !keep.has(c.dataset.id) && onScreen(c))
+        .map((c) => c.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 150, easing: "ease-in", fill: "forwards" }));
+    } else {
+      const dir = ORDER[view] > ORDER[from] ? 1 : -1;
+      anims = outNodes(from, view)
+        .filter((n) => n?.animate)
+        .map((n) => n.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: `translateX(${-dir * 14}px)` }], { duration: 110, easing: "ease-in", fill: "forwards" }));
+    }
+  }
+  queue(swap, anims);
 }
 
 root.dataset.page = state.page;
