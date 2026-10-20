@@ -70,7 +70,7 @@
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;-webkit-tap-highlight-color:transparent}
 /* 顶部 96px 渐变回底色：避免状态栏区域（纯底色）和光晕之间出现一条硬边 */
-body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+body{overflow-x:clip;margin:0;background:var(--bg);color:var(--text);font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
 /* 背景光晕：固定在视口里，不随列表滚动；顶部和底部各 18% 渐变回底色，和状态栏、底部工具栏衔接 */
 body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
   background:
