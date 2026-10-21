@@ -9,18 +9,6 @@
   font-weight:100 900;
   font-display:swap;
 }
-/* 中文字体：霞鹜新晰黑（LXGW Neo XiHei），全站中文正文。字体栈里 Geist Sans 在前、它在后：
-   西文/数字仍用 Geist，中文因为 Geist 没有字形，自动回落到这个字体。
-   只有 Regular 一个字重，粗体由浏览器合成（faux bold）。文件较大（约 3 MB），不做 preload，靠
-   font-display:swap 先用系统字体显示，加载完再替换；box/_headers 已给 /fonts/* 设了长缓存。
-   许可：SIL OFL 1.1，版权与许可信息保留在字体文件内 */
-@font-face{
-  font-family:"LXGW Neo XiHei";
-  src:url("/fonts/LXGWNeoXiHei.woff2") format("woff2");
-  font-style:normal;
-  font-weight:400;
-  font-display:swap;
-}
 /* OliviaR13's Loon Box
    设计取向：克制的工具型列表（低变化、低密度动效、中等信息密度）。
    中性底色 + 单一强调色；行与行之间用细线分隔，不做一张张独立卡片。 */
@@ -35,7 +23,7 @@
   --spring:cubic-bezier(.34,1.4,.64,1);--ease:cubic-bezier(.2,.8,.2,1);
   /* z-index 层级 */
   --z-grain:1;--z-toast:10;
-  --font:"Geist Sans","LXGW Neo XiHei",-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Noto Sans SC","Segoe UI",sans-serif;
+  --font:"Geist Sans",-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Noto Sans SC","Segoe UI",sans-serif;
   --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
 }
 /* 深色：跟随系统（除非用户强制浅色），或用户强制深色 */
