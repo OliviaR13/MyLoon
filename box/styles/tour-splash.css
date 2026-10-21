@@ -90,8 +90,8 @@
 html:not([data-splash="on"]) body::after{animation:intro-glow 1.3s ease-out backwards}
 html:not([data-splash="on"]) .head .logo{animation:intro-pop .7s cubic-bezier(.34,1.3,.64,1) backwards}
 html:not([data-splash="on"]) .head-text{animation:intro-up .6s var(--ease) .08s backwards}
-html:not([data-splash="on"]) .head-view{animation:intro-up .6s var(--ease) .16s backwards}
-html:not([data-splash="on"]) .mdock{animation:intro-up .6s var(--ease) .4s backwards}
+html:not([data-splash="on"]) .head .btn{animation:intro-up .6s var(--ease) .16s backwards}
+html:not([data-splash="on"]) .tabs{animation:intro-up .6s var(--ease) .22s backwards}
 html:not([data-splash="on"]) .toolbar{animation:intro-up .6s var(--ease) .28s backwards}
 html:not([data-splash="on"]) .filters{animation:intro-up .6s var(--ease) .34s backwards}
 html:not([data-splash="on"]) .meta{animation:intro-glow .5s ease-out .4s backwards}
@@ -129,4 +129,4 @@ html[data-reduce-motion] ::backdrop{transition-duration:.01ms !important;transit
 html[data-reduce-motion] .row-fuse{animation:none}
 
 /* 引导里的两个说明块：玻璃材质（变量在 base.css；写在这里是因为它们的底色在本文件前面已经定了，要后写才能覆盖） */
-.tour-legend,.tour-compare-col{background:var(--lg-sheen),color-mix(in srgb,var(--card) 62%,transparent);box-shadow:var(--lg-rim)}
+.tour-legend,.tour-compare-col{background:color-mix(in srgb,var(--card) 62%,transparent);box-shadow:inset 0 0 0 .5px var(--ap-line)}

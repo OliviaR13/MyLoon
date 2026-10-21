@@ -81,7 +81,6 @@ export const state = {
   plugins: [],
   generatedAt: "",
   category: CONFIG.all,
-  page: "list", // 当前页面：list（主页 / 收藏共用的插件列表）或 settings；见 js/views.js
   query: "",
   sort: readSort(),
   favorites: readFavs(),
@@ -164,13 +163,15 @@ export function matches(p, terms = searchTerms()) {
   return termsHit(terms, hay);
 }
 
-/* 排序优先级：1. 名称命中优先 → 2. 所选排序方式与方向（同值按名称兜底） */
+/* 排序优先级：1. 名称命中优先 → 2. 收藏置顶 → 3. 所选排序方式与方向（同值按名称兜底） */
 export function sortPlugins(list, terms = searchTerms()) {
   const { key, dir } = state.sort;
   const sign = dir === "asc" ? 1 : -1;
+  const pin = !!getSettings().pinFavs;
   const nameHit = (p) => (terms.length && termsHit(terms, p.name.toLowerCase()) ? 0 : 1);
+  const pinned = (p) => (pin && state.favorites.has(p.id) ? 0 : 1);
   return [...list].sort((a, b) => {
-    const tier = nameHit(a) - nameHit(b);
+    const tier = nameHit(a) - nameHit(b) || pinned(a) - pinned(b);
     if (tier) return tier;
     if (key === "date") {
       const missA = Number.isNaN(dateValue(a)), missB = Number.isNaN(dateValue(b));

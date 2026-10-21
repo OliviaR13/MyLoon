@@ -6,8 +6,7 @@
    4. toast-pull.css     灵动岛提示条（Toast）与触屏下拉刷新动效
    5. sheet-settings.css 抽屉容器（顶底模糊渐隐与出血）、设置面板与双列全屏布局
    6. detail.css         插件详情全屏抽屉与进出场动效
-   7. tour-splash.css    新手引导向导、页面逐层开场动画、启动页与减少动态效果规则
-   8. liquid-glass.css   液态玻璃：搜索框、排序按钮与菜单、页头按钮 */
+   7. tour-splash.css    新手引导向导、页面逐层开场动画、启动页与减少动态效果规则 */
 
 @import url("./styles/base.css");
 @import url("./styles/toolbar.css");
@@ -16,4 +15,3 @@
 @import url("./styles/sheet-settings.css");
 @import url("./styles/detail.css");
 @import url("./styles/tour-splash.css");
-@import url("./styles/liquid-glass.css");

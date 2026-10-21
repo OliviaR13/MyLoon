@@ -1,9 +1,9 @@
 /* 搜索框、变形排序菜单与吸顶栏（#dock）控制 */
 
 import { CONFIG, FAV, SORT_KEY } from "./config.js";
-import { el, els, sortIcon, chevronIcon, lsSet } from "./dom.js";
-import { SORTS, SORT_OPTIONS, state } from "./state.js";
-import { render, renderFilters, setResetFiltersHandler } from "./render.js";
+import { el, els, sortIcon, chevronIcon, setSwitch, lsSet } from "./dom.js";
+import { SORTS, SORT_OPTIONS, state, getSettings, setSettings } from "./state.js";
+import { render, renderFilters, syncTabs, setResetFiltersHandler } from "./render.js";
 
 /* ---------- 搜索框（单关键词） ---------- */
 
@@ -55,6 +55,9 @@ export function syncSort() {
   sortUI.text.textContent = SORTS[key].short[dir];
   sortUI.btn.setAttribute("aria-label", `排序：${SORTS[key].label} ${SORTS[key].hint[dir]}`);
   sortUI.items.forEach((b) => b.setAttribute("aria-checked", String(b.dataset.key === key && b.dataset.dir === dir)));
+  const pinned = !!getSettings().pinFavs;
+  setSwitch(sortUI.pin, pinned, sortUI.pin.querySelector(".mini-switch"));
+  sortUI.btn.dataset.pin = String(pinned);
 }
 
 const sortIsOpen = () => sortUI.menu?.dataset.open === "true";
@@ -73,7 +76,7 @@ export function setSortOpen(open, viaKeyboard = false) {
 }
 
 export function buildSort() {
-  const btn = el("button", "sort-btn");
+  const btn = el("button", "sort-btn ap");
   btn.type = "button";
   btn.setAttribute("aria-haspopup", "menu");
   btn.setAttribute("aria-expanded", "false");
@@ -101,11 +104,17 @@ export function buildSort() {
     inner.append(b);
     return b;
   });
+  inner.append(el("div", "sort-sep"));
+  const pin = el("button", "sort-item sort-pin");
+  pin.type = "button";
+  pin.setAttribute("role", "menuitemcheckbox");
+  pin.append(el("span", "", "收藏置顶"), el("i", "mini-switch"));
+  inner.append(pin);
 
   [...inner.children].forEach((c, i) => c.style.setProperty("--i", i));
   inner.style.setProperty("--n", inner.children.length);
 
-  Object.assign(sortUI, { btn, menu, inner });
+  Object.assign(sortUI, { btn, menu, inner, pin });
   els.sort.replaceChildren(btn, menu);
   sizeSortMenu();
   syncSort();
@@ -168,6 +177,17 @@ export function initSearchAndSort() {
     els.search.focus();
   });
 
+  els.tabs.addEventListener("click", (e) => {
+    const b = e.target.closest(".tab");
+    if (!b) return;
+    state.category = b.dataset.view === "fav" ? FAV : CONFIG.all;
+    syncTabs();
+    els.filters.querySelectorAll(".chip-filter").forEach((x) =>
+      x.setAttribute("aria-pressed", String(x.dataset.name === state.category))
+    );
+    render({ animate: true });
+  });
+
   sortUI.btn.addEventListener("click", (e) => setSortOpen(!sortIsOpen(), e.detail === 0));
   sortUI.menu.addEventListener("click", (e) => {
     if (e.target.closest(".sort-title")) {
@@ -177,12 +197,19 @@ export function initSearchAndSort() {
     }
     const item = e.target.closest(".sort-item");
     if (!item) return;
-    state.sort = { key: item.dataset.key, dir: item.dataset.dir };
-    lsSet(SORT_KEY, state.sort.key + ":" + state.sort.dir);
-    document.dispatchEvent(new Event("settings:change"));
-    syncSort();
-    setSortOpen(false);
-    if (e.detail === 0) sortUI.btn.focus();
+    if (item === sortUI.pin) {
+      const nextPin = !getSettings().pinFavs;
+      setSettings({ pinFavs: nextPin });
+      document.dispatchEvent(new Event("settings:change"));
+      syncSort();
+    } else {
+      state.sort = { key: item.dataset.key, dir: item.dataset.dir };
+      lsSet(SORT_KEY, state.sort.key + ":" + state.sort.dir);
+      document.dispatchEvent(new Event("settings:change"));
+      syncSort();
+      setSortOpen(false);
+      if (e.detail === 0) sortUI.btn.focus();
+    }
     if (state.plugins.length) render({ animate: true });
   });
 
@@ -192,7 +219,7 @@ export function initSearchAndSort() {
     if (e.key === "Escape") { setSortOpen(false); sortUI.btn.focus(); return; }
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
-      const list = [...sortUI.items];
+      const list = [...sortUI.items, sortUI.pin];
       const i = list.indexOf(document.activeElement);
       list[(i + (e.key === "ArrowDown" ? 1 : -1) + list.length) % list.length].focus();
     }

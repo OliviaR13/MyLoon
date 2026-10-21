@@ -5,7 +5,6 @@ import { els } from "./dom.js";
 import { state, normalize, loggedHint } from "./state.js";
 import { toast } from "./toast.js";
 import { notice, render, renderFilters, renderLoading, setPhase, passSettled, setVerifying } from "./render.js";
-import { showView } from "./views.js";
 import { tour, splash } from "./tour-splash.js";
 
 /* ---------- Turnstile 人机验证 ---------- */
@@ -85,8 +84,8 @@ async function getToken() {
       },
       "before-interactive-callback": () => {
         splash.hide(true);
-        /* 验证需要点一下时，人得在主页看得到那个复选框：正在设置页的话先回主页 */
-        if (state.page === "settings") showView("home");
+        /* 验证需要点一下时，人得看得到复选框：设置面板开着的话先关掉 */
+        document.getElementById("settings")?.open && document.getElementById("settings").close();
         armTimer(CONFIG.turnstile.interactiveTimeout, reject);
         setInteractive(true);
         setPhase("请点击下方的复选框完成验证");
@@ -134,6 +133,7 @@ const postJson = (url, payload) =>
 
 export async function load(announce = false) {
   els.list.setAttribute("aria-busy", "true");
+  els.refresh.disabled = true;
   els.count.textContent = "加载中";
   els.updated.textContent = "";
   const needVerify = CONFIG.turnstile.siteKey && !recentlyVerified() && !loggedHint();
@@ -201,6 +201,7 @@ export async function load(announce = false) {
     setVerifying(false);
     clearTimeout(slowTimer);
     removeTurnstile();
+    els.refresh.disabled = false;
     els.list.setAttribute("aria-busy", "false");
     splash.hide();
   }

@@ -4,7 +4,6 @@
 import { sourceUrl } from "./config.js";
 import { $, el, svgIcon, starIcon, confirmable } from "./dom.js";
 import { state, splitDescription } from "./state.js";
-import { initLiquidGlass } from "./liquid-glass.js";
 
 const detailEls = {
   dlg: $("#detail"),
@@ -212,13 +211,8 @@ export function initDetail({ onToggleFav, onOpenInLoon }) {
     )
   );
 
-  // 液态玻璃：浮在滚动内容上的 4 个控件（返回、收藏、查看源码、安装）。
-  // 折射只在鼠标设备上开（和 Dock 一致，触屏省掉位移图的重算），触屏保留模糊 + 光影
-  const finePointer = matchMedia("(hover:hover) and (pointer:fine)").matches;
-  [detailEls.close, detailStar, detailEls.source, detailEls.install].forEach((b) => {
-    if (finePointer) initLiquidGlass(b);
-    else b.classList.add("lg", "lg-flat");
-  });
+  // 浮在滚动内容上的 4 个控件（返回、收藏、查看源码、安装）：Apple 官网式磨砂材质，样式见 detail.css 的 .lg
+  [detailEls.close, detailStar, detailEls.source, detailEls.install].forEach((b) => b.classList.add("ap"));
 
   if (window.ResizeObserver) {
     new ResizeObserver(() => detailEls.dlg.style.setProperty("--sbw", detailEls.body.offsetWidth - detailEls.body.clientWidth + "px")).observe(detailEls.body);

@@ -36,29 +36,23 @@
 :root[data-theme="light"]{color-scheme:light}
 :root[data-theme="dark"]{color-scheme:dark}
 
-/* 液态玻璃的材质（光学规则来自 Bencho 的 Glass bubble，MIT；折射部分见 js/liquid-glass.js）。
-   --lg-sheen：从左上到右下的一层白色高光；--lg-rim：边缘光 = 朝左上的亮带 + 对面较弱的一道 + 极淡的一圈边 + 红蓝各偏 1px 的色散 + 底部的一点暗。
-   所有玻璃控件共用这两个变量，深色主题下高光整体压低。 */
+/* Apple 官网式磨砂材质（apple.com 顶栏 / iOS 导航栏的做法）：底色约 80% 不透明 + backdrop-filter: saturate(180%) blur(20px) + 一条发丝线。
+   取自 GitHub 上的 Konsta UI（konstaui/konsta，MIT）iOS 主题的 translucent 规则，纯 CSS，没有脚本、没有折射。
+   --ap-bg 带磨砂的控件底色；--ap-filter 模糊 + 饱和度；--ap-line 发丝线（深色主题改成白色的）。 */
 :root{
-  --lg-hi:rgb(255 255 255 / .9);--lg-hi2:rgb(255 255 255 / .42);--lg-edge:rgb(255 255 255 / .22);
-  --lg-sheen:linear-gradient(135deg,rgb(255 255 255 / .5),rgb(255 255 255 / .1) 46%,rgb(255 255 255 / .26));
-  --lg-sheen-p:linear-gradient(135deg,rgb(255 255 255 / .3),rgb(255 255 255 / .04) 50%,rgb(255 255 255 / .14));
-  --lg-rim:inset 1.5px 1.5px 1px -.5px var(--lg-hi),inset -1px -1.5px 1px -.5px var(--lg-hi2),inset 0 0 0 1px var(--lg-edge),
-    inset 1px 0 0 rgb(255 90 90 / .12),inset -1px 0 0 rgb(90 130 255 / .14),inset 0 -6px 10px -6px rgb(var(--shadow) / .16);
+  --ap-bg:color-mix(in srgb,var(--card) 80%,transparent);
+  --ap-filter:saturate(180%) blur(20px);
+  --ap-line:rgb(0 0 0 / .1);
 }
 @media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){--lg-hi:rgb(255 255 255 / .4);--lg-hi2:rgb(255 255 255 / .16);--lg-edge:rgb(255 255 255 / .08);
-    --lg-sheen:linear-gradient(135deg,rgb(255 255 255 / .1),rgb(255 255 255 / .02) 46%,rgb(255 255 255 / .06));
-    --lg-sheen-p:linear-gradient(135deg,rgb(255 255 255 / .14),rgb(255 255 255 / .02) 50%,rgb(255 255 255 / .06))}
+  :root:not([data-theme="light"]){--ap-line:rgb(255 255 255 / .14)}
 }
-:root[data-theme="dark"]{--lg-hi:rgb(255 255 255 / .4);--lg-hi2:rgb(255 255 255 / .16);--lg-edge:rgb(255 255 255 / .08);
-  --lg-sheen:linear-gradient(135deg,rgb(255 255 255 / .1),rgb(255 255 255 / .02) 46%,rgb(255 255 255 / .06));
-  --lg-sheen-p:linear-gradient(135deg,rgb(255 255 255 / .14),rgb(255 255 255 / .02) 50%,rgb(255 255 255 / .06))}
+:root[data-theme="dark"]{--ap-line:rgb(255 255 255 / .14)}
 
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;-webkit-tap-highlight-color:transparent}
 /* 顶部 96px 渐变回底色：避免状态栏区域（纯底色）和光晕之间出现一条硬边 */
-body{overflow-x:clip;margin:0;background:var(--bg);color:var(--text);font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
 /* 背景光晕：固定在视口里，不随列表滚动；顶部和底部各 18% 渐变回底色，和状态栏、底部工具栏衔接 */
 body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
   background:
@@ -67,12 +61,12 @@ body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
     radial-gradient(65% 40% at 85% 96%,color-mix(in srgb,var(--glow) 55%,transparent),transparent 70%)}
 body::before{content:"";position:fixed;inset:0;z-index:var(--z-grain);pointer-events:none;opacity:.05;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
-.shell{position:relative;z-index:2;max-width:720px;margin:0 auto;padding:calc(24px + env(safe-area-inset-top)) 16px calc(112px + env(safe-area-inset-bottom))}
+.shell{position:relative;z-index:2;max-width:720px;margin:0 auto;padding:calc(24px + env(safe-area-inset-top)) 16px calc(36px + env(safe-area-inset-bottom))}
 h1,h2,p{margin:0}
 a{color:var(--accent-text)}
 :where(.btn,.chip-filter,.more,.sort-btn,input):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* 触屏：去掉 iOS 点按时出现的灰色矩形，改用自己的按下反馈 */
-button,a,.mdock-item,.tile,.row-btn,.chip-filter,.star{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+button,a,.tab,.tile,.row-btn,.chip-filter,.star{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 
 /* 头部 */
 .head{display:flex;align-items:center;gap:12px;margin-bottom:20px}
@@ -82,10 +76,8 @@ button,a,.mdock-item,.tile,.row-btn,.chip-filter,.star{-webkit-touch-callout:non
 .h1-eyebrow{display:block;font-size:13px;font-weight:600;letter-spacing:0;color:var(--muted);margin-bottom:3px}
 .head p{color:var(--muted);font-size:13px;font-weight:500;margin-top:5px;line-break:strict;text-wrap:balance}
 @supports (word-break:auto-phrase){.head p{word-break:auto-phrase}}
-/* 当前页面的名字，放在头部右边（原来「刷新」按钮的位置）；换页时淡入一下 */
-.head-view{flex:none;margin:0;padding-left:8px;font-size:26px;line-height:1;font-weight:700;letter-spacing:-.02em;text-align:right}
-.head-view.swap{animation:view-title .3s var(--ease)}
-@keyframes view-title{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+#refreshBtn{height:40px;padding:0 14px;flex:none} /* 与右边的设置按钮等高 */
+#refreshBtn:disabled{opacity:.6}
 
 /* 按钮 */
 .btn{font:inherit;font-size:14px;font-weight:600;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:var(--r-md);
@@ -93,13 +85,12 @@ button,a,.mdock-item,.tile,.row-btn,.chip-filter,.star{-webkit-touch-callout:non
   transition:background-color .15s,border-color .15s,filter .15s,transform .35s var(--spring)}
 .btn:active:not(:disabled){transform:scale(.97)}
 .btn:disabled{opacity:.5;cursor:default}
-.btn-primary{background:var(--lg-sheen-p),var(--accent);border-color:transparent;color:var(--accent-ink);
-  box-shadow:var(--lg-rim),0 6px 14px color-mix(in srgb,var(--accent) 26%,transparent)}
+.btn-primary{background:var(--accent);border-color:transparent;color:var(--accent-ink);
+  box-shadow:0 6px 14px color-mix(in srgb,var(--accent) 26%,transparent)}
 .btn-ghost{background:transparent}
 /* 页头的「刷新」「设置」：玻璃（只有材质，没有 backdrop 折射——它们下面是页面底色，没有可折射的内容） */
-.head .btn{background:var(--lg-sheen),color-mix(in srgb,var(--card) 50%,transparent);border-color:transparent;
-  box-shadow:var(--lg-rim),0 6px 16px rgb(var(--shadow) / .10),0 1px 2px rgb(var(--shadow) / .06)}
-@media (hover:hover){.head .btn-ghost:hover:not(:disabled){background:var(--lg-sheen),color-mix(in srgb,var(--card) 72%,transparent)}}
+.head .btn{background:var(--ap-bg);border-color:var(--ap-line);-webkit-backdrop-filter:var(--ap-filter);backdrop-filter:var(--ap-filter)}
+@media (hover:hover){.head .btn-ghost:hover:not(:disabled){background:color-mix(in srgb,var(--card) 72%,transparent)}}
 .btn-icon{display:grid;place-items:center;width:40px;height:40px;padding:0;flex:none}
 
 /* 按钮自己当确认（借自 Bencho Notify）：两段文字叠在同一格，按钮大小不变；确认态时旧文字向上滑走、新文字从下面滑进来，按钮填色 */

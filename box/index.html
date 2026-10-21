@@ -22,14 +22,12 @@
   <link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="./styles/base.css">
   <link rel="stylesheet" href="./styles/toolbar.css">
-  <link rel="stylesheet" href="./styles/nav-dock.css">
   <link rel="stylesheet" href="./styles/cards.css">
   <link rel="stylesheet" href="./styles/toast-pull.css">
   <link rel="stylesheet" href="./styles/sheet-settings.css">
   <link rel="stylesheet" href="./styles/detail.css">
   <link rel="stylesheet" href="./styles/tour-splash.css">
   <!-- 不需要人机验证：把 box/js/config.js 里 CONFIG.turnstile.siteKey 设为空字符串，并删除下面这行 -->
-  <!-- 提前和 Cloudflare 建好连接（DNS + TLS），验证脚本和挑战请求少等一两个来回；手机网络上能省下可感知的时间 -->
   <link rel="preconnect" href="https://challenges.cloudflare.com" crossorigin>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 </head>
@@ -51,17 +49,23 @@
         <h1><span class="h1-eyebrow">OliviaR13's</span> Loon Box</h1>
         <p>OliviaR13's Loon Library</p>
       </div>
-      <!-- 当前页面的名字（主页 / 收藏 / 设置），由 js/render.js 的 syncTabs 随底部 Dock 更新。原来这个位置是「刷新」按钮，刷新已经由下拉手势代替 -->
-      <h2 class="head-view" id="viewTitle" aria-live="polite">主页</h2>
+      <button class="btn btn-ghost" id="refreshBtn" type="button" disabled aria-label="刷新清单">刷新</button>
+      <button class="btn btn-ghost btn-icon" id="settingsBtn" type="button" aria-label="设置" aria-haspopup="dialog">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg>
+      </button>
     </header>
 
-    <!-- 吸顶栏：搜索 / 排序、分类筛选一起固定在屏幕顶部（原来的页签挪到了底部的 #navDock），见 styles/toolbar.css 和 js/search-sort.js -->
+    <!-- 吸顶栏：页签、搜索 / 排序、分类筛选一起固定在屏幕顶部，见 styles/toolbar.css 和 js/search-sort.js -->
     <div class="dock" id="dock">
     <!-- 吸顶栏的渐进模糊：8 层叠起来的毛玻璃，每层的蒙版不同，越往下越少、越轻 -->
     <div class="dock-blur" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="tabs" id="tabs" role="group" aria-label="切换视图">
+      <button class="tab" type="button" data-view="all" aria-pressed="true">全部插件</button>
+      <button class="tab" type="button" data-view="fav" aria-pressed="false">我的收藏<small id="favCount">0</small></button>
+    </div>
 
     <div class="toolbar">
-      <div class="search" id="searchBox" role="search">
+      <div class="search ap" id="searchBox" role="search">
         <svg class="search-lens" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>
         <div class="search-field" id="searchField">
           <input id="searchInput" type="text" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="搜索插件" aria-label="搜索插件">
@@ -82,15 +86,25 @@
         <a href="https://github.com/OliviaR13/MyLoon/tree/main/plugin">GitHub 的 plugin 目录</a>复制 raw 链接到 Loon。</p>
     </noscript>
 
-    <!-- 设置页：和「主页」「收藏」并列的页面，不是弹层。点底部 Dock 的「设置」切过来，Dock 一直在。
-         显示 / 隐藏由 <html data-page> 控制（styles/nav-dock.css），切换逻辑见 js/views.js，内容逻辑见 js/settings.js -->
-    <section class="spage" id="settings" aria-labelledby="settingsTitle">
-      <h2 class="spage-title sr-only" id="settingsTitle" tabindex="-1">设置</h2>
+    <footer class="foot">OliviaR13's Loon Box · <a href="https://github.com/OliviaR13/MyLoon">GitHub</a> · <a href="https://github.com/OliviaR13/MyLoon/blob/main/LICENSE">版权与许可</a></footer>
+  </main>
+
+  <dialog class="sheet" id="settings" aria-labelledby="settingsTitle">
+    <div class="sheet-head">
+      <div class="sheet-nav">
+        <button class="btn btn-ghost btn-icon" id="settingsClose" type="button" aria-label="返回">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+        </button>
+        <button class="btn btn-ghost btn-icon" id="settingsFull" type="button" aria-label="全屏显示" aria-pressed="false">
+          <svg class="ico-expand" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg>
+          <svg class="ico-shrink" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10h-6V4M4 14h6v6M14 10l7-7M3 21l7-7"/></svg>
+        </button>
+      </div>
+      <h2 id="settingsTitle" tabindex="-1" autofocus>设置</h2>
+    </div>
+    <div class="sheet-body">
       <div class="sheet-cols">
-      <!-- 账号与同步：登录前只有登录行；登录后同一张卡片里多出同步行（由 js/account.js 控制显示）。
-           同步的范围：收藏（始终）、外观（主题、减少动画）、插件卡片（显示项、紧凑、排序）。
-           只存本机、不上传的项目都带「仅本机」小标：启动页、全屏布局、设置页是否全屏 -->
-      <h3 class="group-title">账号与同步</h3>
+      <h3 class="group-title">账号</h3>
       <div class="group">
         <div class="row" id="loginRow">
           <span class="row-text"><span>GitHub 账号</span><span class="sub" id="loginSub">登录后，收藏和设置可以在多台设备间同步</span></span>
@@ -104,24 +118,38 @@
             <button class="btn btn-ghost" id="logoutBtn" type="button">退出登录</button>
           </span>
         </div>
-        <div class="row" id="syncRow" hidden>
-          <span class="row-text"><span>自动同步</span><span class="sub" id="syncState">-</span></span>
-          <button class="switch" id="syncMasterSwitch" type="button" role="switch" aria-label="自动同步总开关"></button>
-        </div>
-        <div class="row" id="syncLookRow" hidden>
-          <span class="row-text"><span>同步外观</span><span class="sub">主题、减少动画</span></span>
-          <button class="switch" id="syncLookSwitch" type="button" role="switch" aria-label="同步外观"></button>
-        </div>
-        <div class="row" id="syncCardsRow" hidden>
-          <span class="row-text"><span>同步插件卡片</span><span class="sub">显示项、紧凑模式、排序</span></span>
-          <button class="switch" id="syncCardsSwitch" type="button" role="switch" aria-label="同步插件卡片设置"></button>
-        </div>
-        <div class="row" id="syncNowRow" hidden>
-          <span class="row-text"><span>立即同步</span><span class="sub">合并云端与这台设备的最新改动</span></span>
-          <button class="btn btn-ghost" id="syncNowBtn" type="button">同步</button>
-        </div>
       </div>
-      <p class="group-foot" id="syncFoot" hidden></p>
+
+      <div id="syncSection" hidden>
+        <h3 class="group-title">云端同步</h3>
+        <div class="group">
+          <div class="row" id="syncRow">
+            <span class="row-text"><span>自动同步</span><span class="sub" id="syncState">-</span></span>
+            <button class="switch" id="syncMasterSwitch" type="button" role="switch" aria-label="自动同步总开关"></button>
+          </div>
+          <div class="row" id="syncFavsRow">
+            <span class="row-text"><span>收藏</span><span class="sub">每个插件单独合并，以最近一次操作为准</span></span>
+            <span class="muted" id="syncFavsState">始终同步</span>
+          </div>
+          <div class="row" id="syncLookRow">
+            <span class="row-text"><span>外观</span><span class="sub">主题、减少动画</span></span>
+            <button class="switch" id="syncLookSwitch" type="button" role="switch" aria-label="同步外观"></button>
+          </div>
+          <div class="row" id="syncCardsRow">
+            <span class="row-text"><span>插件卡片</span><span class="sub">显示项、紧凑模式、收藏置顶、排序</span></span>
+            <button class="switch" id="syncCardsSwitch" type="button" role="switch" aria-label="同步插件卡片设置"></button>
+          </div>
+          <div class="row" id="syncPanelRow">
+            <span class="row-text"><span>设置页偏好</span><span class="sub">默认是否全屏</span></span>
+            <button class="switch" id="syncPanelSwitch" type="button" role="switch" aria-label="同步设置页偏好"></button>
+          </div>
+          <div class="row" id="syncNowRow" hidden>
+            <span class="row-text"><span>立即同步</span><span class="sub">合并云端与这台设备的最新改动</span></span>
+            <button class="btn btn-ghost" id="syncNowBtn" type="button">同步</button>
+          </div>
+        </div>
+        <p class="group-foot" id="syncFoot"></p>
+      </div>
 
       <h3 class="group-title">外观</h3>
       <div class="group">
@@ -131,8 +159,10 @@
           <button type="button" class="tile" data-theme-opt="dark"><span class="tile-prev prev-dark" aria-hidden="true"><i></i><i></i><i></i></span><span class="tile-label">深色</span></button>
         </div>
         <p class="tiles-note">「跟随系统」会随设备的深色模式自动切换</p>
-        <div class="row"><span class="row-text"><span>减少动画</span><span class="sub" id="reduceMotionSub">关闭过渡和入场动画。系统已开启「减少动态效果」时自动生效</span></span><button class="switch" type="button" role="switch" data-switch="reduceMotion" aria-label="减少动画"></button></div>
-        <div class="row"><span class="row-text"><span>启动页<small class="tag-local">仅本机</small></span><span class="sub">打开页面时先显示欢迎画面，加载好后淡出，下次打开生效</span></span><button class="switch" type="button" role="switch" id="splashSwitch" data-local-switch="splash" aria-label="启动页"></button></div>
+        <div class="row"><span class="row-text"><span>设置页默认全屏</span><span class="sub">打开设置页时直接全屏显示</span></span><button class="switch" type="button" role="switch" data-switch="fullDefault" aria-label="设置页默认全屏"></button></div>
+        <div class="row" id="fullColsRow" hidden><span class="row-text"><span>全屏布局</span><span class="sub">设置页全屏时的内容排版。仅保存在本设备，不同步到云端</span></span>
+          <span class="opt2" id="fullColsOpt" role="group" aria-label="设置页全屏布局" data-mode="1"><button type="button" data-cols-opt="1" aria-pressed="true">单列</button><button type="button" data-cols-opt="2" aria-pressed="false">双列</button></span></div>
+        <div class="row"><span class="row-text"><span>启动页</span><span class="sub">打开页面时先显示欢迎画面，加载好后淡出。仅保存在本设备，不同步到云端，下次打开生效</span></span><button class="switch" type="button" role="switch" id="splashSwitch" data-local-switch="splash" aria-label="启动页"></button></div>
       </div>
 
       <h3 class="group-title">插件卡片</h3>
@@ -141,8 +171,13 @@
         <div class="row"><span class="row-text"><span>显示版本号</span><span class="sub">名称旁边的版本标签</span></span><button class="switch" type="button" role="switch" data-switch="showVer" aria-label="显示版本号"></button></div>
         <div class="row"><span class="row-text"><span>显示分类标签</span><span class="sub">卡片底部的分类和标签</span></span><button class="switch" type="button" role="switch" data-switch="showCat" aria-label="显示分类标签"></button></div>
         <div class="row"><span class="row-text"><span>紧凑模式</span><span class="sub">缩小间距，一屏显示更多插件</span></span><button class="switch" type="button" role="switch" data-switch="compact" aria-label="紧凑模式"></button></div>
+        <div class="row"><span class="row-text"><span>收藏置顶</span><span class="sub">已收藏的插件排在最前面</span></span><button class="switch" type="button" role="switch" data-switch="pinFavs" aria-label="收藏置顶"></button></div>
       </div>
-      <p class="group-foot">排序方式在列表上方的排序菜单里设置。</p>
+
+      <h3 class="group-title">辅助功能</h3>
+      <div class="group">
+        <div class="row"><span class="row-text"><span>减少动画</span><span class="sub" id="reduceMotionSub">关闭过渡和入场动画。系统已开启「减少动态效果」时自动生效</span></span><button class="switch" type="button" role="switch" data-switch="reduceMotion" aria-label="减少动画"></button></div>
+      </div>
 
       <h3 class="group-title">数据</h3>
       <div class="group">
@@ -183,28 +218,8 @@
       <p class="group-foot privacy">登录后，收藏及已启用同步的偏好设置将与账号 ID 关联并保存至云端，用于跨设备同步。</p>
       <p class="group-foot privacy">人机验证由 Cloudflare Turnstile 提供。</p>
       </div>
-    </section>
-
-    <footer class="foot">OliviaR13's Loon Box · <a href="https://github.com/OliviaR13/MyLoon">GitHub</a> · <a href="https://github.com/OliviaR13/MyLoon/blob/main/LICENSE">版权与许可</a></footer>
-  </main>
-
-  <!-- 底部放大 Dock（Bencho Magnifying dock，MIT，bencho.dev/licence）：主页 / 收藏 / 设置。
-       行为见 js/nav-dock.js，样式见 styles/nav-dock.css。三个按钮是静态写好的，没有 JS 时「主页」「设置」点不了，但页面仍可浏览 -->
-  <nav class="mdock" id="navDock" aria-label="主导航">
-    <button class="mdock-item" type="button" data-key="home" data-view="all" aria-label="主页" data-label="主页">
-      <span class="mdock-glyph"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
-      <span class="mdock-dot"></span>
-    </button>
-    <button class="mdock-item" type="button" data-key="fav" data-view="fav" aria-label="我的收藏" data-label="收藏">
-      <span class="mdock-glyph"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg><small class="mdock-badge" id="favCount" data-zero="true">0</small></span>
-      <span class="mdock-dot"></span>
-    </button>
-    <button class="mdock-item" type="button" data-key="settings" aria-label="设置" data-label="设置">
-      <span class="mdock-glyph"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg></span>
-      <span class="mdock-dot"></span>
-    </button>
-  </nav>
-
+    </div>
+  </dialog>
 
   <!-- 插件详情全屏页（由 js/detail.js 按 manifest.json 的字段动态填充） -->
   <dialog class="sheet full detail" id="detail" aria-labelledby="detailName">
@@ -214,29 +229,24 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
         </button>
       </div>
-      <p class="d-title" id="detailTitle" aria-hidden="true"></p>
       <div class="detail-fav" id="detailFav"></div>
     </div>
     <div class="sheet-body" id="detailBody">
       <div class="d-top">
         <img class="d-icon" id="detailIcon" alt="" width="56" height="56" hidden>
-        <span class="d-icon d-letter" id="detailLetter" aria-hidden="true" hidden></span>
         <div class="d-id">
           <h2 id="detailName" tabindex="-1" autofocus></h2>
           <p class="d-sub" id="detailSub"></p>
           <div class="d-chips" id="detailChips"></div>
         </div>
       </div>
-      <div class="d-meta" id="detailMeta" hidden></div>
       <h3 class="group-title">插件介绍</h3>
       <div class="d-intro" id="detailIntro"></div>
       <h3 class="group-title">安装前须知</h3>
       <ul class="d-notes" id="detailNotes"></ul>
-      <details class="d-fold" id="detailFold">
-        <summary class="group-title">遇到问题时<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
-        <ul class="d-notes d-trouble" id="detailTrouble"></ul>
-      </details>
-      <h3 class="group-title">配置与标签</h3>
+      <h3 class="group-title">遇到问题时</h3>
+      <ul class="d-notes d-trouble" id="detailTrouble"></ul>
+      <h3 class="group-title">插件信息</h3>
       <div class="group" id="detailInfo"></div>
     </div>
     <div class="detail-actions">

@@ -1,4 +1,4 @@
-/* 插件列表渲染、卡片构建、FLIP 平滑重排、底部 Dock 选中状态与分类筛选渲染 */
+/* 插件列表渲染、卡片构建、FLIP 平滑重排、顶栏页签与分类筛选渲染 */
 
 import { CONFIG, FAV, FAV_KEY, rawUrl, installUrl } from "./config.js";
 import { $id, el, els, starIcon, infoIcon, motionOff, burstStar, setRollText, confirmable, copyText, lsSet } from "./dom.js";
@@ -197,10 +197,6 @@ export function notice(title, body, label, onClick) {
 
 export function render({ animate = false, flip = false } = {}) {
   if (verifying) return;
-  /* 设置页打开时列表是藏起来的，这时画出来的卡片量不出「展开」按钮要不要显示：记个标记，
-     回到列表时 js/views.js 看到标记会重画一次；没有标记（设置里什么都没改）就不重画，切回来更快 */
-  if (state.page === "settings") els.list.dataset.stale = "1";
-  else delete els.list.dataset.stale;
   syncDetailFav();
   const before = flip && !animate && !motionOff() && els.list.animate ? cardTops() : null;
   const terms = searchTerms();
@@ -213,12 +209,14 @@ export function render({ animate = false, flip = false } = {}) {
   );
 
   if (!visible.length) {
+    /* 空状态是固定文案，用强调字体（.accent）；notice() 本身还被加载失败等动态提示共用，所以不在 notice() 里加 */
     const empty = notice(
       total ? (state.category === FAV && !state.favorites.size ? "还没有收藏" : "没有匹配的插件") : "清单里还没有插件",
       total ? (state.category === FAV && !state.favorites.size ? "点击插件右上角的星标，就能把它加入收藏。" : "换个关键词，或把分类切回「全部」。") : "manifest.json 中没有插件条目。",
       total ? "清除筛选" : "",
       () => onResetFilters()
     );
+    empty.classList.add("accent");
     /* 空状态里的小方块（js/watcher.js）：眼睛跟着指针 / 手指转，戳一下会说话 */
     const eyes = document.createElement("div");
     eyes.className = "notice-eyes";
@@ -235,18 +233,14 @@ export function render({ animate = false, flip = false } = {}) {
       return card;
     })
   );
-  /* 「展开」按钮要不要显示，要等量过描述的高度才知道。以前只在下一帧量，这一帧里卡片比最终矮一截（少一个按钮），
-     下一帧一起变高，整页被撑长，浏览器的滚动锚定就把滚动位置顶偏了（从设置切回主页时能看到页面跳一下）。
-     所以先同步量一次，让第一帧就是最终高度；下一帧（字体、图片可能改变换行）再量一次兜底 */
-  const measure = () =>
+  requestAnimationFrame(() =>
     els.list.querySelectorAll(".card").forEach((c) => {
       const d = c.querySelector(".card-desc");
       const overflow = d.scrollHeight > d.clientHeight + 2;
       d.dataset.overflow = String(overflow);
       c.querySelector(".more").hidden = !overflow;
-    });
-  measure();
-  requestAnimationFrame(measure);
+    })
+  );
   if (before && before.size) glide(before);
 }
 
@@ -273,40 +267,38 @@ export function renderFilters() {
   syncTabs();
 }
 
-/* 底部 Dock 的选中状态：在设置页时「设置」选中；否则「收藏」= 正在看收藏，「主页」= 没有在看收藏。
-   收藏数显示在收藏图标右上角的小徽标上。函数名沿用 syncTabs，调用方不用改 */
+const tabInd = el("i", "tab-ind");
+tabInd.setAttribute("aria-hidden", "true");
+let tabPrev = -1;
+
+export function placeTabInd() {
+  const tabs = [...els.tabs.querySelectorAll(".tab")];
+  const idx = tabs.findIndex((b) => b.getAttribute("aria-pressed") === "true");
+  const act = tabs[idx];
+  if (!act || !els.tabs.clientWidth) return;
+  els.tabs.classList.add("has-ind");
+  const move = tabPrev !== -1 && idx !== tabPrev && !motionOff();
+  tabInd.dataset.dir = idx > tabPrev ? "fwd" : "back";
+  tabInd.classList.toggle("no-anim", !move);
+  tabInd.style.left = act.offsetLeft + "px";
+  tabInd.style.right = els.tabs.clientWidth - act.offsetLeft - act.offsetWidth + "px";
+  tabPrev = idx;
+}
+
 export function syncTabs() {
   const onFav = state.category === FAV;
-  const onSettings = state.page === "settings";
-  els.navDock?.querySelectorAll(".mdock-item").forEach((b) => {
-    const k = b.dataset.key;
-    const on = k === "settings" ? onSettings : !onSettings && (k === "fav") === onFav;
-    b.dataset.active = String(on);
-    if (on) b.setAttribute("aria-current", "page");
-    else b.removeAttribute("aria-current");
+  els.tabs.querySelectorAll(".tab").forEach((b) => {
+    b.setAttribute("aria-pressed", String((b.dataset.view === "fav") === onFav));
   });
-  /* 头部右边的页面名字，跟着 Dock 走 */
-  const vt = $id("viewTitle");
-  const name = onSettings ? "设置" : onFav ? "收藏" : "主页";
-  if (vt && vt.textContent !== name) {
-    vt.textContent = name;
-    vt.classList.remove("swap");
-    void vt.offsetWidth;
-    vt.classList.add("swap");
-  }
   const fc = $id("favCount");
-  if (fc) {
-    setRollText(fc, String(state.favorites.size));
-    fc.dataset.zero = String(state.favorites.size === 0);
-  }
+  if (fc) setRollText(fc, String(state.favorites.size));
+  placeTabInd();
 }
 
 /* 加载 / 验证面板顶上的四个格子（js/verify-cells.js）：等待时轻轻呼吸，验证通过后融合成一颗「已通过」的胶囊 */
 let verifyCells = null;
 
-/* 人机验证 / 清单加载期间，列表里放的是验证面板（Turnstile 的小组件就挂在里面）。
-   这时任何 render()（点底部 Dock 的主页 / 收藏、搜索、排序……）如果把列表换掉，组件的容器就没了，验证永远等不到结果。
-   所以加载期间 render() 一律不动列表；加载结束时 manifest.js 会先放开再画一次。 */
+/* 人机验证 / 清单加载期间，列表里放的是验证面板（Turnstile 小组件挂在里面）；这时 render() 不动列表，加载结束时 manifest.js 先放开再画一次 */
 let verifying = false;
 export const setVerifying = (on) => { verifying = on; };
 
@@ -349,6 +341,13 @@ export function setPhase(text, done = false) {
 export const passSettled = () => (verifyCells ? verifyCells.done : Promise.resolve());
 
 export function initRender() {
+  els.tabs.append(tabInd);
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(() => placeTabInd());
+    ro.observe(els.tabs);
+    els.tabs.querySelectorAll(".tab").forEach((t) => ro.observe(t));
+  }
+
   initDetail({ onToggleFav: toggleFav, onOpenInLoon: openInLoon });
 
   // 点卡片空白处（名称、描述、标签）打开插件详情；按钮、链接、正在选中文字时不触发

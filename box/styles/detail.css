@@ -75,42 +75,25 @@ html[data-full-cols] .sheet.full.detail{--full-col:760px}
 .detail.closing .sheet-body{opacity:0;translate:0 10px;transition:opacity .16s ease-in .03s,translate .2s ease-in .03s}
 .detail.closing .sheet-head{opacity:0;transition:opacity .14s ease-in}
 
-/* ══ 液态玻璃（材质变量在 base.css；折射见 js/liquid-glass.js）═══════════
-   浮在滚动内容上的 4 个控件是「真玻璃」：backdrop-filter + 折射；其余是只有材质的玻璃（高光 + 边缘光 + 软影），
-   不开 backdrop-filter。底部渐隐从 120px 收到 72px，好让内容能从按钮下面透出来。 */
-.detail .lg{position:relative;
-  /* 边缘光去掉最后一道「底部的一点暗」：在小圆形玻璃底边上它就是一条横线阴影（和 Dock 同样的处理） */
-  --d-rim:inset 1.5px 1.5px 1px -.5px var(--lg-hi),inset -1px -1.5px 1px -.5px var(--lg-hi2),inset 0 0 0 1px var(--lg-edge),
-    inset 1px 0 0 rgb(255 90 90 / .12),inset -1px 0 0 rgb(90 130 255 / .14)}
-.detail .btn.lg,.detail .star.lg{border-radius:999px;border-color:transparent;
-  background:var(--lg-sheen),color-mix(in srgb,var(--card) 52%,transparent);
-  -webkit-backdrop-filter:blur(14px) saturate(1.8) brightness(1.04);backdrop-filter:blur(14px) saturate(1.8) brightness(1.04);
-  box-shadow:var(--d-rim)}
-/* 投影放在自己的伪元素上，不和带 backdrop-filter 的玻璃抢同一层（iOS 上，模糊玻璃自带的大范围投影会被渲染成一块带硬边的灰影；Dock 同样处理过）。
-   又小又贴：只在正下方露出一道软边 */
-.detail .btn.lg::before,.detail .star.lg::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;
-  box-shadow:0 8px 18px -8px rgb(var(--shadow) / .28),0 2px 5px -2px rgb(var(--shadow) / .12)}
-/* 顶栏的返回 / 收藏：顶栏下缘有一层模糊 + 底色渐隐（.sheet-head::before/::after，z-index 2），会盖住并糊掉按钮下面的投影，
-   看起来就是星标底下一道脏边。所以把这两个按钮抬到渐隐层上面，并且不要投影，只留玻璃的边缘光 */
-.detail .sheet-head .lg{z-index:3}
-.detail .sheet-head .lg::before{display:none}
-.detail .btn-primary.lg::before{box-shadow:0 8px 18px -8px color-mix(in srgb,var(--accent) 50%,transparent),0 2px 5px -2px rgb(var(--shadow) / .12)}
-.detail .btn-primary.lg{color:var(--accent-ink);background:var(--lg-sheen-p),color-mix(in srgb,var(--accent) 82%,transparent);
-  box-shadow:var(--d-rim)}
-html[data-glass="refract"] .detail .lg:not(.lg-flat){
-  -webkit-backdrop-filter:var(--lg-filter,blur(0px)) blur(2px) saturate(1.7) brightness(1.06);backdrop-filter:var(--lg-filter,blur(0px)) blur(2px) saturate(1.7) brightness(1.06)}
-.detail .star.lg[aria-pressed="true"]{background:var(--lg-sheen),color-mix(in srgb,var(--accent) 20%,transparent)}
+/* ══ Apple 官网式磨砂（材质变量在 base.css）═══════════════════════
+   浮在滚动内容上的 4 个控件（返回、收藏、查看源码、安装）带 backdrop-filter；其余只用半透明底色 + 发丝线。
+   底部渐隐从 120px 收到 72px，好让内容能从按钮下面透出来。 */
+.detail .ap{position:relative}
+.detail .btn.ap,.detail .star.ap{border-radius:999px;border-color:var(--ap-line);background:var(--ap-bg);
+  -webkit-backdrop-filter:var(--ap-filter);backdrop-filter:var(--ap-filter)}
+/* 顶栏的返回 / 收藏：抬到顶栏下缘的渐隐层（z-index 2）上面，免得被它糊掉 */
+.detail .sheet-head .ap{z-index:3}
+.detail .btn-primary.ap{color:var(--accent-ink);background:color-mix(in srgb,var(--accent) 88%,transparent);border-color:transparent}
+.detail .star.ap[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 20%,var(--card))}
 
-.detail .d-meta{background:var(--lg-sheen),color-mix(in srgb,var(--card) 62%,transparent);border-color:transparent;
-  box-shadow:var(--lg-rim),0 10px 28px rgb(var(--shadow) / .08),0 1px 2px rgb(var(--shadow) / .05)}
-.detail .d-cell + .d-cell{border-left-color:color-mix(in srgb,var(--line) 70%,transparent)}
-.detail .d-icon{box-shadow:0 0 0 1px color-mix(in srgb,var(--line) 60%,transparent),0 6px 16px rgb(var(--shadow) / .14)}
-.detail .d-letter{background:var(--lg-sheen),color-mix(in srgb,var(--accent) 16%,var(--chip));box-shadow:var(--lg-rim),0 6px 16px rgb(var(--shadow) / .14)}
-.detail .d-chips .chip{background:var(--lg-sheen),color-mix(in srgb,var(--card) 45%,transparent);box-shadow:var(--lg-rim),0 2px 7px rgb(var(--shadow) / .07)}
-.detail .d-chips .chip[data-need]{background:var(--lg-sheen),color-mix(in srgb,var(--accent) 22%,transparent);
-  box-shadow:var(--lg-rim),0 0 0 1px color-mix(in srgb,var(--accent) 40%,transparent),0 3px 9px color-mix(in srgb,var(--accent) 18%,transparent)}
-.detail .d-tagwrap .chip{background:var(--lg-sheen),var(--chip);box-shadow:var(--lg-rim)}
-.detail .d-notes code{background:var(--lg-sheen),var(--chip);box-shadow:inset 0 0 0 1px var(--line)}
+.detail .d-meta{background:var(--ap-bg);border-color:var(--ap-line)}
+.detail .d-cell + .d-cell{border-left-color:var(--ap-line)}
+.detail .d-icon{box-shadow:0 0 0 1px var(--ap-line)}
+.detail .d-letter{background:color-mix(in srgb,var(--accent) 16%,var(--chip))}
+.detail .d-chips .chip{background:var(--ap-bg);border-color:var(--ap-line)}
+.detail .d-chips .chip[data-need]{background:color-mix(in srgb,var(--accent) 22%,transparent);border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
+.detail .d-tagwrap .chip{background:var(--chip)}
+.detail .d-notes code{background:var(--chip);box-shadow:inset 0 0 0 1px var(--line)}
 
 @media (prefers-reduced-motion:reduce){
   .detail.enter *,.detail.enter .detail-actions,.d-fold[open]>.d-notes{animation:none!important}

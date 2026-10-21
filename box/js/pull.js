@@ -90,10 +90,9 @@ export function initPullToRefresh() {
     const a = document.activeElement;
     return !!a && a.matches("input, textarea");
   };
-  const excluded = (e) => e.target.closest("dialog, .sort-menu") || document.querySelector("dialog[open]") || document.documentElement.dataset.page === "settings" || typing();
-  const loading = () => els.list?.getAttribute("aria-busy") === "true"; // 清单正在加载（js/manifest.js 设的）
-  const blocked = (e) => busy || !atTop() || !els.list || loading() || excluded(e);
-  const shouldSwallow = (e) => (busy || loading()) && atTop() && els.list && !excluded(e);
+  const excluded = (e) => e.target.closest("dialog, .sort-menu") || document.querySelector("dialog[open]") || typing();
+  const blocked = (e) => busy || !atTop() || !els.list || els.refresh.disabled || excluded(e);
+  const shouldSwallow = (e) => (busy || els.refresh.disabled) && atTop() && els.list && !excluded(e);
 
   function begin() {
     dragging = true;

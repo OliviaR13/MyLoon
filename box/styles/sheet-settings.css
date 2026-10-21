@@ -17,6 +17,9 @@
 .sheet-head{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px 12px;transition:padding .45s var(--ease)}
 .sheet-head h2{margin:0;padding-right:12px;font-size:26px;line-height:1;font-weight:700;letter-spacing:-.02em;text-align:right}
 .sheet-nav{display:flex;align-items:center;gap:8px}
+#settingsFull .ico-shrink{display:none}
+#settingsFull[aria-pressed="true"] .ico-expand{display:none}
+#settingsFull[aria-pressed="true"] .ico-shrink{display:block}
 .sheet-head h2:focus,.sheet:focus{outline:none}
 
 /* 抽屉顶底模糊与底色渐隐 + 底部出血 --bleed */
@@ -51,8 +54,6 @@ html:has(.sheet[open],.tour[open]){overflow:hidden;padding-right:var(--page-sbw,
 .row[data-off="true"]{opacity:.5}
 .row-text{display:grid;gap:2px;min-width:0;text-align:left}
 .sub{font-size:12.5px;line-height:1.4;color:var(--muted)}
-/* 「仅本机」小标：这一项只存在这台设备上，不会同步到云端 */
-.tag-local{display:inline-block;margin-left:8px;padding:0 7px;border-radius:999px;background:var(--chip);color:var(--muted);font-size:11px;font-weight:600;line-height:1.7;letter-spacing:.02em;vertical-align:.1em}
 .sub[hidden]{display:none}
 .row-end{display:flex;align-items:center;gap:6px;flex:none}
 .row-chev{flex:none;width:7px;height:7px;border:solid var(--muted);border-width:2px 2px 0 0;transform:rotate(45deg);opacity:.7}
@@ -67,9 +68,7 @@ html:has(.sheet[open],.tour[open]){overflow:hidden;padding-right:var(--page-sbw,
 .row-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
 .muted{color:var(--muted);font-size:13.5px}
 .group-foot{margin:8px 6px 0;font-size:12.5px;line-height:1.5;color:var(--muted)}
-.group-foot.privacy{margin-top:6px;font-size:12px}
-.group-foot.privacy + .group-foot.privacy{margin-top:8px}
-.privacy-title{margin-top:22px}
+.group-foot.privacy{margin-top:18px;font-size:12px}
 .about-card{display:flex;align-items:center;gap:12px;padding:14px;border-bottom:1px solid var(--line)}
 .about-card img{flex:none;border-radius:var(--r-md);box-shadow:0 0 0 1px var(--line)}
 .about-card strong{font-size:15.5px;letter-spacing:-.01em}
@@ -99,8 +98,8 @@ html:has(.sheet[open],.tour[open]){overflow:hidden;padding-right:var(--page-sbw,
   box-shadow:0 1px 3px rgb(var(--shadow) / .3);transition:transform .4s var(--spring)}
 .switch{cursor:pointer}
 .switch:disabled{cursor:default}
-.switch[aria-checked="true"]{background:var(--accent);box-shadow:none}
-.switch[aria-checked="true"]::after{transform:translateX(calc(var(--w) - var(--h)))}
+.switch[aria-checked="true"],.sort-pin[aria-checked="true"] .mini-switch{background:var(--accent);box-shadow:none}
+.switch[aria-checked="true"]::after,.sort-pin[aria-checked="true"] .mini-switch::after{transform:translateX(calc(var(--w) - var(--h)))}
 .switch:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 /* 两选一分段控件（AND / OR、单列 / 双列）与主题预览卡片 */
@@ -146,6 +145,9 @@ html:has(.sheet[open],.tour[open]){overflow:hidden;padding-right:var(--page-sbw,
 }
 .sheet.full{max-height:calc(100dvh + var(--bleed));height:calc(100dvh + var(--bleed));border-radius:0}
 .sheet.full .sheet-head{padding-top:calc(18px + env(safe-area-inset-top))}
+#settingsFull svg{animation:full-ico .4s var(--ease)}
+@keyframes full-ico{from{opacity:0;transform:scale(.6) rotate(-45deg)}to{opacity:1;transform:none}}
+html[data-reduce-motion] #settingsFull svg{animation:none}
 @media (min-width:600px){
   .sheet.full{width:100vw;max-width:none;border-radius:0;margin:0}
 }
@@ -160,32 +162,39 @@ html:has(.sheet[open],.tour[open]){overflow:hidden;padding-right:var(--page-sbw,
   .sheet.full .theme-tiles{gap:14px;padding:18px}
   .sheet.full .tiles-note{margin-top:-6px;padding:0 18px 16px}
   .sheet.full .group-foot{padding-inline:6px}
-}
+  html[data-full-cols="2"] .sheet.full{--full-col:1120px}
+  html[data-full-cols="2"] .sheet.full .sheet-cols{column-count:2;column-gap:32px}
+  html[data-full-cols="2"] .sheet.full .group-title{break-after:avoid;margin-top:0;padding-top:26px}
+  html[data-full-cols="2"] .sheet.full .group,
+  html[data-full-cols="2"] .sheet.full .group-foot{break-inside:avoid}
+  html[data-full-cols="2"] .sheet.full .group-foot{break-before:avoid}
 }
 
-/* 设置页（主页面里的一个视图，不是弹层）：标题 + 分组。进入时每个大项各自带一条并行的入场（见 js/settings.js 的 enter） */
-/* 页面名字显示在头部（#viewTitle），这里的标题只给读屏软件用 */
-.spage-title:focus{outline:none}
-.spage .group-title:first-child{margin-top:14px}
-#settings.enter .sheet-cols > *{animation:intro-up .45s var(--ease) .05s backwards}
-#settings.enter .group > *{animation:rise .34s var(--ease) calc(.12s + min(var(--r,0), 8) * 45ms) backwards}
+/* 设置页进出场动效 */
+#settings.enter .sheet-head .btn{animation:intro-pop .7s cubic-bezier(.34,1.3,.64,1) backwards}
+#settings.enter #settingsFull{animation-delay:.06s}
+#settings.enter .sheet-head h2{animation:intro-up .6s var(--ease) .08s backwards}
+#settings.enter .sheet-cols > *{animation:intro-up .5s var(--ease) .14s backwards}
+#settings.enter .group > *{animation:rise .36s var(--ease) calc(.24s + min(var(--r,0), 8) * 55ms) backwards}
+#settings.closing{transition-delay:.08s}
+#settings.closing .sheet-body{opacity:0;translate:0 10px;transition:opacity .16s ease-in,translate .2s ease-in}
+#settings.closing::backdrop{transition-delay:.08s}
 
-/* ══ 液态玻璃：设置页与详情页的控件 ═══════════════════════════════
-   材质变量（--lg-sheen / --lg-rim 等）在 base.css。设置页的底是纯色，下面没有可折射的内容，所以这里只用材质：高光 + 边缘光 + 软影，
-   不开 backdrop-filter（一页里几十个控件，每个都开会拖慢手机）。放在文件末尾，覆盖前面的同名规则。 */
+/* ══ 磨砂材质：设置页与详情页的控件 ═══════════════════════════════
+   材质变量（--ap-bg / --ap-line）在 base.css。设置页的底是纯色，所以这里只用半透明底色 + 发丝线，不开 backdrop-filter。 */
 /* 顶部的返回 / 全屏按钮，详情页底部的「查看源码」，以及设置里各行的次要按钮（同步、退出登录、取消、撤销……） */
-.sheet-head .btn,.detail-actions .btn-ghost,.group .btn-ghost{background:var(--lg-sheen),color-mix(in srgb,var(--card) 50%,transparent);border-color:transparent;
-  box-shadow:var(--lg-rim),0 4px 12px rgb(var(--shadow) / .08)}
+.sheet-head .btn,.detail-actions .btn-ghost,.group .btn-ghost{background:color-mix(in srgb,var(--card) 50%,transparent);border-color:transparent;
+  box-shadow:0 4px 12px rgb(var(--shadow) / .08)}
 #logoutBtn.btn-ghost.swap[data-done]{background:#e5484d;border-color:#e5484d;color:#fff}
 /* 分组：一整块玻璃，行与行之间还是细线 */
-.group{background:var(--lg-sheen),color-mix(in srgb,var(--card) 62%,transparent);border-color:transparent;
-  box-shadow:var(--lg-rim),0 10px 28px rgb(var(--shadow) / .08),0 1px 2px rgb(var(--shadow) / .05)}
+.group{background:color-mix(in srgb,var(--card) 62%,transparent);border-color:transparent;
+  box-shadow:0 10px 28px rgb(var(--shadow) / .08),0 1px 2px rgb(var(--shadow) / .05)}
 /* 开关：轨道是玻璃，滑块是一颗带高光的玻璃珠；打开时轨道是强调色玻璃 */
-.switch,.mini-switch{background:var(--lg-sheen),var(--chip);box-shadow:inset 0 0 0 1px var(--line),inset 0 1px 3px rgb(var(--shadow) / .12)}
-.switch[aria-checked="true"]{background:var(--lg-sheen-p),var(--accent);box-shadow:inset 0 1px 3px rgb(0 0 0 / .18),0 0 0 1px color-mix(in srgb,var(--accent) 60%,transparent)}
-.switch::after,.mini-switch::after{background:var(--lg-sheen),#fff;box-shadow:var(--lg-rim),0 2px 6px rgb(var(--shadow) / .3)}
+.switch,.mini-switch{background:var(--chip);box-shadow:inset 0 0 0 1px var(--line),inset 0 1px 3px rgb(var(--shadow) / .12)}
+.switch[aria-checked="true"],.sort-pin[aria-checked="true"] .mini-switch{background:var(--accent);box-shadow:inset 0 1px 3px rgb(0 0 0 / .18),0 0 0 1px color-mix(in srgb,var(--accent) 60%,transparent)}
+.switch::after,.mini-switch::after{background:#fff;box-shadow:0 2px 6px rgb(var(--shadow) / .3)}
 /* 分段控件：轨道是凹的玻璃槽，选中的那块是浮起的玻璃 */
-.opt2{background:var(--lg-sheen),var(--chip);box-shadow:inset 0 0 0 1px var(--line),inset 0 1px 3px rgb(var(--shadow) / .12)}
-.opt2::before{background:var(--lg-sheen),color-mix(in srgb,var(--card) 92%,transparent);box-shadow:var(--lg-rim),0 2px 6px rgb(var(--shadow) / .22)}
+.opt2{background:var(--chip);box-shadow:inset 0 0 0 1px var(--line),inset 0 1px 3px rgb(var(--shadow) / .12)}
+.opt2::before{background:color-mix(in srgb,var(--card) 92%,transparent);box-shadow:0 2px 6px rgb(var(--shadow) / .22)}
 /* 主题预览：缩略图上盖一层边缘光（::before；选中的对勾在 ::after，不冲突） */
-.tile-prev::before{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:var(--lg-rim);pointer-events:none}
+.tile-prev::before{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 .5px var(--ap-line);pointer-events:none}

@@ -34,6 +34,7 @@ export const SYNC_KEYS = {
   master: "myloon_box_sync",
   look: "myloon_box_sync_look",
   cards: "myloon_box_sync_cards",
+  panel: "myloon_box_sync_panel",
 };
 export const LEGACY_AT = "myloon_box_settings_at";
 export const TOMBSTONE_TTL = 90 * 24 * 3600 * 1000;
@@ -43,8 +44,10 @@ export const DEFAULTS = {
   showDesc: true,
   showVer: true,
   showCat: true,
+  pinFavs: false,
   compact: false,
   reduceMotion: false,
+  fullDefault: false,
 };
 export const BOOL_KEYS = Object.keys(DEFAULTS).filter((k) => typeof DEFAULTS[k] === "boolean");
 
