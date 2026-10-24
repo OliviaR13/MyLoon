@@ -89,11 +89,22 @@ https://raw.githubusercontent.com/OliviaR13/MyLoon/main/plugin/<文件名>.plugi
 
 仅针对 Loon Box 网页：
 
-- 不接入统计分析，不追踪用户，不收集浏览记录。
+- 不接入第三方统计分析，不追踪用户，不收集浏览记录。
+- 点「安装」时，会给该插件的安装次数加一（只存插件 ID、日期和累计次数）。为了同一个人一天内不重复计数，会把 IP 与插件 ID 加盐哈希后临时保存，次日清理；不保存 IP 本身，也不与账号关联。
 - 未登录时，收藏与偏好仅保存在本机浏览器。
 - 登录仅通过 GitHub 授权读取公开资料（用户名、头像），不保存访问令牌；登录状态为 30 天有效的签名 Cookie。
 - 登录后，收藏与已开启同步的偏好按账号 ID 存于 Cloudflare KV，用于多设备同步。
 - 人机验证由 Cloudflare Turnstile 提供。
+
+## 安装统计
+
+卡片上显示安装次数，排序菜单里有「本周热度」和「总安装量」。数据存在 Cloudflare D1，需要一次性配置：
+
+1. Cloudflare 控制台 → Storage & Databases → D1 → 创建一个数据库（名称随意）。
+2. Pages 项目 → Settings → Bindings → Add → D1 database，变量名填 `MLB_DB`，选刚创建的数据库。
+3. 重新部署一次。表会在第一次访问时自动创建。
+
+没有绑定 `MLB_DB` 时统计整体关闭：卡片不显示次数，排序菜单也不出现这两项，其余功能不受影响。次数统计的是「点了安装」，不代表 Loon 里最终安装成功。
 
 ## 仓库结构
 
@@ -102,7 +113,8 @@ https://raw.githubusercontent.com/OliviaR13/MyLoon/main/plugin/<文件名>.plugi
 | [`plugin/`](plugin/) | Loon 插件 |
 | [`script/`](script/) | 插件所用脚本 |
 | [`box/`](box/) | Loon Box 前端（原生 HTML / CSS / ES Modules） |
-| [`functions/`](functions/) | Cloudflare Pages Functions：清单接口、GitHub OAuth、云端同步、人机验证 |
+| [`functions/`](functions/) | Cloudflare Pages Functions：清单接口、GitHub OAuth、云端同步、人机验证、安装统计 |
+| [`db/`](db/) | 安装统计的 D1 表结构（函数会自动建表，仅供参考） |
 | [`icon/`](icon/) | 图标资源 |
 | [`manifest.json`](manifest.json) | 插件清单，由 Actions 自动生成，请勿手动编辑 |
 | [`.github/workflows/`](.github/workflows/) | 清单生成工作流 |

@@ -196,6 +196,7 @@ mark.hit{padding:0 .08em;border-radius:3px;background:color-mix(in srgb,var(--ac
 .sort-title svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .sort-item{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;padding:10px;font:inherit;font-size:14.5px;color:var(--text);
   background:none;border:0;border-radius:var(--r-md);text-align:left;cursor:pointer;transition:background-color .15s}
+.sort-item[hidden]{display:none}
 .sort-item[aria-checked="true"]:not(.sort-pin){color:var(--accent-text);font-weight:600}
 .sort-item:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .sort-check{flex:none;width:6px;height:11px;margin-right:4px;border:solid currentColor;border-width:0 2px 2px 0;transform:rotate(45deg) translateY(-1px);opacity:0;transition:opacity .15s}

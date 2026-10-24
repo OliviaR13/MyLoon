@@ -3,7 +3,8 @@
 
 import { sourceUrl } from "./config.js";
 import { $, el, svgIcon, starIcon, confirmable } from "./dom.js";
-import { state, splitDescription } from "./state.js";
+import { state, statOf, splitDescription } from "./state.js";
+import { fmtCount } from "./stats.js";
 
 const detailEls = {
   dlg: $("#detail"),
@@ -87,6 +88,10 @@ function infoRows(p) {
   const rows = [];
   const add = (k, v) => { const r = el("div", "row"); r.append(el("span", "muted", k), v); rows.push(r); };
   add("配置参数", el("span", "d-val", p.args ? "可在 Loon 中调整" : "无"));
+  if (state.stats.on) {
+    const total = statOf(p, "total"), week = statOf(p, "week");
+    add("安装次数", el("span", "d-val", total ? `共 ${fmtCount(total)} 次，本周 ${fmtCount(week)} 次` : "暂无记录"));
+  }
   if (p.allTags.length) {
     const wrap = el("span", "d-val d-tagwrap");
     wrap.append(...p.allTags.map((t) => el("span", "chip", t)));

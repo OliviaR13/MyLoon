@@ -54,7 +54,10 @@ export function syncSort() {
   const { key, dir } = state.sort;
   sortUI.text.textContent = SORTS[key].short[dir];
   sortUI.btn.setAttribute("aria-label", `排序：${SORTS[key].label} ${SORTS[key].hint[dir]}`);
-  sortUI.items.forEach((b) => b.setAttribute("aria-checked", String(b.dataset.key === key && b.dataset.dir === dir)));
+  sortUI.items.forEach((b) => {
+    b.setAttribute("aria-checked", String(b.dataset.key === key && b.dataset.dir === dir));
+    b.hidden = !state.stats.on && !!SORTS[b.dataset.key].stat; // 没有统计数据时，不提供按统计排序
+  });
   const pinned = !!getSettings().pinFavs;
   setSwitch(sortUI.pin, pinned, sortUI.pin.querySelector(".mini-switch"));
   sortUI.btn.dataset.pin = String(pinned);

@@ -2,7 +2,8 @@
 
 import { CONFIG, FAV, VERIFIED_KEY, VERIFIED_TTL } from "./config.js";
 import { els } from "./dom.js";
-import { state, normalize, loggedHint } from "./state.js";
+import { SORTS, state, normalize, loggedHint } from "./state.js";
+import { loadStats } from "./stats.js";
 import { toast } from "./toast.js";
 import { notice, render, renderFilters, renderLoading, setPhase, passSettled, setVerifying } from "./render.js";
 import { tour, splash } from "./tour-splash.js";
@@ -139,6 +140,9 @@ export async function load(announce = false) {
   const needVerify = CONFIG.turnstile.siteKey && !recentlyVerified() && !loggedHint();
   renderLoading(needVerify ? "正在进行人机验证…" : "正在加载清单…");
 
+  /* 统计和清单并行拉取，互不阻塞；统计失败只是不显示数字 */
+  const statsReady = loadStats({ fresh: announce });
+
   let waitingToken = false;
   const slowTimer = setTimeout(() => { if (waitingToken) setPhase("验证时间较长，请稍候…"); }, 4000);
 
@@ -175,6 +179,8 @@ export async function load(announce = false) {
     const known = new Set(state.plugins.map((p) => p.category));
     if (state.category !== FAV && state.category !== CONFIG.all && !known.has(state.category)) state.category = CONFIG.all;
     setVerifying(false);
+    /* 正按统计排序时，最多多等 0.8 秒让第一次渲染就是对的顺序；其余情况不等，数字到了再补上 */
+    if (SORTS[state.sort.key]?.stat) await Promise.race([statsReady, new Promise((r) => setTimeout(r, 800))]);
     renderFilters();
     render({ animate: true });
     if (data.generatedAt) {

@@ -37,15 +37,36 @@ export const SORTS = {
     short: { asc: "A-Z", desc: "Z-A" },
     compare: (a, b) => collator.compare(a.name, b.name),
   },
+  /* 下面两个按安装统计排序，只有「高到低」；没有统计数据时所有值都是 0，退回按名称排 */
+  week: {
+    label: "本周热度",
+    defaultDir: "desc",
+    dirs: ["desc"],
+    stat: true,
+    hint: { desc: "高到低" },
+    short: { desc: "本周热门" },
+    compare: (a, b) => statOf(a, "week") - statOf(b, "week") || statOf(a, "total") - statOf(b, "total"),
+  },
+  total: {
+    label: "总安装量",
+    defaultDir: "desc",
+    dirs: ["desc"],
+    stat: true,
+    hint: { desc: "高到低" },
+    short: { desc: "安装最多" },
+    compare: (a, b) => statOf(a, "total") - statOf(b, "total"),
+  },
 };
 
+export const validSort = (key, dir) => !!SORTS[key] && (SORTS[key].dirs || ["asc", "desc"]).includes(dir);
+
 export const SORT_OPTIONS = Object.entries(SORTS).flatMap(([key, s]) =>
-  ["desc", "asc"].sort((a) => (a === s.defaultDir ? -1 : 1)).map((dir) => ({ key, dir, label: `${s.label} · ${s.hint[dir]}` }))
+  [...(s.dirs || ["desc", "asc"])].sort((a) => (a === s.defaultDir ? -1 : 1)).map((dir) => ({ key, dir, label: `${s.label} · ${s.hint[dir]}` }))
 );
 
 export function readSort() {
   const [key, dir] = (lsGet(SORT_KEY) || "").split(":");
-  if (SORTS[key] && (dir === "asc" || dir === "desc")) return { key, dir };
+  if (validSort(key, dir)) return { key, dir };
   return { key: "date", dir: SORTS.date.defaultDir };
 }
 
@@ -85,7 +106,10 @@ export const state = {
   sort: readSort(),
   favorites: readFavs(),
   favMeta: readFavMeta(),
+  stats: { on: false, total: {}, week: {} }, // 安装统计（js/stats.js 填充）；on 为 false 时界面不显示任何统计
 };
+
+export const statOf = (p, kind) => state.stats[kind]?.[p.id] || 0;
 
 export const saveFavMeta = () => lsSet(FAV_META_KEY, JSON.stringify(state.favMeta));
 

@@ -3,6 +3,8 @@
 export const CONFIG = {
   manifest: "api/manifest",        // 服务端校验令牌后返回清单（Pages Function）
   staticManifest: "manifest.json", // 不启用人机验证时直接读取的静态清单
+  stats: "api/stats",              // 各插件的安装次数（需要 D1 绑定 MLB_DB，没绑定时自动关闭）
+  installLog: "api/install",       // 点「安装」时上报一次
   rawBase: "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
   sourceBase: "https://github.com/OliviaR13/MyLoon/blob/main/", // 详情面板「查看源码」的前缀
   recentDays: 7,                                              // 日期在这个天数以内的插件显示「近期更新」
@@ -21,6 +23,7 @@ export const SORT_KEY = "myloon_box_sort";
 export const FAV_KEY = "myloon_box_favs";
 export const FAV_META_KEY = "myloon_box_favs_meta";
 export const LOGIN_HINT_KEY = "myloon_box_login";
+export const INSTALLED_KEY = "myloon_box_installed"; // 今天已上报过安装的插件：{ id: "YYYY-MM-DD" }
 
 export const SETTINGS_KEY = "myloon_box_settings";
 export const COLS_KEY = "myloon_box_full_cols";

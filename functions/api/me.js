@@ -37,7 +37,7 @@ function clean(d) {
   const settings = {};
   if (["system", "light", "dark"].includes(s.theme)) settings.theme = s.theme;
   for (const k of ["showDesc", "showVer", "showCat", "pinFavs", "compact", "reduceMotion", "fullDefault"]) if (typeof s[k] === "boolean") settings[k] = s[k];
-  if (typeof s.sort === "string" && /^(date|name):(asc|desc)$/.test(s.sort)) settings.sort = s.sort;
+  if (typeof s.sort === "string" && /^((date|name):(asc|desc)|(week|total):desc)$/.test(s.sort)) settings.sort = s.sort;
   return { favorites, favMeta, settings, settingsAt, lookAt, cardsAt, panelAt, updatedAt: Date.now() };
 }
 

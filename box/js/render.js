@@ -2,7 +2,8 @@
 
 import { CONFIG, FAV, FAV_KEY, rawUrl, installUrl } from "./config.js";
 import { $id, el, els, starIcon, infoIcon, motionOff, burstStar, setRollText, confirmable, copyText, lsSet } from "./dom.js";
-import { SORTS, state, isRecent, splitDescription, searchTerms, matches, sortPlugins, saveFavMeta, saveFavs } from "./state.js";
+import { SORTS, state, statOf, isRecent, splitDescription, searchTerms, matches, sortPlugins, saveFavMeta, saveFavs } from "./state.js";
+import { fmtCount, reportInstall } from "./stats.js";
 import { toast } from "./toast.js";
 import { openDetail, syncDetailFav, initDetail } from "./detail.js";
 import { createVerifyCells } from "./verify-cells.js";
@@ -87,6 +88,7 @@ function glide(before) {
 }
 
 export function openInLoon(p, ui) {
+  reportInstall(p);
   window.location.href = installUrl(p);
   if (ui) ui.on(2000);
   setTimeout(() => {
@@ -97,6 +99,27 @@ export function openInLoon(p, ui) {
       });
     }
   }, 2000);
+}
+
+/* ---------- 安装次数（卡片信息行末尾） ---------- */
+
+/* 按「本周热度」排序时显示本周的次数，其余显示总次数；没有统计或次数为 0 时什么都不显示 */
+function installsText(p) {
+  if (!state.stats.on) return "";
+  const weekly = state.sort.key === "week";
+  const n = statOf(p, weekly ? "week" : "total");
+  return n ? (weekly ? "本周 " : "") + fmtCount(n) + " 次安装" : "";
+}
+
+function paintInstalls(root = els.list) {
+  const byId = new Map(state.plugins.map((p) => [p.id, p]));
+  root.querySelectorAll(".card-installs").forEach((s) => {
+    const p = byId.get(s.dataset.id);
+    const text = p ? installsText(p) : "";
+    s.textContent = text && s.dataset.sep ? " · " + text : text;
+    const meta = s.parentElement;
+    meta.hidden = !meta.textContent;
+  });
 }
 
 /* ---------- 卡片展开/收起与构建 ---------- */
@@ -158,7 +181,13 @@ export function buildCard(p, terms = []) {
     if (on) tags.append(el("span", "chip chip-cap", label));
   });
   const meta = [p.author, p.date && "更新于 " + p.date].filter(Boolean);
-  if (meta.length) tags.after(el("p", "card-meta", meta.join(" · ")));
+  const metaEl = el("p", "card-meta", meta.join(" · "));
+  const installs = el("span", "card-installs");
+  installs.dataset.id = p.id;
+  installs.dataset.sep = meta.length ? "1" : "";
+  metaEl.append(installs);
+  tags.after(metaEl);
+  paintInstalls(metaEl);
 
   const more = card.querySelector(".more");
   more.addEventListener("click", () => {
@@ -342,6 +371,13 @@ export const passSettled = () => (verifyCells ? verifyCells.done : Promise.resol
 
 export function initRender() {
   els.tabs.append(tabInd);
+
+  /* 统计数据到了（或本机刚 +1）：按统计排序时重排，否则只改卡片上的数字 */
+  document.addEventListener("stats:change", (e) => {
+    if (!state.plugins.length || verifying) return;
+    if (!e.detail?.optimistic && SORTS[state.sort.key]?.stat) render({ flip: true });
+    else paintInstalls();
+  });
   if (window.ResizeObserver) {
     const ro = new ResizeObserver(() => placeTabInd());
     ro.observe(els.tabs);

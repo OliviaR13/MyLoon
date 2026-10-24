@@ -3,7 +3,7 @@
 
 import { SYNC_KEYS, LEGACY_AT, TOMBSTONE_TTL, SORT_KEY, LOGIN_HINT_KEY } from "./config.js";
 import { $id, setSwitch, lsGet, lsSet, lsRemove, confirmable } from "./dom.js";
-import { SORTS, state, getSettings, setSettings } from "./state.js";
+import { validSort, state, getSettings, setSettings } from "./state.js";
 import { toast } from "./toast.js";
 import { render, setFavorites } from "./render.js";
 import { syncSort } from "./search-sort.js";
@@ -181,7 +181,7 @@ export function initAccount() {
       setSettings(part);
       if (sort) {
         const [key, dir] = String(remote.settings.sort || "").split(":");
-        if (SORTS[key] && (dir === "asc" || dir === "desc")) {
+        if (validSort(key, dir)) {
           state.sort = { key, dir };
           lsSet(SORT_KEY, key + ":" + dir);
           syncSort();
