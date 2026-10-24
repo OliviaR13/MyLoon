@@ -1,7 +1,7 @@
 /* 插件列表渲染、卡片构建、FLIP 平滑重排、顶栏页签与分类筛选渲染 */
 
 import { CONFIG, FAV, FAV_KEY, rawUrl, installUrl } from "./config.js";
-import { $id, el, els, starIcon, infoIcon, motionOff, burstStar, setRollText, confirmable, copyText, lsSet } from "./dom.js";
+import { $id, el, els, svgIcon, starIcon, infoIcon, motionOff, burstStar, setRollText, confirmable, copyText, lsSet } from "./dom.js";
 import { SORTS, state, statOf, isRecent, splitDescription, searchTerms, matches, sortPlugins, saveFavMeta, saveFavs } from "./state.js";
 import { fmtCount, reportInstall } from "./stats.js";
 import { toast } from "./toast.js";
@@ -101,24 +101,23 @@ export function openInLoon(p, ui) {
   }, 2000);
 }
 
-/* ---------- 安装次数（卡片信息行末尾） ---------- */
+/* ---------- 热度：标题行右侧的火焰徽标（安装次数） ---------- */
 
-/* 按「本周热度」排序时显示本周的次数，其余显示总次数；没有统计或次数为 0 时什么都不显示 */
-function installsText(p) {
-  if (!state.stats.on) return "";
+const FLAME = "M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z";
+
+/* 按「本周热度」排序时徽标显示本周的次数，其余显示总次数；没有统计或次数为 0 时整个徽标隐藏 */
+function paintHeat(root = els.list) {
   const weekly = state.sort.key === "week";
-  const n = statOf(p, weekly ? "week" : "total");
-  return n ? (weekly ? "本周 " : "") + fmtCount(n) + " 次安装" : "";
-}
-
-function paintInstalls(root = els.list) {
   const byId = new Map(state.plugins.map((p) => [p.id, p]));
-  root.querySelectorAll(".card-installs").forEach((s) => {
-    const p = byId.get(s.dataset.id);
-    const text = p ? installsText(p) : "";
-    s.textContent = text && s.dataset.sep ? " · " + text : text;
-    const meta = s.parentElement;
-    meta.hidden = !meta.textContent;
+  root.querySelectorAll(".heat").forEach((h) => {
+    const p = byId.get(h.dataset.id);
+    const n = state.stats.on && p ? statOf(p, weekly ? "week" : "total") : 0;
+    h.hidden = !n;
+    if (!n) return;
+    h.querySelector(".heat-n").textContent = fmtCount(n);
+    const label = (weekly ? "本周安装 " : "安装 ") + n + " 次";
+    h.title = label;
+    h.setAttribute("aria-label", label);
   });
 }
 
@@ -159,7 +158,11 @@ export function buildCard(p, terms = []) {
   info.setAttribute("aria-label", "查看 " + p.name + " 的详情");
   info.setAttribute("aria-haspopup", "dialog");
   info.addEventListener("click", () => openDetail(p));
-  card.querySelector(".card-title").append(info, star);
+  const heat = el("span", "heat");
+  heat.dataset.id = p.id;
+  heat.append(svgIcon(FLAME), el("span", "heat-n"));
+  card.querySelector(".card-title").append(heat, info, star);
+  paintHeat(card);
 
   const ver = card.querySelector(".chip-ver");
   if (p.version) ver.textContent = p.version; else ver.remove();
@@ -181,13 +184,7 @@ export function buildCard(p, terms = []) {
     if (on) tags.append(el("span", "chip chip-cap", label));
   });
   const meta = [p.author, p.date && "更新于 " + p.date].filter(Boolean);
-  const metaEl = el("p", "card-meta", meta.join(" · "));
-  const installs = el("span", "card-installs");
-  installs.dataset.id = p.id;
-  installs.dataset.sep = meta.length ? "1" : "";
-  metaEl.append(installs);
-  tags.after(metaEl);
-  paintInstalls(metaEl);
+  if (meta.length) tags.after(el("p", "card-meta", meta.join(" · ")));
 
   const more = card.querySelector(".more");
   more.addEventListener("click", () => {
@@ -376,7 +373,7 @@ export function initRender() {
   document.addEventListener("stats:change", (e) => {
     if (!state.plugins.length || verifying) return;
     if (!e.detail?.optimistic && SORTS[state.sort.key]?.stat) render({ flip: true });
-    else paintInstalls();
+    else paintHeat();
   });
   if (window.ResizeObserver) {
     const ro = new ResizeObserver(() => placeTabInd());
