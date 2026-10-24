@@ -27,149 +27,100 @@
 > - 名称带「自选节点」的插件，须在插件详情页的「代理指向的策略」中手动选择策略组或节点。请优先使用固定的 `select` 节点，避免 `url-test` 等自动切换中断已建立的连接。
 > - 带脚本的插件必须在 Loon 中安装并信任 MITM 证书，且开启 MITM。
 
-### 目录
+## 简介
 
-- [项目简介](#zh-intro)
-- [快速开始](#zh-install)
-- [插件分类](#zh-plugins)
-- [工作原理](#zh-how)
-- [使用说明](#zh-usage)
-- [常见问题](#zh-faq)
-- [隐私说明](#zh-privacy)
-- [仓库结构](#zh-structure)
-- [自动化流程](#zh-ci)
-- [贡献新插件](#zh-contribute)
-- [免责声明](#zh-disclaimer)
-- [致谢](#zh-credits)
-- [许可](#zh-license)
+MyLoon 是一组面向 Loon 的规则与脚本插件，覆盖三类场景：指定服务的**代理分流**、App 的 **IP 属地**控制，以及认证流程的**登录修复**。
 
-<a id="zh-intro"></a>
+仓库同时提供 **Loon Box**：部署于 Cloudflare Pages 的网页，支持检索、收藏插件，并通过 `loon://import` 一键唤起 Loon 安装。
 
-### 项目简介
+## 快速开始
 
-MyLoon 是一组面向 Loon 的网络规则与脚本插件，围绕三类场景设计：指定服务的**代理分流**、App 的 **IP 属地**信号控制，以及认证流程的**登录修复**。仓库同时提供 **Loon Box**——一个部署在 Cloudflare Pages 上的网页，可检索、收藏插件，并通过 `loon://import` 一键唤起 Loon 完成安装。
+**Loon Box（推荐）**
 
-<a id="zh-install"></a>
+1. 用系统浏览器打开 [Loon Box](https://olivia-loon-box.pages.dev/)（微信内置浏览器无法唤起 Loon）。
+2. 完成人机验证，找到插件后点击「安装」。
+3. 可选：登录 GitHub，在多设备间同步收藏与界面偏好。
 
-### 快速开始
+**手动添加**
 
-**方式一：Loon Box（推荐）**
+在 Loon 中依次进入「插件」→ `+`，粘贴 raw 链接：
 
-1. 使用系统浏览器打开 [Loon Box](https://olivia-loon-box.pages.dev/)（微信内置浏览器无法唤起 Loon，请先在默认浏览器中打开）。
-2. 完成人机验证后浏览或搜索插件，点击「安装」，由 `loon://import?plugin=...` 唤起 Loon 完成导入。
-3. 可登录 GitHub 账号，在多台设备间同步收藏与界面偏好。
+```text
+https://raw.githubusercontent.com/OliviaR13/MyLoon/main/plugin/<文件名>.plugin
+```
 
-**方式二：手动添加**
+## 插件分类
 
-1. 在 [`plugin/`](plugin/) 中找到目标文件，复制其 raw 链接：
+插件头部的 `#!tag` 决定其在 Loon Box 中的分类，取第一个标签为主分类，多个标签以英文逗号分隔。
 
-   ```text
-   https://raw.githubusercontent.com/OliviaR13/MyLoon/main/plugin/<文件名>.plugin
-   ```
-
-2. 打开 Loon → 插件 → 右上角 `+` → 粘贴链接 → 添加。
-
-<a id="zh-plugins"></a>
-
-### 插件分类
-
-插件头部的 `#!tag` 决定其在 Loon Box 中的分类，盒子取第一个标签作为主分类；`#!tag` 可用英文逗号写多个，例如 `#!tag = IP 属地,功能增强`。
-
-| 分类 | 内容 |
+| 分类 | 说明 |
 |---|---|
 | 代理分流 | 指定 App 或服务的相关域名统一走 `PROXY` |
-| IP 属地 | 仅指定接口走代理，Feed、图片、视频等媒体 CDN 直连 |
+| IP 属地 | 仅属地判定相关接口走代理，媒体 CDN 直连 |
 | 登录修复 | 认证相关域名直连，必要时跳过 MITM |
 | 功能增强 | 通过脚本提供额外功能，通常作为次要标签 |
 
-完整的插件列表请在 [Loon Box](https://olivia-loon-box.pages.dev/) 或 [`plugin/`](plugin/) 目录中查看。
+完整列表见 [Loon Box](https://olivia-loon-box.pages.dev/) 或 [`plugin/`](plugin/)。
 
-<a id="zh-how"></a>
+## 工作原理
 
-### 工作原理
-
-插件通过 `[Rule]` 为指定域名选择走代理或直连，部分插件附带脚本：
+插件通过 `[Rule]` 为指定域名选择代理或直连，规则自上而下匹配，先命中者生效：
 
 ```text
-App 发出请求
- ├─ 命中插件规则 PROXY  → 走你在插件中选择的策略组或节点
- ├─ 命中插件规则 DIRECT → 直连
- └─ 未命中插件规则      → 继续匹配主配置规则
+请求 ├─ 命中插件规则 PROXY  → 使用所选策略组或节点
+     ├─ 命中插件规则 DIRECT → 直连
+     └─ 未命中              → 继续匹配主配置规则
 ```
 
-规则自上而下匹配，先命中者生效，因此插件须排在 `GEOIP,CN,DIRECT` 等国内直连规则之前。
+「IP 属地」类插件仅将承载属地与风控判定的接口（带经纬度的推荐接口、设备指纹注册、打点上报等）送入代理，Feed、图片、视频等媒体 CDN 全部直连，不占用代理流量。
 
-**「IP 属地」类插件**只将承载属地 / 风控判定信号的接口（如带经纬度参数的推荐接口、设备指纹注册接口、打点上报接口）送入代理；Feed、图片、视频等媒体 CDN 全部直连，因此不占用代理流量，也不影响加载速度。
+## 常见问题
 
-<a id="zh-usage"></a>
+**插件已安装但未生效？**
+确认插件排在 `GEOIP,CN,DIRECT` 等国内直连规则之前；带脚本的插件还需开启 MITM。
 
-### 使用说明
-
-| 事项 | 说明 |
-|---|---|
-| 选择节点 | 名称带「自选节点」的插件，需在插件详情页的「代理指向的策略」中选择策略组或节点；未选择时使用全局策略的第一个节点 |
-| 节点类型 | 建议选择固定的单一节点（`select` 类型策略组）。`url-test` 等自动测速类型发生节点切换时，可能中断已建立的连接 |
-| 规则顺序 | 插件须排在主配置的 `GEOIP,CN,DIRECT` 等国内直连规则之前 |
-| MITM | 带脚本的插件（如微博增强）需在 Loon 中安装并信任 MITM 证书，并开启 MITM |
-| 插件叠加 | 若同时启用对相同域名做 MITM 解密或响应体改写的其他插件（如去广告类），各插件独立生效；出现异常时需分别排查 |
-
-<a id="zh-faq"></a>
-
-### 常见问题
-
-**为什么叫「自选节点」？**
-插件只声明哪些域名走代理，具体使用哪个节点由你在插件详情页自行选择。
-
-**插件已安装但似乎没有生效？**
-先确认插件排在 `GEOIP,CN,DIRECT` 等国内直连规则之前；带脚本的插件还需确认 MITM 已开启。
+**同时启用多个 MITM 插件会冲突吗？**
+对相同域名做解密或响应体改写的插件各自独立生效，出现异常时需逐个排查。
 
 **连接偶尔失败是插件的问题吗？**
-插件只决定走代理还是直连。连接被取消、重置或超时，原因可能在 App、节点、CDN 或链路等环节，插件规则无法判断，也无法修复。
+插件只决定走代理还是直连。连接取消、重置或超时通常源于 App、节点、CDN 或链路，插件无法判断，也无法修复。
 
-<a id="zh-privacy"></a>
+## 隐私
 
-### 隐私说明
+仅针对 Loon Box 网页：
 
-以下说明针对 Loon Box 网页：
-
-- 不接入统计分析，不追踪用户，不收集浏览记录等个人隐私数据。
-- 未登录时，收藏与偏好设置仅保存在本机浏览器。
-- 登录仅通过 GitHub 授权读取公开资料（用户名、头像），不申请其他权限，也不保存 GitHub 访问令牌；登录状态为 30 天有效的签名 Cookie。
-- 登录后，收藏与已开启同步的偏好设置按账号 ID 保存至 Cloudflare KV，用于多设备同步。
+- 不接入统计分析，不追踪用户，不收集浏览记录。
+- 未登录时，收藏与偏好仅保存在本机浏览器。
+- 登录仅通过 GitHub 授权读取公开资料（用户名、头像），不保存访问令牌；登录状态为 30 天有效的签名 Cookie。
+- 登录后，收藏与已开启同步的偏好按账号 ID 存于 Cloudflare KV，用于多设备同步。
 - 人机验证由 Cloudflare Turnstile 提供。
 
-<a id="zh-structure"></a>
-
-### 仓库结构
+## 仓库结构
 
 | 路径 | 内容 |
 |---|---|
-| [`plugin/`](plugin/) | Loon 插件（10 款） |
-| [`script/`](script/) | 插件使用的脚本 |
-| [`box/`](box/) | Loon Box 前端源码（原生 HTML / 模块化 CSS `styles/` / ES Modules `js/`） |
+| [`plugin/`](plugin/) | Loon 插件 |
+| [`script/`](script/) | 插件所用脚本 |
+| [`box/`](box/) | Loon Box 前端（原生 HTML / CSS / ES Modules） |
 | [`functions/`](functions/) | Cloudflare Pages Functions：清单接口、GitHub OAuth、云端同步、人机验证 |
 | [`icon/`](icon/) | 图标资源 |
-| [`manifest.json`](manifest.json) | 插件清单，由 GitHub Actions 自动生成，请勿手动编辑 |
+| [`manifest.json`](manifest.json) | 插件清单，由 Actions 自动生成，请勿手动编辑 |
 | [`.github/workflows/`](.github/workflows/) | 清单生成工作流 |
 
-<a id="zh-ci"></a>
+## 自动化
 
-### 自动化流程
+向 `main` 推送 `plugin/*.plugin` 或工作流变更后，GitHub Actions 将：
 
-向 `main` 分支推送 `plugin/*.plugin` 或工作流本身的变更后，GitHub Actions 将：
+1. 解析各插件头部元数据（`#!name`、`#!desc`、`#!tag`、`#!version` 等），并依据 `[MITM]`、`[Script]`、`[Argument]` 判定「需 MITM」「含脚本」「可配置」标签；
+2. 重新生成 `manifest.json` 并提交回仓库；
+3. 触发 Cloudflare Pages 重新部署。
 
-1. 扫描 `plugin/` 下全部 `.plugin` 文件，解析头部元数据（`#!name`、`#!desc`、`#!tag`、`#!version` 等），并根据 `[MITM]`、`[Script]`、`[Argument]` 段判断是否需要 MITM、是否含脚本、是否可配置，Loon Box 据此在卡片上显示「需 MITM」「含脚本」「可配置」标签；
-2. 重新生成 `manifest.json`，使用默认 `GITHUB_TOKEN` 提交回仓库（避免触发循环）；
-3. Cloudflare Pages 检测到仓库更新后自动重新部署 Loon Box。
+无 `#!tag` 的插件按工作流中的文件名映射表归类，未收录的归入「其他」。
 
-没有 `#!tag` 的插件按工作流中的文件名映射表归类；映射表中也没有的，归入「其他」。
+## 贡献
 
-<a id="zh-contribute"></a>
-
-### 贡献新插件
-
-1. 将 `.plugin` 文件放入 `plugin/`，配套脚本放入 `script/`。
-2. 在文件头部填写元数据：
+1. 将 `.plugin` 放入 `plugin/`，配套脚本放入 `script/`。
+2. 填写头部元数据：
 
    ```text
    #!name = 示例 自选节点
@@ -180,36 +131,22 @@ App 发出请求
    #!version = 1.0.0
    ```
 
-3. 提交到 `main` 分支，其余交由 Actions 处理。
+3. 提交到 `main`，其余由 Actions 处理。
 
-<a id="zh-disclaimer"></a>
+## 致谢
 
-### 免责声明
+| 项目 | 用途 |
+|---|---|
+| [Loon 插件文档](https://nsloon.app/docs/Plugin/) | 插件头部字段、`[Argument]` 与 `#!tag` 写法 |
+| [SunsetMkt/anti-ip-attribution](https://github.com/SunsetMkt/anti-ip-attribution) | 规则思路参考 |
+| [Koolson/Qure](https://github.com/Koolson/Qure)、[luestr/IconResource](https://github.com/luestr/IconResource) | 插件图标 |
+| [Cloudflare Pages](https://developers.cloudflare.com/pages/)、[Turnstile](https://developers.cloudflare.com/turnstile/) | 托管、接口与人机验证 |
+| [Shields.io](https://shields.io/) | 顶部徽章 |
 
-禁止在中华人民共和国境内宣传本仓库。
+## 许可
 
-本仓库内容基于个人使用场景编写，主要由 AI 辅助生成，不保证适用于所有网络环境与账号状态。仅供个人学习交流，请遵守相关 App 的用户协议。因使用本仓库内容导致的账号或网络问题，作者不承担责任。
+版权所有 © 2026 soobsessed，保留所有权利，详见 [LICENSE](LICENSE)。
 
-<a id="zh-credits"></a>
-
-### 致谢
-
-| 类别 | 项目 | 用途 |
-|---|---|---|
-| 文档 | [Loon 插件文档](https://nsloon.app/docs/Plugin/) | 插件头部字段、`[Argument]` 与 `#!tag` 写法 |
-| 文档 | [SunsetMkt/anti-ip-attribution](https://github.com/SunsetMkt/anti-ip-attribution) | 规则思路参考 |
-| 素材 | [Koolson/Qure](https://github.com/Koolson/Qure) | 插件图标 |
-| 素材 | [luestr/IconResource](https://github.com/luestr/IconResource) | 小红书插件图标 |
-| 服务 | [Cloudflare Pages](https://developers.cloudflare.com/pages/) | Loon Box 的托管与接口 |
-| 服务 | [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/) | 人机验证 |
-| 服务 | [Shields.io](https://shields.io/) | 顶部徽章 |
-
-<a id="zh-license"></a>
-
-### 许可
-
-版权所有 © 2026 soobsessed，保留所有权利。详见 [LICENSE](LICENSE)。
-
-第三方内容：[`script/spotify/`](script/spotify/) 下的脚本源自 [app2smile/rules](https://github.com/app2smile/rules)，版权归原作者 app2smile 所有，按 MIT 许可使用，许可文本见 [script/spotify/LICENSE](script/spotify/LICENSE)。
+第三方内容：[`script/spotify/`](script/spotify/) 下的脚本源自 [app2smile/rules](https://github.com/app2smile/rules)，版权归原作者所有，按 MIT 许可使用，见 [script/spotify/LICENSE](script/spotify/LICENSE)。
 
 [↑ 回到顶部](#top)
