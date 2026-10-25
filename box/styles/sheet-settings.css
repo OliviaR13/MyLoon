@@ -189,10 +189,10 @@ html[data-reduce-motion] #settingsFull svg{animation:none}
   box-shadow:0 6px 16px rgb(var(--shadow) / .15),0 1px 3px rgb(var(--shadow) / .1)}
 #logoutBtn.btn-ghost.swap[data-done]{background:#e5484d;border-color:#e5484d;color:#fff}
 /* 分组：一整块玻璃，行与行之间还是细线 */
-.group{--hi:rgb(255 255 255 / .7);background:color-mix(in srgb,var(--card) 90%,transparent);border-color:color-mix(in srgb,var(--line) 85%,transparent);
-  box-shadow:inset 0 1px 0 var(--hi),0 14px 34px rgb(var(--shadow) / .15),0 3px 8px rgb(var(--shadow) / .09),0 0 0 .5px rgb(var(--shadow) / .05)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .group{--hi:rgb(255 255 255 / .07);box-shadow:inset 0 1px 0 var(--hi),0 14px 34px rgb(0 0 0 / .45),0 3px 8px rgb(0 0 0 / .3)}}
-:root[data-theme="dark"] .group{--hi:rgb(255 255 255 / .07);box-shadow:inset 0 1px 0 var(--hi),0 14px 34px rgb(0 0 0 / .45),0 3px 8px rgb(0 0 0 / .3)}
+.group{background:color-mix(in srgb,var(--card) 90%,transparent);border-color:transparent;
+  box-shadow:0 14px 34px rgb(var(--shadow) / .15),0 3px 8px rgb(var(--shadow) / .09)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .group{box-shadow:0 14px 34px rgb(0 0 0 / .45),0 3px 8px rgb(0 0 0 / .3)}}
+:root[data-theme="dark"] .group{box-shadow:0 14px 34px rgb(0 0 0 / .45),0 3px 8px rgb(0 0 0 / .3)}
 /* 开关：轨道是玻璃，滑块是一颗带高光的玻璃珠；打开时轨道是强调色玻璃 */
 .switch,.mini-switch{background:var(--chip);box-shadow:inset 0 0 0 1px var(--line),inset 0 1px 3px rgb(var(--shadow) / .12)}
 .switch[aria-checked="true"],.sort-pin[aria-checked="true"] .mini-switch{background:var(--accent);box-shadow:inset 0 1px 3px rgb(0 0 0 / .18),0 0 0 1px color-mix(in srgb,var(--accent) 60%,transparent)}
