@@ -5,7 +5,7 @@
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png
 #!date = 2026-10-26
-#!version = 2.2.0
+#!version = 2.2.1
 
 [Argument]
 CRON = input,"10 8 * * *",tag=签到时间,desc=Cron 表达式，默认每天 08:10（分 时 日 月 周）

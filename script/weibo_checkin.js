@@ -96,13 +96,21 @@ function capture() {
 }
 
 // ---------- 网络 ----------
+let gotResponse = false; // 本次是否收到过服务器的任何响应（用来判断登录状态是否真的验证过）
 function get(url, headers, opt) {
   const o = opt || {};
+  const sec = o.timeout || 20;
   return new Promise((resolve, reject) => {
-    const req = { url, headers, timeout: o.timeout || 15 };
+    let fin = false;
+    const timer = typeof setTimeout === "function" ? setTimeout(() => { if (!fin) { fin = true; reject(new Error("脚本等待 " + sec + " 秒无响应")); } }, sec * 1000) : null;
+    const req = { url, headers, timeout: sec * 1000 }; // Loon 的 timeout 按毫秒算，传秒数会瞬间超时
     if (o.body != null) req.body = o.body;
     $httpClient[o.method === "POST" ? "post" : "get"](req, (err, resp, data) => {
-      if (err) return reject(new Error(String(err)));
+      if (fin) return;
+      fin = true;
+      if (timer && typeof clearTimeout === "function") clearTimeout(timer);
+      if (err) return reject(new Error(String(err).replace(/^HTTPClient request failed with error:/, "").slice(0, 120)));
+      gotResponse = true;
       resolve({ status: resp && resp.status, body: data || "" });
     });
   });
@@ -194,19 +202,22 @@ async function fetchMine(auth, T, fromMore) {
 
 async function fetchList(auth, st) {
   const T = st.listFirst || st.listMore;
-  let learnedNote = "";
   if (T) {
     try {
       const r = await fetchMine(auth, T, !st.listFirst);
-      if (r.topics.length) return Object.assign(r, { src: "learned" });
-      learnedNote = r.note;
+      return Object.assign(r, { src: "learned" });
     } catch (e) {
       if (e.expired) throw e;
-      learnedNote = "列表请求失败：" + String(e.message || e).slice(0, 60);
+      return { topics: [], src: "learned", note: "列表请求失败：" + String(e.message || e).slice(0, 80) };
     }
   }
-  const r = await fetchLegacy(auth);
-  return Object.assign(r, { src: "legacy", note: [learnedNote, r.note].filter(Boolean).join("；") });
+  try {
+    const r = await fetchLegacy(auth);
+    return Object.assign(r, { src: "legacy" });
+  } catch (e) {
+    if (e.expired) throw e;
+    return { topics: [], src: "legacy", note: "旧版列表接口失败：" + String(e.message || e).slice(0, 80) };
+  }
 }
 
 async function fetchLegacy(auth) {
@@ -216,7 +227,7 @@ async function fetchLegacy(auth) {
   for (let page = 0; page < MAX_PAGES; page++) {
     let url = "https://api.weibo.cn/2/cardlist?" + auth.pairs.join("&") + "&containerid=100803_-_followsuper";
     if (sinceId) url += "&since_id=" + encodeURIComponent(sinceId);
-    const { status, body } = await get(url, auth.headers, { timeout: 8 });
+    const { status, body } = await get(url, auth.headers, { timeout: 10 });
     const j = parse(body);
     if (isExpired(status, j)) throw Object.assign(new Error("expired"), { expired: true });
     if (!j) { note = "列表接口返回异常（HTTP " + status + "）"; break; }
@@ -321,12 +332,14 @@ async function run(trigger) {
     rec.ms = Date.now() - rec.at;
     st.run = rec; st.running = 0;
     if (rec.expired) st.login = { state: "expired" };
-    else st.login = { state: "ok", verified: Date.now() };
+    else if (gotResponse) st.login = { state: "ok", verified: Date.now() };
+    else rec.netFail = true;
     writeJ(STATE_KEY, st);
   }
 
   if (rec.expired) { push("登录已失效", "请重新打开微博 App 刷新登录状态"); return; }
   if (!rec.total) { push("没有可签到的超话", "请打开微博 →「我的超话」页一次，之后会自动记录"); return; }
+  if (rec.netFail) { push("网络请求全部失败", "没有收到微博服务器的任何响应，详情见状态页"); return; }
   const head = "共 " + rec.total + " 个：成功 " + rec.ok + " · 已签 " + rec.already + " · 失败 " + rec.fail;
   const lines = [];
   if (rec.ok) lines.push("✅ 新签到 " + rec.ok + " 个" + (rec.exp ? "，经验 +" + rec.exp : ""));
@@ -366,8 +379,9 @@ function renderPage() {
       '<ul>' + r.items.map((i) => '<li><span class="d ' + (dot[i.st] || "warn") + '"></span><span class="n">' + esc(i.name) + '</span><span class="m">' +
         esc(i.st === "ok" ? (i.streak ? "连签 " + i.streak + " 天" : "签到成功") + (i.exp ? " · +" + i.exp : "") : i.msg) + "</span></li>").join("") + "</ul>";
   }
+  const net = r && r.netFail ? "<br>⚠️ 本次没有收到微博服务器的任何响应（网络或代理问题，不是登录问题）" : "";
   const learned = st.listFirst ? "已记录「我的超话」首页请求" : st.listMore ? "只记录了「加载更多」，请在微博里下拉刷新「我的超话」页" : "还没记录「我的超话」列表请求（打开微博 →「我的超话」页即可）";
-  const src = (r ? "关注列表 " + r.listCount + " 个 · 访问记录 " + (r.visited || 0) + " 个" + (r.listNote ? "<br>" + esc(r.listNote) : "") : "访问记录 " + Object.keys(st.topics).length + " 个") + "<br>" + learned;
+  const src = (r ? "关注列表 " + r.listCount + " 个 · 访问记录 " + (r.visited || 0) + " 个" + (r.listNote ? "<br>" + esc(r.listNote) : "") : "访问记录 " + Object.keys(st.topics).length + " 个") + net + "<br>" + learned;
   return '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>微博超话签到</title><style>' +
     ':root{--bg:#f2f2f7;--card:#fff;--tx:#111;--sub:#8a8a8e;--ok:#34c759;--bad:#ff3b30;--warn:#ff9f0a;--mute:#c7c7cc;--ln:#eee}' +
     '@media(prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--tx:#f5f5f7;--sub:#98989d;--mute:#48484a;--ln:#2c2c2e}}' +
