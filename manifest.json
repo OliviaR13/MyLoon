@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-10-25T16:05:27.243959+00:00",
+  "generatedAt": "2026-10-25T16:16:20.446166+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -210,7 +210,7 @@
       "id": "weibo_checkin",
       "name": "微博超话签到",
       "file": "plugin/weibo_checkin.plugin",
-      "version": "1.0.0",
+      "version": "2.0.0",
       "author": "@OliviaR13",
       "category": "签到",
       "tags": [
@@ -225,7 +225,7 @@
       "date": "2026-10-26",
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png",
-      "description": "每天定时给已关注的微博超话全部签到，完成后推送汇总。首次使用：打开微博 App 进入「超话」页面一次，保存登录参数；之后全自动。登录失效时会提醒，重新打开超话页面即可。"
+      "description": "每天定时给微博超话签到，并推送汇总。打开微博 App 即自动获取登录状态；进入过的超话会自动记录。状态页（Loon 开启时在 Safari 打开）：http://weibo-checkin.loon/ ，可看登录状态、签到结果，也能一键立即签到。"
     }
   ]
 }
