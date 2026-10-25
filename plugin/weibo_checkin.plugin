@@ -1,0 +1,20 @@
+#!name = 微博超话签到
+#!desc = 每天定时给已关注的微博超话全部签到，完成后推送汇总。首次使用：打开微博 App 进入「超话」页面一次，保存登录参数；之后全自动。登录失效时会提醒，重新打开超话页面即可。
+#!tag = 签到,微博
+#!author = @OliviaR13
+#!homepage = https://www.github.com/OliviaR13
+#!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png
+#!date = 2026-10-26
+#!version = 1.0.0
+
+[Argument]
+CRON = input,"10 8 * * *",tag=签到时间,desc=Cron 表达式，默认每天 08:10（分 时 日 月 周）
+NOTIFY = switch,true,tag=签到通知,desc=签到完成后推送汇总（成功 / 已签 / 失败）
+DEBUG = switch,false,tag=调试日志,desc=在 Loon 日志中显示列表与签到结果，用于排查问题
+
+[Script]
+http-request ^https?:\/\/api\.weibo\.cn\/2\/cardlist\?.*containerid=100803_-_followsuper script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_checkin.js, requires-body=false, timeout=10, tag=微博超话-保存登录参数, argument=[{NOTIFY},{DEBUG}]
+cron "{CRON}" script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_checkin.js, timeout=300, tag=微博超话签到, argument=[{NOTIFY},{DEBUG}]
+
+[MITM]
+hostname = api.weibo.cn
