@@ -99,3 +99,10 @@ html[data-full-cols] .sheet.full.detail{--full-col:760px}
   .detail.enter *,.detail.enter .detail-actions,.d-fold[open]>.d-notes{animation:none!important}
   .d-title,.d-fold>summary svg{transition:none}
 }
+
+/* ══ 详情页的悬浮卡片：概览条、插件介绍、须知、遇到问题时，和设置页的 .group 同一套材质（阴影托起，无边线） ══ */
+.d-meta,.d-intro,.d-notes{background:color-mix(in srgb,var(--card) 90%,transparent);border:1px solid transparent;border-radius:var(--r-lg);
+  box-shadow:0 14px 34px rgb(var(--shadow) / .15),0 3px 8px rgb(var(--shadow) / .09)}
+.d-intro,.d-notes{padding:14px 16px}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) :is(.d-meta,.d-intro,.d-notes){box-shadow:0 14px 34px rgb(0 0 0 / .45),0 3px 8px rgb(0 0 0 / .3)}}
+:root[data-theme="dark"] :is(.d-meta,.d-intro,.d-notes){box-shadow:0 14px 34px rgb(0 0 0 / .45),0 3px 8px rgb(0 0 0 / .3)}
