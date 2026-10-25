@@ -57,17 +57,18 @@ function capture() {
     (/page_?id(?:=|%3D)(100808[0-9a-f]{10,})/i.exec(url));
   if (m) dirty = learn(st, m[1]) || dirty;
 
-  // 「我的超话」列表请求：记下来，之后用它拿关注列表（fid / containerid 等于列表页，而不是 lfid）
-  const LIST_RE = /(?:^|[?&])(?:fid|containerid)=232478_-_mine_topic(?:&|$)/;
+  // 「我的超话」列表请求：记下来，之后用它翻页取关注列表（fid / flowId 等于列表页，而不是 lfid）
+  const LIST_RE = /(?:^|[?&])(?:fid|containerid|flowId)=232478_-_mine_topic(?:&|$)/;
   const qsRaw = url.split("?")[1] || "";
   if (hd.authorization && (LIST_RE.test(body) || LIST_RE.test(qsRaw))) {
     const extra = qsRaw.split("&").filter((p) => p && KEEP_QS.indexOf(keyOf(p).toLowerCase()) === -1 && !/^(ul_|since_id=)/.test(p));
-    st.listReq = {
+    const more = /(?:^|[?&])taskType=loadMore(?:&|$)/.test(body + "&" + qsRaw);
+    st[more ? "listMore" : "listFirst"] = {
       method: String($request.method || "GET").toUpperCase(), path: url.split("?")[0],
       qs: extra.join("&"), body, ct: hd["content-type"] || "", at: Date.now(),
     };
     dirty = true;
-    log("已记录「我的超话」列表请求");
+    log("已记录「我的超话」" + (more ? "加载更多" : "首页") + "请求");
   }
 
   // 只记录当前账号：当前账号的请求带 authorization 头
@@ -131,59 +132,74 @@ function extractTopics(json) {
   return out;
 }
 
-// 通用提取：不依赖具体返回结构，找「带签到按钮的最小对象」里的超话 id 和名字
-function extractAny(json) {
+// 「我的超话」列表：已关注 = card_type 8；「猜你喜欢」之后是推荐（card_type 1022），要排除
+function extractMine(json) {
   const out = [];
-  const visit = (node) => {
-    if (!node || typeof node !== "object") return false;
-    if (Array.isArray(node)) { let f = false; for (const n of node) f = visit(n) || f; return f; }
-    let found = false;
-    for (const k of Object.keys(node)) found = visit(node[k]) || found;
-    if (found) return true;
-    const str = JSON.stringify(node);
-    if (!/签到|已签/.test(str)) return false;
-    const id = (ID_RE.exec(str) || [])[0];
-    if (!id) return false;
-    out.push({ id, name: node.title_sub || node.title || node.name || node.page_title || "", done: /已签/.test(str) && !/"签到"/.test(str) });
-    return true;
+  let reco = false;
+  const walk = (n) => {
+    if (!n || typeof n !== "object") return;
+    if (Array.isArray(n)) return n.forEach(walk);
+    if (n.category === "card" && n.data) {
+      const d = n.data;
+      if (d.itemid === "mine_topic_recommend_title" || Number(d.card_type) === 1022) { reco = true; return; }
+      if (!reco && Number(d.card_type) === 8) {
+        const id = (ID_RE.exec(String(d.scheme || "")) || [])[0];
+        const b = (d.buttons || [])[0];
+        const unfollowed = b && b.type === "follow" && !/已关注/.test(String(b.name || ""));
+        if (id && !unfollowed) out.push({ id, name: d.title_sub || "", done: false });
+      }
+      return;
+    }
+    Object.keys(n).forEach((k) => walk(n[k]));
   };
-  visit(json);
-  return out;
+  walk(json);
+  return { out, reco };
 }
 
-async function fetchLearned(auth, L) {
+function setP(s, k, v, add) {
+  const re = new RegExp("(^|&)" + k + "=[^&]*");
+  if (v === null) return s.replace(re, "").replace(/^&/, "");
+  if (re.test(s)) return s.replace(re, "$1" + k + "=" + encodeURIComponent(v));
+  return add ? (s ? s + "&" : "") + k + "=" + encodeURIComponent(v) : s;
+}
+
+// 按记录下来的请求模板翻页：每页返回的 moreInfo.params 就是下一页的 page / since_id / max_id
+async function fetchMine(auth, T, fromMore) {
   const topics = [], seen = new Set();
-  let note = "";
-  const pageRe = /(^|&)page=\d+/;
-  const pageable = pageRe.test(L.qs || "") || pageRe.test(L.body || "");
-  for (let page = 1; page <= MAX_PAGES; page++) {
-    const bump = (x) => (pageRe.test(x) ? x.replace(pageRe, "$1page=" + page) : x);
-    const url = L.path + "?" + auth.pairs.concat(L.qs ? bump(L.qs).split("&").filter(Boolean) : []).join("&");
+  let note = "", qs = T.qs || "", body = T.body || "";
+  const post = T.method === "POST"; // 参数放在请求体（POST）或查询串（GET）里
+  const apply = (k, v) => { qs = setP(qs, k, v, !post); if (post) body = setP(body, k, v, true); };
+  if (fromMore) { apply("page", 1); apply("since_id", null); apply("max_id", 0); } // 只有「加载更多」的记录时，尝试从第 1 页开始
+  for (let n = 0; n < MAX_PAGES; n++) {
+    const url = T.path + "?" + auth.pairs.concat(qs.split("&").filter(Boolean)).join("&");
     const headers = Object.assign({}, auth.headers);
-    if (L.method === "POST") headers["content-type"] = L.ct || "application/x-www-form-urlencoded; charset=utf-8";
-    const { status, body } = await get(url, headers, { method: L.method, body: L.body ? bump(L.body) : null, timeout: 15 });
-    const j = parse(body);
+    if (T.method === "POST") headers["content-type"] = T.ct || "application/x-www-form-urlencoded; charset=utf-8";
+    const { status, body: resp } = await get(url, headers, { method: T.method, body: T.method === "POST" ? body : null, timeout: 15 });
+    const j = parse(resp);
     if (isExpired(status, j)) throw Object.assign(new Error("expired"), { expired: true });
     if (!j) { note = "列表返回异常（HTTP " + status + "）"; break; }
+    const { out, reco } = extractMine(j);
     let added = 0;
-    for (const t of extractAny(j)) {
-      if (seen.has(t.id)) continue;
-      seen.add(t.id); topics.push(t); added++;
-    }
-    log("学习到的列表第 " + page + " 页，新增 " + added);
-    if (!pageable || !added) break;
+    for (const t of out) { if (!seen.has(t.id)) { seen.add(t.id); topics.push(t); added++; } }
+    const mp = j.moreInfo && j.moreInfo.params;
+    log("列表第 " + (n + 1) + " 页，新增 " + added + (reco ? "，已到推荐区" : ""));
+    if (reco || !mp || (!added && n > 0)) break;
+    for (const k of ["page", "since_id", "max_id"]) if (mp[k] !== undefined) apply(k, mp[k]);
+    for (const kv of [["taskType", "loadMore"], ["manualType", "scroll"], ["invokeType", "manual"]]) { qs = setP(qs, kv[0], kv[1]); if (post) body = setP(body, kv[0], kv[1]); }
     await sleep(500);
   }
-  if (!topics.length && !note) note = "列表里没有找到带签到按钮的超话";
+  if (!topics.length && !note) note = "没有读到关注的超话" + (fromMore ? "，请在微博里下拉刷新「我的超话」页以记录首页请求" : "");
   return { topics, note };
 }
 
-async function fetchList(auth, L) {
-  if (L) {
+async function fetchList(auth, st) {
+  const T = st.listFirst || st.listMore;
+  let learnedNote = "";
+  if (T) {
     try {
-      const r = await fetchLearned(auth, L);
+      const r = await fetchMine(auth, T, !st.listFirst);
       if (r.topics.length) return Object.assign(r, { src: "learned" });
-      var learnedNote = r.note;
+      learnedNote = r.note;
     } catch (e) {
       if (e.expired) throw e;
       learnedNote = "列表请求失败：" + String(e.message || e).slice(0, 60);
@@ -274,7 +290,7 @@ async function run(trigger) {
   try {
     let listed = [];
     try {
-      const r = await fetchList(auth, st.listReq);
+      const r = await fetchList(auth, st);
       listed = r.topics; rec.listNote = r.note; rec.listCount = listed.length; rec.listSrc = r.src;
     } catch (e) {
       if (e.expired) rec.expired = true; else rec.listNote = "列表接口：" + String(e.message || e).slice(0, 80);
@@ -350,7 +366,7 @@ function renderPage() {
       '<ul>' + r.items.map((i) => '<li><span class="d ' + (dot[i.st] || "warn") + '"></span><span class="n">' + esc(i.name) + '</span><span class="m">' +
         esc(i.st === "ok" ? (i.streak ? "连签 " + i.streak + " 天" : "签到成功") + (i.exp ? " · +" + i.exp : "") : i.msg) + "</span></li>").join("") + "</ul>";
   }
-  const learned = st.listReq ? "已记录「我的超话」列表请求" : "还没记录「我的超话」列表请求（打开微博 →「我的超话」页即可）";
+  const learned = st.listFirst ? "已记录「我的超话」首页请求" : st.listMore ? "只记录了「加载更多」，请在微博里下拉刷新「我的超话」页" : "还没记录「我的超话」列表请求（打开微博 →「我的超话」页即可）";
   const src = (r ? "关注列表 " + r.listCount + " 个 · 访问记录 " + (r.visited || 0) + " 个" + (r.listNote ? "<br>" + esc(r.listNote) : "") : "访问记录 " + Object.keys(st.topics).length + " 个") + "<br>" + learned;
   return '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>微博超话签到</title><style>' +
     ':root{--bg:#f2f2f7;--card:#fff;--tx:#111;--sub:#8a8a8e;--ok:#34c759;--bad:#ff3b30;--warn:#ff9f0a;--mute:#c7c7cc;--ln:#eee}' +
