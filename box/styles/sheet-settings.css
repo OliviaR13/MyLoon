@@ -16,7 +16,7 @@
 .sheet.closing::backdrop{transition-duration:.3s;transition-timing-function:cubic-bezier(.4,0,1,1)}
 .sheet-head{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px 12px;transition:padding .45s var(--ease)}
 .sheet-head h2{margin:0;padding-right:12px;font-size:26px;line-height:1;font-weight:700;letter-spacing:-.02em;text-align:right}
-.sheet-nav{display:flex;align-items:center;gap:8px}
+.sheet-nav{position:relative;z-index:3;display:flex;align-items:center;gap:8px}
 #settingsFull .ico-shrink{display:none}
 #settingsFull[aria-pressed="true"] .ico-expand{display:none}
 #settingsFull[aria-pressed="true"] .ico-shrink{display:block}
@@ -74,7 +74,7 @@ html:has(.sheet[open],.tour[open]){overflow:hidden;padding-right:var(--page-sbw,
 .about-card strong{font-size:15.5px;letter-spacing:-.01em}
 .acct{display:flex;align-items:center;gap:10px;min-width:0}
 .acct img{border-radius:50%;box-shadow:0 0 0 1px var(--line);background:var(--chip)}
-.acct span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acct span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
 /* 退出登录的内联确认（借自 Bencho Confirm）：「取消」从按钮左边展开，按钮自己变成红色的确认，
    按钮底部一条细线烧尽 = 自动取消的倒计时。按钮本身的宽度不变（「退出登录」和「确认退出」一样宽），所以不会挪位置 */
 .confirm{display:inline-flex;align-items:center;flex:none}
