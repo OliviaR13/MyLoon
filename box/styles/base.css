@@ -76,8 +76,8 @@ button,a,.tab,.tile,.row-btn,.chip-filter,.star{-webkit-touch-callout:none;-webk
 .h1-eyebrow{display:block;font-size:13px;font-weight:600;letter-spacing:0;color:var(--muted);margin-bottom:3px}
 .head p{color:var(--muted);font-size:13px;font-weight:500;margin-top:5px;line-break:strict;text-wrap:balance}
 @supports (word-break:auto-phrase){.head p{word-break:auto-phrase}}
-#refreshBtn{height:40px;padding:0 14px;flex:none} /* 与右边的设置按钮等高 */
-#refreshBtn:disabled{opacity:.6}
+/* 主页不再显示刷新按钮，改用下拉刷新（js/pull.js）。元素保留在 DOM 里：manifest.js / pull.js 把它的 disabled 当作「正在加载」的状态标记，删掉会报错 */
+#refreshBtn{display:none}
 
 /* 按钮 */
 .btn{font:inherit;font-size:14px;font-weight:600;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:var(--r-md);
