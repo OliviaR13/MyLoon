@@ -8,6 +8,8 @@
 
 const AUTH_KEY = "MyLoon_WeiboCH_auth";
 const STATE_KEY = "MyLoon_WeiboCH_state";
+const WEB_KEY = "MyLoon_WeiboCH_web"; // 网页版登录（扫码获得的 Cookie），只保存在本机
+const WEB_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36";
 const HOST = "weibo-checkin.loon";
 const PAGE = "http://" + HOST + "/";
 const TITLE = "微博超话签到";
@@ -89,7 +91,7 @@ function capture() {
       const wasBad = !old || !same || st.login.state === "expired";
       st.login = { state: "ok", verified: st.login.verified || 0 };
       dirty = true;
-      if (wasBad) push("登录状态已获取", "之后会按定时任务自动签到，点击查看状态页");
+      if (wasBad && !readJ(WEB_KEY)) push("登录状态已获取", "之后会按定时任务自动签到，点击查看状态页");
       log("已保存登录状态");
     }
   }
@@ -112,7 +114,7 @@ function get(url, headers, opt) {
       if (timer && typeof clearTimeout === "function") clearTimeout(timer);
       if (err) return reject(new Error(String(err).replace(/^HTTPClient request failed with error:/, "").slice(0, 120)));
       gotResponse = true;
-      resolve({ status: resp && resp.status, body: data || "" });
+      resolve({ status: resp && resp.status, body: data || "", headers: (resp && resp.headers) || {} });
     });
   });
 }
@@ -284,25 +286,141 @@ async function checkin(auth, id) {
   }
 }
 
+// ---------- 网页版：扫码登录 + 网页接口（取超话列表、签到） ----------
+const jsonp = (t) => {
+  const m = /^[^(]*\(([\s\S]*)\)[^)]*$/.exec(String(t || "").trim());
+  try { return JSON.parse(m ? m[1] : t); } catch (e) { return null; }
+};
+function pickCookies(h, names) {
+  let raw = "";
+  for (const k of Object.keys(h || {})) if (k.toLowerCase() === "set-cookie") raw += "\n" + [].concat(h[k]).join("\n");
+  const out = {};
+  for (const n of names) { // 取最后一个有效值（旧的会被置为 deleted）
+    const re = new RegExp("(?:^|[\\s,;])" + n + "=([^;,\\s]+)", "g");
+    let m;
+    while ((m = re.exec(raw))) if (m[1] !== "deleted") out[n] = m[1];
+  }
+  return out;
+}
+const sinaH = { Referer: "https://weibo.com/", "User-Agent": WEB_UA };
+const webHeaders = (web, referer) => ({ Cookie: web.cookie, Referer: referer, "User-Agent": WEB_UA });
+const webExpired = (status, body, j) => status === 401 || status === 403 ||
+  !!(j && (Number(j.ok) === -100 || /login\.php|visitor/.test(String(j.url || "")))) ||
+  (!j && /passport\.weibo\.com\/visitor|login\.php|<title>[^<]*登录/i.test(String(body).slice(0, 4000)));
+
+async function fetchListWeb(web) {
+  const topics = [], seen = new Set();
+  let note = "", maxPage = 1;
+  for (let page = 1; page <= Math.min(maxPage, MAX_PAGES); page++) {
+    const { status, body } = await get("https://weibo.com/ajax/profile/topicContent?tabid=231093_-_chaohua&page=" + page, webHeaders(web, "https://weibo.com/"), { timeout: 15 });
+    const j = parse(body);
+    if (webExpired(status, body, j)) throw Object.assign(new Error("expired"), { expired: true });
+    if (!j || !j.data) { note = "网页列表返回异常（HTTP " + status + "）"; break; }
+    maxPage = Number(j.data.max_page) || 1;
+    let added = 0;
+    for (const it of j.data.list || []) {
+      const id = String(it.oid || "").split(":").pop();
+      if (!/^\w{10,}$/.test(id) || seen.has(id)) continue;
+      seen.add(id); topics.push({ id, name: it.title || label(id), done: false }); added++;
+    }
+    log("网页列表第 " + page + "/" + maxPage + " 页，新增 " + added);
+    if (!added) break;
+    await sleep(400);
+  }
+  if (!topics.length && !note) note = "网页列表里没有关注的超话";
+  return { topics, note, src: "web" };
+}
+
+function judgeWeb(status, body) {
+  const j = parse(body);
+  if (webExpired(status, body, j)) return { r: "expired", msg: "登录已失效" };
+  if (!j) return { r: "fail", msg: "返回异常（HTTP " + status + "）" };
+  const d = j.data || {};
+  const txt = clean([j.msg, d.alert_title, d.alert_subtitle, String(d.tipMessage || "").replace(/<[^>]+>/g, " ")].join(" "));
+  const em = /(\d+)\s*点?经验|经验值?\s*\+?\s*(\d+)|\+\s*(\d+)/.exec(txt);
+  const exp = em && (em[1] || em[2] || em[3]);
+  const rank = (/第\s*(\d+)\s*名/.exec(txt) || [])[1];
+  if (/签到成功/.test(txt)) return { r: "ok", msg: txt, exp: exp ? +exp : 0, rank };
+  if (/已签到|已经签到|今天已|重复/.test(txt)) return { r: "already", msg: txt };
+  if (String(j.code) === "100000") return { r: "ok", msg: txt, exp: exp ? +exp : 0, rank };
+  return { r: "fail", msg: txt || "code " + j.code };
+}
+
+async function checkinWeb(web, id) {
+  const url = "https://weibo.com/p/aj/general/button?ajwvr=6&api=http://i.huati.weibo.com/aj/super/checkin&status=0&location=page_100808_super_index&id=" + id;
+  for (let i = 0; i < 2; i++) {
+    try {
+      const { status, body } = await get(url, webHeaders(web, "https://weibo.com/p/" + id), { timeout: 15 });
+      log(label(id) + " → HTTP " + status);
+      return judgeWeb(status, body);
+    } catch (e) {
+      if (i === 1) return { r: "fail", msg: String(e.message || e) };
+      await sleep(2000);
+    }
+  }
+}
+
+// 扫码登录：1 申请二维码 → 2 在微博 App 里确认 → 3 轮询并换取网页 Cookie
+async function loginStart() {
+  const { body } = await get("https://login.sina.com.cn/sso/qrcode/image?entry=sinawap&size=180&callback=STK_1", sinaH, { timeout: 15 });
+  const j = jsonp(body);
+  if (!j || !j.data || !j.data.qrid) throw new Error("没有拿到二维码（新浪登录接口无响应）");
+  const st = readState();
+  st.qr = { id: j.data.qrid, image: j.data.image || "", at: Date.now() };
+  writeJ(STATE_KEY, st);
+  return loginPage(st.qr);
+}
+
+async function exchangeLogin(alt) {
+  const r1 = await get("https://login.sina.com.cn/sso/login.php?entry=sinawap&returntype=TEXT&crossdomain=1&cdult=3&domain=weibo.cn&alt=" + encodeURIComponent(alt) + "&savestate=30&callback=STK_3", sinaH, { timeout: 15 });
+  const j1 = jsonp(r1.body);
+  const u = ((j1 && j1.crossDomainUrlList) || []).find((x) => String(x).indexOf("https://passport.weibo.com") === 0);
+  if (!u) return { s: "fail", msg: "换取登录信息失败，请重新获取二维码" };
+  const r2 = await get(u, sinaH, { timeout: 15 });
+  const j2 = jsonp(r2.body);
+  const ck = pickCookies(r2.headers, ["SUBP", "ALF", "SUB", "SCF"]);
+  if (!ck.SUB) return { s: "fail", msg: "没有拿到网页登录 Cookie，请重新获取二维码" };
+  writeJ(WEB_KEY, {
+    cookie: Object.keys(ck).map((k) => k + "=" + ck[k]).join("; "),
+    at: Date.now(), nick: (j2 && j2.userinfo && j2.userinfo.displayname) || "",
+  });
+  const st = readState();
+  st.qr = null; st.login = { state: "ok", verified: Date.now(), route: "web" };
+  writeJ(STATE_KEY, st);
+  return { s: "ok", msg: "登录成功" };
+}
+
+async function loginCheck() {
+  const st = readState();
+  if (!st.qr) return { s: "fail", msg: "请先获取二维码" };
+  const { body } = await get("https://login.sina.com.cn/sso/qrcode/check?entry=sinawap&qrid=" + encodeURIComponent(st.qr.id) + "&callback=STK_2", sinaH, { timeout: 15 });
+  const j = jsonp(body);
+  if (!j) return { s: "wait", msg: "等待中…" };
+  if (j.retcode === 50114001) return { s: "wait", msg: "等待确认：请点上面的按钮，在微博里确认登录" };
+  if (j.retcode === 50114002) return { s: "scanned", msg: "已扫码，请在微博里点「确认登录」" };
+  if (j.retcode === 20000000 && j.data && j.data.alt) return exchangeLogin(j.data.alt);
+  return { s: "fail", msg: String(j.msg || "二维码已失效") + "，请重新获取" };
+}
+
 // ---------- 执行签到 ----------
 async function run(trigger) {
-  const auth = readJ(AUTH_KEY);
+  const auth = readJ(AUTH_KEY), web = readJ(WEB_KEY);
   const st = readState();
-  if (!auth) {
+  if (!auth && !web) {
     st.login = { state: "none" };
     writeJ(STATE_KEY, st);
-    push("还没有登录状态", "打开一次微博 App 即可自动获取");
+    push("还没有登录", "打开状态页扫码登录（推荐），或打开一次微博 App");
     return;
   }
   if (st.running && Date.now() - st.running < 300000) { log("上一次还在运行，跳过"); return; }
   st.running = Date.now();
   writeJ(STATE_KEY, st);
 
-  const rec = { at: Date.now(), trigger, items: [], ok: 0, already: 0, fail: 0, skipped: 0, exp: 0, expired: false, listNote: "", listCount: 0 };
+  const rec = { at: Date.now(), trigger, route: web ? "web" : "app", items: [], ok: 0, already: 0, fail: 0, skipped: 0, exp: 0, expired: false, listNote: "", listCount: 0 };
   try {
     let listed = [];
     try {
-      const r = await fetchList(auth, st);
+      const r = web ? await fetchListWeb(web) : await fetchList(auth, st);
       listed = r.topics; rec.listNote = r.note; rec.listCount = listed.length; rec.listSrc = r.src;
     } catch (e) {
       if (e.expired) rec.expired = true; else rec.listNote = "列表接口：" + String(e.message || e).slice(0, 80);
@@ -312,7 +430,7 @@ async function run(trigger) {
     const all = new Map();
     for (const t of listed) all.set(t.id, { id: t.id, name: t.name || label(t.id), done: t.done });
     rec.visited = 0;
-    for (const id of Object.keys(st.topics)) if (!all.has(id)) { all.set(id, { id, name: label(id), done: false }); rec.visited++; }
+    for (const id of Object.keys(st.topics)) if ((!web || !listed.length) && !all.has(id)) { all.set(id, { id, name: label(id), done: false }); rec.visited++; }
 
     if (st.signed.day !== today()) st.signed = { day: today(), ids: {} };
     const start = Date.now();
@@ -320,12 +438,12 @@ async function run(trigger) {
       if (rec.expired) break;
       if (t.done || st.signed.ids[t.id]) { rec.already++; rec.items.push({ name: t.name, st: "already", msg: "今日已签" }); st.signed.ids[t.id] = 1; continue; }
       if (Date.now() - start > DEADLINE_MS) { rec.skipped++; continue; }
-      const res = await checkin(auth, t.id);
+      const res = web ? await checkinWeb(web, t.id) : await checkin(auth, t.id);
       if (res.r === "expired") { rec.expired = true; break; }
       if (res.r === "ok") { rec.ok++; rec.exp += res.exp || 0; st.signed.ids[t.id] = 1; }
       else if (res.r === "already") { rec.already++; st.signed.ids[t.id] = 1; }
       else rec.fail++;
-      rec.items.push({ name: t.name, st: res.r, msg: res.msg, streak: res.streak, exp: res.exp });
+      rec.items.push({ name: t.name, st: res.r, msg: res.msg, streak: res.streak, exp: res.exp, rank: res.rank });
       await sleep(1500 + Math.floor(Math.random() * 2000));
     }
   } finally {
@@ -337,14 +455,14 @@ async function run(trigger) {
       st.hist[d] = { signed: Math.max(prev.signed, rec.ok + rec.already), fail: rec.fail, total: rec.total };
       Object.keys(st.hist).sort().slice(0, -14).forEach((k) => delete st.hist[k]);
     }
-    if (rec.expired) st.login = { state: "expired" };
-    else if (gotResponse) st.login = { state: "ok", verified: Date.now() };
+    if (rec.expired) st.login = { state: "expired", route: rec.route };
+    else if (gotResponse) st.login = { state: "ok", verified: Date.now(), route: rec.route };
     else rec.netFail = true;
     writeJ(STATE_KEY, st);
   }
 
-  if (rec.expired) { push("登录已失效", "请重新打开微博 App 刷新登录状态"); return; }
-  if (!rec.total) { push("没有可签到的超话", "请打开微博 →「我的超话」页一次，之后会自动记录"); return; }
+  if (rec.expired) { push("登录已失效", web ? "网页登录已过期，请打开状态页重新扫码" : "请重新打开微博 App 刷新登录状态"); return; }
+  if (!rec.total) { push("没有可签到的超话", web ? (rec.listNote || "网页登录读不到关注的超话") : "请打开微博 →「我的超话」页一次，之后会自动记录"); return; }
   if (rec.netFail) { push("网络请求全部失败", "没有收到微博服务器的任何响应，详情见状态页"); return; }
   const head = "共 " + rec.total + " 个：成功 " + rec.ok + " · 已签 " + rec.already + " · 失败 " + rec.fail;
   const lines = [];
@@ -365,10 +483,16 @@ function ago(t) {
   return Math.floor(s / 86400) + " 天前";
 }
 function loginView(auth, st) {
-  if (!auth) return { cls: "bad", t: "未获取", d: "打开微博 App 即可自动获取" };
+  const web = readJ(WEB_KEY);
+  if (web) {
+    const who = web.nick ? web.nick + " · " : "";
+    if (st.login.state === "expired" && st.login.route === "web") return { cls: "warn", t: "疑似失效", d: "网页登录已过期，请重新扫码" };
+    return { cls: "ok", t: "有效", d: who + "网页登录 · " + ago(web.at) + "登录" + (st.login.verified && st.login.route === "web" ? " · " + ago(st.login.verified) + "验证通过" : "") };
+  }
+  if (!auth) return { cls: "bad", t: "未登录", d: "扫码登录网页版，或打开微博 App" };
   if (st.login.state === "expired") return { cls: "warn", t: "疑似失效", d: "请重新打开微博 App 刷新" };
-  if (Date.now() - auth.at > 7 * 86400000) return { cls: "warn", t: "较久未刷新", d: ago(auth.at) + "获取，建议打开一次微博" };
-  return { cls: "ok", t: "有效", d: ago(auth.at) + "获取" + (st.login.verified ? " · " + ago(st.login.verified) + "验证通过" : "") };
+  if (Date.now() - auth.at > 7 * 86400000) return { cls: "warn", t: "较久未刷新", d: "App 登录 · " + ago(auth.at) + "获取，建议打开一次微博" };
+  return { cls: "ok", t: "有效", d: "App 登录 · " + ago(auth.at) + "获取" + (st.login.verified ? " · " + ago(st.login.verified) + "验证通过" : "") };
 }
 const friendly = (m) => {
   m = String(m || "");
@@ -399,7 +523,9 @@ const PAGE_CSS = ':root{--bg:#f2f2f7;--card:#fff;--tx:#1c1c1e;--sub:#8a8a8e;--ln
   '.empty{color:var(--sub);text-align:center;padding:18px 0 8px;font-size:14px}details summary{cursor:pointer;color:var(--sub);font-size:13px;list-style:none}details summary:after{content:" ›"}details[open] summary:after{content:" ⌄"}details p{margin:10px 0 0;color:var(--sub);font-size:12px;word-break:break-all}' +
   '.bar{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:var(--bg);background:color-mix(in srgb,var(--bg) 82%,transparent);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}.bar div{max-width:560px;margin:0 auto;display:flex;gap:10px}' +
   '.bar a{flex:1;text-align:center;text-decoration:none;font-weight:600;padding:14px;border-radius:15px;background:var(--card);color:var(--tx)}.bar a.p{flex:2;background:var(--ok);color:#fff}.bar a.busy{opacity:.65;pointer-events:none}' +
-  '.hint{text-align:center;color:var(--sub);font-size:12px;margin-top:14px}';
+  '.hint{text-align:center;color:var(--sub);font-size:12px;margin-top:14px}' +
+  '.promo{display:flex;align-items:center;justify-content:space-between;gap:12px}.promo b{display:block}.promo span{color:var(--sub);font-size:13px}.promo a{flex:none;background:var(--ok);color:#fff;text-decoration:none;font-weight:600;padding:9px 16px;border-radius:12px}' +
+  '.qr{text-align:center}.qr img{width:180px;height:180px;border-radius:14px;background:#fff;padding:8px}.big{display:block;text-align:center;text-decoration:none;font-weight:600;padding:15px;border-radius:15px;background:var(--ok);color:#fff;margin:6px 0 14px}ol{margin:0;padding-left:20px;color:var(--sub);font-size:14px}ol li{display:list-item;border:0;padding:3px 0}#m{margin-top:14px;text-align:center;font-weight:600}';
 
 const PAGE_JS = "var r=document.getElementById('run');if(r)r.onclick=function(){r.className='p busy';r.textContent='签到中… 约需 1 分钟，请勿关闭';};" +
   "addEventListener('pageshow',function(){if(r){r.className='p';r.textContent='立即签到';}});" +
@@ -425,12 +551,15 @@ function renderPage() {
     '<div class="side"><span class="pill ' + lv.cls + '">登录' + lv.t + '</span><p class="sub">' + esc(lv.d) + "</p>" + chips + "</div></div>";
 
   // 设置进度（全部完成后自动隐藏）
+  const web = readJ(WEB_KEY);
+  const loggedIn = !!(web || auth) && st.login.state !== "expired";
   const steps = [
-    { ok: !!auth && st.login.state !== "expired", t: "登录状态", d: auth ? lv.d : "打开微博 App 即可自动获取" },
-    { ok: !!st.listFirst, part: !st.listFirst && (!!st.listMore || nVisited > 0), t: "关注的超话",
-      d: st.listFirst ? "已记录「我的超话」" : st.listMore ? "请在「我的超话」页下拉刷新一次" : nVisited ? "已记录 " + nVisited + " 个进入过的超话；进入「我的超话」页可读取全部" : "打开微博 →「我的超话」，下拉刷新" },
+    { ok: loggedIn, t: "登录", d: loggedIn ? lv.d : web || auth ? "登录已过期，请重新登录" : "扫码登录网页版（推荐），或打开微博 App" },
+    { ok: !!(web || st.listFirst), part: !web && !st.listFirst && (!!st.listMore || nVisited > 0), t: "关注的超话",
+      d: web ? "网页登录后自动读取全部关注的超话" : st.listFirst ? "已记录「我的超话」" : st.listMore ? "请在「我的超话」页下拉刷新一次" : nVisited ? "已记录 " + nVisited + " 个进入过的超话" : "扫码登录后自动读取" },
     { ok: !!(r && r.total && !r.netFail), t: "首次签到", d: r ? (r.netFail ? "没有收到微博的响应，请检查代理 / 网络" : r.total ? "已完成" : "没有可签的超话") : "点下方「立即签到」试一次" },
   ];
+  const promo = web ? "" : '<div class="card promo"><div><b>扫码登录网页版，更稳</b><span>扫一次码，自动读取全部关注的超话</span></div><a href="/login">扫码登录</a></div>';
   const setup = steps.every((x) => x.ok) ? "" : '<div class="card"><h2>开始使用</h2>' + steps.map((x) =>
     '<div class="step"><span class="dot ' + (x.ok ? "ok" : x.part ? "part" : "") + '">' + (x.ok ? "✓" : "") + "</span><div><b>" + x.t + "</b><span>" + esc(x.d) + "</span></div></div>").join("") + "</div>";
 
@@ -451,7 +580,7 @@ function renderPage() {
   const lbl = { ok: "成功", already: "已签", fail: "失败" };
   const rows = items.map((i) => {
     const ch = Array.from(String(i.name || "?"))[0];
-    const sub = i.st === "ok" ? (i.streak ? "连签 " + i.streak + " 天" : "签到成功") + (i.exp ? " · 经验 +" + i.exp : "") : i.st === "already" ? "今日已签" : friendly(i.msg);
+    const sub = i.st === "ok" ? (i.streak ? "连签 " + i.streak + " 天" : "签到成功") + (i.rank ? " · 今日第 " + i.rank + " 名" : "") + (i.exp ? " · 经验 +" + i.exp : "") : i.st === "already" ? "今日已签" : friendly(i.msg);
     return '<li data-st="' + esc(i.st) + '"><span class="av" style="--h:' + ((ch.codePointAt(0) * 47) % 360) + '">' + esc(ch) + '</span><div class="tx"><b>' + esc(i.name) + "</b><small>" + esc(sub) +
       '</small></div><span class="chip ' + esc(i.st) + '">' + (lbl[i.st] || "未知") + "</span></li>";
   }).join("");
@@ -462,19 +591,38 @@ function renderPage() {
   // 诊断信息（折叠）
   const learned = st.listFirst ? "已记录「我的超话」首页请求" : st.listMore ? "只记录了「加载更多」，请在微博里下拉刷新「我的超话」页" : "还没有记录「我的超话」列表请求";
   const diag = '<div class="card"><details><summary>诊断信息</summary><p>' + (r ? "关注列表 " + r.listCount + " 个 · 进入过 " + (r.visited || 0) + " 个" + (r.listNote ? "<br>" + esc(r.listNote) : "") : "进入过的超话 " + nVisited + " 个") +
-    (r && r.netFail ? "<br>⚠️ 本次没有收到微博服务器的任何响应（网络或代理问题，不是登录问题）" : "") + "<br>" + learned + "<br>数据仅保存在本机 Loon 中</p></details></div>";
+    (r && r.netFail ? "<br>⚠️ 本次没有收到微博服务器的任何响应（网络或代理问题，不是登录问题）" : "") + "<br>登录方式：" + (web ? "网页（Cookie）" : auth ? "App" : "无") + "<br>" + (web ? "" : learned + "<br>") + (web ? '<a href="/logout">退出网页登录</a><br>' : "") + "数据仅保存在本机 Loon 中</p></details></div>";
 
   return '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><title>微博超话签到</title><style>' + PAGE_CSS + "</style></head><body><main>" +
-    "<header><h1>超话签到</h1><span>" + dateStr + "</span></header>" + hero + setup + week + list + diag +
+    "<header><h1>超话签到</h1><span>" + dateStr + "</span></header>" + hero + promo + setup + week + list + diag +
     '</main><div class="bar"><div><a href="/">刷新</a><a class="p" id="run" href="/run">立即签到</a></div></div><script>' + PAGE_JS + "</script></body></html>";
 }
+function loginPage(qr) {
+  const img = qr.image ? (qr.image.indexOf("//") === 0 ? "https:" + qr.image : qr.image) : "";
+  const scan = "https://passport.weibo.cn/signin/qrcode/scan?qr=" + qr.id + "&sinainternalbrowser=topnav&showmenu=0";
+  const app = "sinaweibo://browser?url=" + encodeURIComponent(scan);
+  const js = "var m=document.getElementById('m');function tick(){fetch('/login/check').then(function(r){return r.json()}).then(function(j){m.textContent=j.msg||'';if(j.s==='ok'){setTimeout(function(){location.replace('/')},600);return}if(j.s==='fail'){document.getElementById('re').style.display='block';return}setTimeout(tick,2000)}).catch(function(){setTimeout(tick,3000)})}tick();";
+  return '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><title>扫码登录</title><style>' + PAGE_CSS + "</style></head><body><main>" +
+    "<header><h1>扫码登录</h1><span>微博网页版</span></header>" +
+    '<div class="card"><h2>3 步完成</h2><ol><li>点下面的按钮，在微博 App 里打开确认页</li><li>在微博里点「确认登录」</li><li>回到这里，页面会自动完成</li></ol></div>' +
+    '<a class="big" href="' + esc(app) + '">在微博中打开确认</a>' +
+    (img ? '<div class="card qr"><h2>或用另一台设备的微博扫一扫</h2><img src="' + esc(img) + '" alt="二维码"></div>' : "") +
+    '<div id="m">等待确认…</div><a id="re" class="big" style="display:none;background:var(--card);color:var(--tx)" href="/login">重新获取二维码</a>' +
+    '<p class="hint"><a href="/" style="color:var(--sub)">返回状态页</a></p></main><script>' + js + "</script></body></html>";
+}
+
 function serve() {
   const path = ($request.url.replace(/^https?:\/\/[^/]+/, "").split("?")[0]) || "/";
-  const done = () => {
-    if (path === "/run") $done({ response: { status: 302, headers: { Location: PAGE, "Cache-Control": "no-store" }, body: "" } });
-    else $done({ response: { status: 200, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" }, body: renderPage() } });
-  };
-  if (path === "/run") run("manual").catch((e) => log("run error " + e)).then(done); else done();
+  const H = { "Cache-Control": "no-store" };
+  const html = (b) => $done({ response: { status: 200, headers: Object.assign({ "Content-Type": "text/html; charset=utf-8" }, H), body: b } });
+  const json = (o) => $done({ response: { status: 200, headers: Object.assign({ "Content-Type": "application/json; charset=utf-8" }, H), body: JSON.stringify(o) } });
+  const go = () => $done({ response: { status: 302, headers: Object.assign({ Location: PAGE }, H), body: "" } });
+  const fail = (m) => html('<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body style="font:16px -apple-system,sans-serif;padding:24px"><p>' + esc(m) + '</p><p><a href="/login">重试</a> · <a href="/">返回</a></p></body>');
+  if (path === "/run") run("manual").catch((e) => log("run error " + e)).then(go);
+  else if (path === "/login") loginStart().then(html).catch((e) => fail(String((e && e.message) || e)));
+  else if (path === "/login/check") loginCheck().then(json).catch((e) => json({ s: "fail", msg: String((e && e.message) || e) }));
+  else if (path === "/logout") { $persistentStore.write("", WEB_KEY); go(); }
+  else html(renderPage());
 }
 
 function statusNotify() {
