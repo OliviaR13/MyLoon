@@ -1,17 +1,17 @@
 #!name = 微博增强｜属地分流 · 来源机型 · 超话签到
-#!desc = ① 属地分流：仅 api.weibo.cn（微博 IP 属地判定域名）走代理，其余流量不受影响。② 来源机型：自定义发博、评论、转发时显示的来源机型，插件设置中可选 iPhone 11 至 iPhone 18 Pro Max 等共 32 款。切换机型后，请到微博「微博来源」中重新选择一次。③ 超话签到：在状态页扫码登录网页版（推荐），自动读取全部关注的超话并每天定时签到；也可用打开微博 App 的方式备用。状态页（Loon 开启时在 Safari 打开）：http://weibo-checkin.loon/
+#!desc = ① 属地分流：仅 api.weibo.cn（微博 IP 属地判定域名）走代理，其余流量不受影响。② 来源机型：自定义发博、评论、转发时显示的来源机型，插件设置中可选 iPhone 11 至 iPhone 18 Pro Max 等共 32 款。切换机型后，请到微博「微博来源」中重新选择一次。③ 超话签到：在状态页扫码登录网页版（推荐），自动读取全部关注的超话，每天到点自动签到（错过补签、失败重试）；也可用打开微博 App 的方式备用。状态页（Loon 开启时在 Safari 打开）：http://weibo-checkin.loon/
 #!tag = IP 属地,功能增强,签到
 #!author = @OliviaR13
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png
 #!date = 2026-10-26
-#!version = 2.6.0
+#!version = 2.7.0
 
 [Argument]
 ENABLE = switch,true,tag=启用来源机型,desc=开启后改写发博、评论、转发的来源机型。关闭后恢复真实机型，需到微博「微博来源」中重新选择
 MODEL = select,"iPhone 18 Pro Max","iPhone 18 Pro","iPhone Duo","iPhone 17 Pro Max","iPhone 17 Pro","iPhone 17","iPhone Air","iPhone 17e","iPhone 16 Pro Max","iPhone 16 Pro","iPhone 16 Plus","iPhone 16","iPhone 16e","iPhone 15 Pro Max","iPhone 15 Pro","iPhone 15 Plus","iPhone 15","iPhone 14 Pro Max","iPhone 14 Pro","iPhone 14 Plus","iPhone 14","iPhone 13 Pro Max","iPhone 13 Pro","iPhone 13","iPhone 13 mini","iPhone 12 Pro Max","iPhone 12 Pro","iPhone 12","iPhone 12 mini","iPhone 11 Pro Max","iPhone 11 Pro","iPhone 11",tag=来源机型,desc=切换后需到微博「微博来源」中重新选择一次
 CHECKIN = switch,true,tag=超话签到,desc=总开关。开启后每天定时给关注的超话签到；先在状态页 http://weibo-checkin.loon/ 扫码登录
-CRON = input,"10 8 * * *",tag=签到时间,desc=Cron 表达式，默认每天 08:10（分 时 日 月 周）
+TIME = input,"08:10",tag=签到时间,desc=每天几点开始自动签到（24 小时制，如 08:10）。Loon 每 15 分钟检查一次，到点后签到，错过会补签，失败会自动重试
 NOTIFY = switch,true,tag=签到通知,desc=获取登录状态、签到完成时推送；点击通知可打开状态页
 DEBUG = switch,false,tag=调试日志,desc=在 Loon 日志中显示脚本的执行过程，用于排查问题（不会输出任何登录信息）
 
@@ -24,10 +24,10 @@ http-request ^https?:\/\/api\.weibo\.cn\/2\/statuses\/(send|update|repost) scrip
 http-request ^https?:\/\/api\.weibo\.cn\/2\/comments\/(create|reply) script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_device.js, requires-body=true, timeout=10, tag=微博机型伪装-评论转发, argument=[{ENABLE},{MODEL},{DEBUG}]
 http-request ^https?:\/\/api\.weibo\.cn\/2\/(remind\/(unread_count|hometab_dot)|client\/tabbar|groups\/allgroups\/v2|page\/button|shproxy\/chaohua\/) script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_checkin.js, requires-body=false, timeout=10, tag=微博超话-保存登录状态, argument=[{CHECKIN},{NOTIFY},{DEBUG}]
 http-request ^https?:\/\/api\.weibo\.cn\/2\/(statuses\/container_timeline\w*|cardlist|page|container\/(getIndex|asyn))(\?|$) script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_checkin.js, requires-body=true, timeout=10, tag=微博超话-记录超话列表, argument=[{CHECKIN},{NOTIFY},{DEBUG}]
-http-request ^http:\/\/weibo-checkin\.loon\/ script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_checkin.js, requires-body=false, timeout=300, tag=微博超话-状态页, argument=[{CHECKIN},{NOTIFY},{DEBUG}]
-cron "{CRON}" script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_checkin.js, timeout=300, tag=微博超话签到, argument=[{CHECKIN},{NOTIFY},{DEBUG}]
+http-request ^http:\/\/weibo-checkin\.loon\/ script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_checkin.js, requires-body=false, timeout=300, tag=微博超话-状态页, argument=[{CHECKIN},{NOTIFY},{DEBUG},{TIME}]
+cron "*/15 * * * *" script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_checkin.js, timeout=300, tag=微博超话签到, argument=[{CHECKIN},{NOTIFY},{DEBUG},{TIME}]
 generic script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_checkin.js, timeout=300, tag=微博超话-立即签到, argument=[{CHECKIN},{NOTIFY},{DEBUG}]
-generic script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_checkin.js, timeout=10, tag=微博超话-查看状态, argument=[{CHECKIN},{NOTIFY},{DEBUG}]
+generic script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_checkin.js, timeout=10, tag=微博超话-查看状态, argument=[{CHECKIN},{NOTIFY},{DEBUG},{TIME}]
 
 [MITM]
 hostname = api.weibo.cn

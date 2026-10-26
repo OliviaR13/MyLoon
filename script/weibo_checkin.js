@@ -23,6 +23,9 @@ const arg = (typeof $argument === "object" && $argument) || {};
 const enabled = String(arg.CHECKIN) !== "false"; // 插件里的「超话签到」总开关
 const notify = String(arg.NOTIFY) !== "false";
 const debug = String(arg.DEBUG) === "true";
+const tm = /^\s*(\d{1,2})\s*[:：]\s*(\d{1,2})\s*$/.exec(String(arg.TIME || "08:10"));
+const SCHED = tm ? Math.min(23, +tm[1]) * 60 + Math.min(59, +tm[2]) : 8 * 60 + 10; // 每天几点开始自动签到（分钟数）
+const SCHED_TEXT = ("0" + Math.floor(SCHED / 60)).slice(-2) + ":" + ("0" + (SCHED % 60)).slice(-2);
 const log = (...a) => { if (debug) console.log("[weibo_checkin] " + a.join(" ")); };
 const push = (sub, body) => { if (notify) $notification.post(TITLE, sub, body || "", { openUrl: PAGE, url: PAGE }); };
 const sleep = (ms) => new Promise((r) => (typeof setTimeout === "function" ? setTimeout(r, ms) : r()));
@@ -403,16 +406,16 @@ async function loginCheck() {
 }
 
 // ---------- 执行签到 ----------
-async function run(trigger) {
+async function run(trigger, opt) {
   const auth = readJ(AUTH_KEY), web = readJ(WEB_KEY);
   const st = readState();
   if (!auth && !web) {
     st.login = { state: "none" };
     writeJ(STATE_KEY, st);
     push("还没有登录", "打开状态页扫码登录（推荐），或打开一次微博 App");
-    return;
+    return null;
   }
-  if (st.running && Date.now() - st.running < 300000) { log("上一次还在运行，跳过"); return; }
+  if (st.running && Date.now() - st.running < 300000) { log("上一次还在运行，跳过"); return "busy"; }
   st.running = Date.now();
   writeJ(STATE_KEY, st);
 
@@ -461,9 +464,9 @@ async function run(trigger) {
     writeJ(STATE_KEY, st);
   }
 
-  if (rec.expired) { push("登录已失效", web ? "网页登录已过期，请打开状态页重新扫码" : "请重新打开微博 App 刷新登录状态"); return; }
-  if (!rec.total) { push("没有可签到的超话", web ? (rec.listNote || "网页登录读不到关注的超话") : "请打开微博 →「我的超话」页一次，之后会自动记录"); return; }
-  if (rec.netFail) { push("网络请求全部失败", "没有收到微博服务器的任何响应，详情见状态页"); return; }
+  if (rec.expired) { push("登录已失效", web ? "网页登录已过期，请打开状态页重新扫码" : "请重新打开微博 App 刷新登录状态"); return rec; }
+  if (!rec.total) { push("没有可签到的超话", web ? (rec.listNote || "网页登录读不到关注的超话") : "请打开微博 →「我的超话」页一次，之后会自动记录"); return rec; }
+  if (rec.netFail) { if (!(opt && opt.silentNet)) push("网络请求全部失败", "没有收到微博服务器的任何响应，详情见状态页"); return rec; }
   const head = "共 " + rec.total + " 个：成功 " + rec.ok + " · 已签 " + rec.already + " · 失败 " + rec.fail;
   const lines = [];
   if (rec.ok) lines.push("✅ 新签到 " + rec.ok + " 个" + (rec.exp ? "，经验 +" + rec.exp : ""));
@@ -471,6 +474,33 @@ async function run(trigger) {
   if (bad.length) lines.push("❌ " + bad.join("；"));
   if (rec.skipped) lines.push("⏱ 超时未处理 " + rec.skipped + " 个，下次继续");
   push(head, lines.join("\n"));
+  return rec;
+}
+
+// ---------- 定时入口 ----------
+// Loon 每 15 分钟调用一次；到了设定的时间才真正签到，错过的会补签，失败的会隔一会儿重试。
+// 每次调用都记录一下，状态页就能看出 Loon 到底有没有触发过定时任务。
+async function auto() {
+  const day = today();
+  const now = new Date(), mins = now.getHours() * 60 + now.getMinutes();
+  const st = readState();
+  const a = st.auto && st.auto.day === day ? st.auto : { day, tries: 0, done: false, last: 0 };
+  st.tick = { at: Date.now() };
+  st.auto = a;
+  writeJ(STATE_KEY, st);
+  log("定时检查：现在 " + mins + " 分，设定 " + SCHED + " 分，今日已完成=" + a.done + "，已尝试 " + a.tries + " 次");
+  if (a.done || mins < SCHED) return;
+  if (a.tries >= 4 || (a.last && Date.now() - a.last < 25 * 60000)) return;
+
+  a.tries++; a.last = Date.now();
+  writeJ(STATE_KEY, st);
+  const res = await run("cron", { silentNet: a.tries < 3 });
+  const st2 = readState();
+  const a2 = st2.auto && st2.auto.day === day ? st2.auto : a;
+  if (res === "busy") a2.tries = Math.max(0, a2.tries - 1);
+  else a2.done = !(res && !res.expired && (res.netFail || (res.fail > 0 && a2.tries < 3)));
+  st2.auto = a2;
+  writeJ(STATE_KEY, st2);
 }
 
 // ---------- 可视化状态页 ----------
@@ -494,6 +524,7 @@ function loginView(auth, st) {
   if (Date.now() - auth.at > 7 * 86400000) return { cls: "warn", t: "较久未刷新", d: "App 登录 · " + ago(auth.at) + "获取，建议打开一次微博" };
   return { cls: "ok", t: "有效", d: "App 登录 · " + ago(auth.at) + "获取" + (st.login.verified ? " · " + ago(st.login.verified) + "验证通过" : "") };
 }
+const LOGO = "data:image/webp;base64,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";
 const friendly = (m) => {
   m = String(m || "");
   if (/Request timeout|无响应/.test(m)) return "请求超时";
@@ -502,113 +533,204 @@ const friendly = (m) => {
 };
 const clock = (t) => { const d = new Date(t); return ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2); };
 
-const PAGE_CSS = ':root{--bg:#f2f2f7;--card:#fff;--tx:#1c1c1e;--sub:#8a8a8e;--ln:#ececf0;--ok:#30b350;--bad:#ff453a;--warn:#ff9f0a;--mute:#d1d1d6;--okbg:#e6f6ea;--badbg:#ffe9e7;--mutebg:#f0f0f3;--warnbg:#fff3df}' +
-  '@media(prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--tx:#f5f5f7;--sub:#98989d;--ln:#2c2c2e;--ok:#32d74b;--mute:#48484a;--okbg:#10301a;--badbg:#3a1614;--mutebg:#2c2c2e;--warnbg:#3a2a0a}}' +
-  '*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html{-webkit-text-size-adjust:100%}' +
-  'body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 -apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif;padding:max(18px,env(safe-area-inset-top)) 16px calc(112px + env(safe-area-inset-bottom))}' +
-  'main{max-width:560px;margin:0 auto}header{display:flex;align-items:baseline;justify-content:space-between;margin:6px 4px 14px}h1{font-size:28px;line-height:1.1;margin:0;letter-spacing:-.5px}header span{color:var(--sub);font-size:13px}' +
-  '.card{background:var(--card);border-radius:20px;padding:18px;margin-bottom:12px}h2{font-size:12px;letter-spacing:.4px;color:var(--sub);font-weight:600;margin:0 0 12px}' +
-  '.hero{display:flex;align-items:center;gap:18px}.ring{position:relative;width:104px;height:104px;flex:none}.ring svg{transform:rotate(-90deg)}.ring circle{fill:none;stroke-width:9;stroke-linecap:round}.ring .bg{stroke:var(--ln)}' +
-  '.ring .fg{stroke:var(--ok);animation:fill .9s cubic-bezier(.2,.8,.2,1)}@keyframes fill{from{stroke-dasharray:0 var(--c)}}' +
-  '.ring div{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}.ring b{font-size:26px;line-height:1;font-variant-numeric:tabular-nums}.ring small{color:var(--sub);font-size:11px;margin-top:3px}' +
-  '.side{min-width:0;flex:1}.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 12px 3px 9px;border-radius:99px;font-weight:600;font-size:14px}.pill:before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}' +
-  '.pill.ok{background:var(--okbg);color:var(--ok)}.pill.bad{background:var(--badbg);color:var(--bad)}.pill.warn{background:var(--warnbg);color:var(--warn)}.sub{color:var(--sub);font-size:13px;margin:6px 0 0}' +
-  '.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.chip{font-size:12px;padding:2px 9px;border-radius:99px;background:var(--mutebg);color:var(--sub);white-space:nowrap}.chip.ok{background:var(--okbg);color:var(--ok)}.chip.fail{background:var(--badbg);color:var(--bad)}.chip.already{background:var(--mutebg);color:var(--sub)}' +
-  '.step{display:flex;gap:12px;align-items:flex-start;padding:9px 0}.step+.step{border-top:1px solid var(--ln)}.dot{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid var(--mute);display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;margin-top:1px}' +
-  '.dot.ok{background:var(--ok);border-color:var(--ok)}.dot.part{border-color:var(--warn)}.step b{display:block;font-size:15px}.step span{color:var(--sub);font-size:13px}' +
-  '.week{display:flex;justify-content:space-between}.week div{text-align:center;color:var(--sub);font-size:11px}.week i{display:block;width:34px;height:34px;border-radius:11px;margin:0 auto 5px;background:var(--mutebg)}.week i.ok{background:var(--ok)}.week i.warn{background:var(--warn)}.week .now{color:var(--tx);font-weight:600}' +
-  '.seg{margin-bottom:6px}.seg span{display:inline-block;margin:0 6px 6px 0;font-size:13px;line-height:1.3;padding:6px 14px;border-radius:99px;background:var(--mutebg);color:var(--sub);white-space:nowrap;cursor:pointer}.seg span.on{background:var(--tx);color:var(--card);font-weight:600}' +
-  'ul{list-style:none;margin:0;padding:0}li{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--ln)}li:first-child{border-top:0}li[hidden]{display:none}' +
-  '.av{flex:none;width:40px;height:40px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;color:#fff;background:hsl(var(--h),52%,56%)}.tx{flex:1;min-width:0}.tx b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tx small{display:block;color:var(--sub);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
-  '.empty{color:var(--sub);text-align:center;padding:18px 0 8px;font-size:14px}details summary{cursor:pointer;color:var(--sub);font-size:13px;list-style:none}details summary:after{content:" ›"}details[open] summary:after{content:" ⌄"}details p{margin:10px 0 0;color:var(--sub);font-size:12px;word-break:break-all}' +
-  '.bar{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:var(--bg);background:color-mix(in srgb,var(--bg) 82%,transparent);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}.bar div{max-width:560px;margin:0 auto;display:flex;gap:10px}' +
-  '.bar a{flex:1;text-align:center;text-decoration:none;font-weight:600;padding:14px;border-radius:15px;background:var(--card);color:var(--tx)}.bar a.p{flex:2;background:var(--ok);color:#fff}.bar a.busy{opacity:.65;pointer-events:none}' +
-  '.hint{text-align:center;color:var(--sub);font-size:12px;margin-top:14px}' +
-  '.promo{display:flex;align-items:center;justify-content:space-between;gap:12px}.promo b{display:block}.promo span{color:var(--sub);font-size:13px}.promo a{flex:none;background:var(--ok);color:#fff;text-decoration:none;font-weight:600;padding:9px 16px;border-radius:12px}' +
-  '.qr{text-align:center}.qr img{width:180px;height:180px;border-radius:14px;background:#fff;padding:8px}.big{display:block;text-align:center;text-decoration:none;font-weight:600;padding:15px;border-radius:15px;background:var(--ok);color:#fff;margin:6px 0 14px}ol{margin:0;padding-left:20px;color:var(--sub);font-size:14px}ol li{display:list-item;border:0;padding:3px 0}#m{margin-top:14px;text-align:center;font-weight:600}';
+// ---------- 页面样式：和 MyLoon 主站同一套设计变量（暖纸色 + 单一强调色、16/10/6 圆角、弹簧缓动、逐层入场） ----------
+const PAGE_CSS = `
+:root{--bg:#f6f4ef;--card:#fdfcf9;--hover:#faf8f3;--text:#1d1b17;--muted:#6a655a;--line:#e6e2d8;--chip:#efece4;--accent:#0f7f69;--accent-text:#0a6250;--accent-ink:#f7fbf9;--shadow:40 30 10;
+--glow:color-mix(in srgb,var(--accent) 16%,transparent);--warn:#b45309;--bad:#b42318;--r-lg:16px;--r-md:10px;--r-sm:6px;--spring:cubic-bezier(.34,1.4,.64,1);--ease:cubic-bezier(.2,.8,.2,1);
+--ap-bg:color-mix(in srgb,var(--card) 80%,transparent);--ap-filter:saturate(180%) blur(20px);--ap-line:rgb(0 0 0 / .1);
+--font:"Geist Sans",-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Noto Sans SC","Segoe UI",sans-serif;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace}
+@media (prefers-color-scheme:dark){:root{--bg:#12110f;--card:#191815;--hover:#1e1d19;--text:#efece5;--muted:#a39e92;--line:#2b2924;--chip:#23211d;--accent:#3fcfa6;--accent-text:#3fcfa6;--accent-ink:#04140e;--shadow:0 0 0;
+--glow:color-mix(in srgb,var(--accent) 14%,transparent);--warn:#fbbf24;--bad:#f87171;--ap-line:rgb(255 255 255 / .14)}}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:linear-gradient(var(--bg) 0,transparent 18%,transparent 82%,var(--bg) 100%),radial-gradient(75% 46% at 50% 14%,var(--glow),transparent 72%),radial-gradient(65% 40% at 85% 96%,color-mix(in srgb,var(--glow) 55%,transparent),transparent 70%)}
+body::before{content:"";position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.05;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.shell{position:relative;z-index:2;max-width:720px;margin:0 auto;padding:calc(24px + env(safe-area-inset-top)) 16px calc(112px + env(safe-area-inset-bottom))}
+h1,h2,p{margin:0}a{color:var(--accent-text)}button,a{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.head{display:flex;align-items:center;gap:12px;margin-bottom:20px}.logo{width:44px;height:44px;border-radius:var(--r-md);flex:none;box-shadow:0 0 0 1px var(--line)}
+.head-text{flex:1;min-width:0}.head h1{font-size:24px;line-height:1.05;font-weight:700;letter-spacing:-.03em}.h1-eyebrow{display:block;font-size:13px;font-weight:600;letter-spacing:0;color:var(--muted);margin-bottom:3px}
+.head p{color:var(--muted);font-size:13px;font-weight:500;margin-top:5px;line-break:strict;text-wrap:balance}
+.btn{font:inherit;font-size:14px;font-weight:600;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:var(--r-md);padding:8px 14px;cursor:pointer;text-decoration:none;white-space:nowrap;line-height:1.2;display:inline-flex;align-items:center;justify-content:center;transition:background-color .15s,border-color .15s,filter .15s,transform .35s var(--spring)}
+.btn:active{transform:scale(.97)}.btn-ghost{background:transparent}.btn-primary{background:var(--accent);border-color:transparent;color:var(--accent-ink);box-shadow:0 6px 14px color-mix(in srgb,var(--accent) 26%,transparent)}
+.btn-icon{display:grid;place-items:center;width:40px;height:40px;padding:0;flex:none}.head .btn{background:var(--ap-bg);border-color:var(--ap-line);-webkit-backdrop-filter:var(--ap-filter);backdrop-filter:var(--ap-filter);color:var(--text)}
+.btn-lg{width:100%;padding:14px;font-size:15px}
+.btn.swap{display:inline-grid;grid-template-areas:"s";align-items:center;justify-items:center;overflow:hidden}.btn.swap>.lbl{grid-area:s;display:inline-flex;align-items:center;gap:7px;transition:transform .34s var(--ease),opacity .2s}
+.btn.swap>.lbl-alt{transform:translateY(70%);opacity:0}.btn.swap[data-done]>.lbl:not(.lbl-alt){transform:translateY(-70%);opacity:0}.btn.swap[data-done]>.lbl-alt{transform:none;opacity:1;transition-delay:.04s}.btn-primary.swap[data-done]{filter:brightness(1.12)}
+.spin{animation:rot 1.4s linear infinite}.spin circle{stroke:currentColor;stroke-dasharray:1,150;stroke-dashoffset:0;animation:dash 1.4s ease-in-out infinite}
+@keyframes rot{to{transform:rotate(360deg)}}@keyframes dash{0%{stroke-dasharray:1,150;stroke-dashoffset:0}50%{stroke-dasharray:90,150;stroke-dashoffset:-35}100%{stroke-dasharray:90,150;stroke-dashoffset:-124}}
+.panel{border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card);overflow:hidden;margin-bottom:14px}
+.row{display:grid;grid-template-columns:40px 1fr auto;gap:12px 14px;align-items:center;padding:14px 16px}.row+.row{border-top:1px solid var(--line)}
+.ico{width:40px;height:40px;border-radius:var(--r-md);background:var(--chip);box-shadow:0 0 0 1px var(--line);display:grid;place-items:center;color:var(--muted);font-weight:700;transition:background-color .3s,color .3s}
+.ico.ok{background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--accent-text)}.ico.warn{background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--warn)}.ico.bad{background:color-mix(in srgb,var(--bad) 13%,transparent);color:var(--bad)}
+.rt{font-size:15.5px;line-height:1.35;font-weight:620;letter-spacing:-.005em;overflow-wrap:anywhere}.rm{color:var(--muted);font-size:12.5px;line-height:1.4;margin-top:2px;overflow-wrap:anywhere}
+.chip{display:inline-block;font-size:11.5px;line-height:1;padding:4px 7px;border-radius:var(--r-sm);background:var(--chip);color:var(--muted);white-space:nowrap}
+.chip.ok{background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--accent-text);font-weight:600}.chip.warn{background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--warn);font-weight:600}.chip.bad,.chip.fail{background:color-mix(in srgb,var(--bad) 13%,transparent);color:var(--bad);font-weight:600}
+.chip.cap,.chip.already{background:transparent;color:color-mix(in srgb,var(--text) 80%,var(--muted));box-shadow:inset 0 0 0 1px var(--line)}
+.heat{display:inline-flex;align-items:center;gap:4px;height:24px;white-space:nowrap;padding:0 9px 0 7px;border-radius:999px;background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--warn);font-size:12.5px;font-weight:650;line-height:1}
+.hero{display:flex;align-items:center;gap:18px;padding:18px}.ring{position:relative;width:96px;height:96px;flex:none}.ring svg{transform:rotate(-90deg)}.ring .bg{stroke:var(--line)}.ring .fg{stroke:var(--accent);animation:fill 1s var(--ease) .2s backwards}
+@keyframes fill{from{stroke-dasharray:0 var(--c)}}.ring div{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}.num{display:inline-flex;font-size:25px;font-weight:700;line-height:1;letter-spacing:-.02em}.ring small{color:var(--muted);font-size:11.5px;margin-top:4px}
+.dg{display:inline-block;height:1em;overflow:hidden;vertical-align:top}.dg i{display:block;font-style:normal;transition:transform 1s var(--ease)}.dg b{display:block;height:1em;font-weight:inherit}
+.side{min-width:0;flex:1}.side .rt{margin-bottom:2px}.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.week{display:flex;justify-content:space-between;padding:16px}.week div{text-align:center;color:var(--muted);font-size:11.5px}.week i{display:block;width:34px;height:34px;border-radius:var(--r-md);margin:0 auto 6px;background:var(--chip);box-shadow:inset 0 0 0 1px var(--line)}
+.week i.ok{background:var(--accent);box-shadow:none}.week i.warn{background:var(--warn);box-shadow:none}.week .now{color:var(--accent-text);font-weight:650}
+.tabs{position:relative;display:flex;gap:20px;border-bottom:1px solid var(--line);margin:22px 0 14px;overflow-x:auto;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}
+.tab{font:inherit;font-size:15px;font-weight:600;color:var(--muted);background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:8px 2px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;transition:color .2s}
+.tab[aria-pressed="true"]{color:var(--text)}.tab small{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--muted);background:var(--chip);border-radius:999px;padding:1px 7px;line-height:1.5}
+.tab[aria-pressed="true"] small{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent-text)}
+.tab-ind{position:absolute;bottom:-1px;height:2px;border-radius:2px;background:var(--accent);pointer-events:none}
+.tab-ind[data-dir="fwd"]{transition:right .18s var(--ease),left .45s var(--spring) .07s}.tab-ind[data-dir="back"]{transition:left .18s var(--ease),right .45s var(--spring) .07s}.tab-ind.no-anim{transition:none}
+.list{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card);overflow:hidden}
+.item{display:grid;grid-template-columns:40px 1fr auto;gap:12px 14px;align-items:center;padding:14px 16px}.item+.item{border-top:1px solid var(--line)}.item[hidden]{display:none}
+.list.enter .item{animation:rise .34s var(--ease) both;animation-delay:calc(var(--i,0) * 45ms)}@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.av{width:40px;height:40px;border-radius:var(--r-md);display:grid;place-items:center;font-weight:700;font-size:16px;box-shadow:0 0 0 1px var(--line);background:color-mix(in srgb,hsl(var(--h) 55% 50%) 16%,var(--card));color:color-mix(in srgb,hsl(var(--h) 60% 38%) 85%,var(--text))}
+.it{min-width:0}.it .rt{font-size:15.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.notice{padding:28px 18px;text-align:center;color:var(--muted)}.notice h2{color:var(--text);font-size:16px;margin-bottom:4px}
+.foot{text-align:center;color:var(--muted);font-size:12.5px;margin-top:28px}.foot details{margin-top:10px}.foot summary{cursor:pointer;list-style:none}.foot summary::-webkit-details-marker{display:none}.foot summary:after{content:" ›"}.foot details[open] summary:after{content:" ⌄"}.foot details p{margin-top:8px;line-height:1.7;word-break:break-all}
+.bblur{--f:104px;position:fixed;left:0;right:0;bottom:0;height:calc(var(--f) + env(safe-area-inset-bottom));z-index:5;pointer-events:none}
+.bblur::before{content:"";position:absolute;inset:0;background:linear-gradient(to top,color-mix(in srgb,var(--bg) 78%,transparent) 0,color-mix(in srgb,var(--bg) 60%,transparent) 55%,color-mix(in srgb,var(--bg) 22%,transparent) 80%,transparent 100%)}
+.bblur i{position:absolute;inset:0}
+/*BLUR*/
+.bdock{position:fixed;left:0;right:0;bottom:0;z-index:6;padding:0 16px calc(12px + env(safe-area-inset-bottom));pointer-events:none}
+.bdock-in{pointer-events:auto;max-width:720px;margin:0 auto;display:flex;gap:8px;padding:7px;border-radius:22px;background:var(--ap-bg);border:1px solid var(--ap-line);-webkit-backdrop-filter:var(--ap-filter);backdrop-filter:var(--ap-filter);box-shadow:0 10px 30px rgb(var(--shadow) / .14)}
+.bdock .btn{flex:1;padding:12px 14px;border-radius:16px}.bdock .btn-primary{flex:2}
+.toast{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top));translate:-50% 0;z-index:10;background:var(--text);color:var(--bg);font-size:13.5px;line-height:1.4;padding:9px 18px;border-radius:999px;box-shadow:0 8px 24px rgb(var(--shadow) / .22);opacity:0;visibility:hidden;transform:scale(.9);filter:blur(6px);pointer-events:none;transition:opacity .2s,visibility .2s,transform .5s var(--spring),filter .3s}
+.toast.show{opacity:1;visibility:visible;transform:none;filter:none}.toast.show.leaving{opacity:0;transform:translateY(-4px);transition:opacity .25s,transform .3s}
+.qr{padding:18px;text-align:center}.qr img{width:180px;height:180px;border-radius:var(--r-md);background:#fff;padding:8px;box-shadow:0 0 0 1px var(--line)}.qr .rm{margin-top:10px}
+.wait{display:flex;align-items:center;justify-content:center;gap:10px;margin:6px 0 14px;font-weight:620;color:var(--text)}.wait svg{color:var(--accent)}.wait.done svg,.wait.fail svg{display:none}.wait.done{color:var(--accent-text)}.wait.fail{color:var(--bad)}
+@keyframes intro-up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}@keyframes intro-pop{from{opacity:0;transform:scale(.86)}to{opacity:1;transform:none}}@keyframes intro-glow{from{opacity:0}to{opacity:1}}
+body::after{animation:intro-glow 1.3s ease-out backwards}.head .logo{animation:intro-pop .7s cubic-bezier(.34,1.3,.64,1) backwards}.head-text{animation:intro-up .6s var(--ease) .08s backwards}.head .btn{animation:intro-up .6s var(--ease) .16s backwards}
+.s1{animation:intro-up .6s var(--ease) .22s backwards}.s2{animation:intro-up .6s var(--ease) .28s backwards}.s3{animation:intro-up .6s var(--ease) .34s backwards}.s4{animation:intro-up .6s var(--ease) .4s backwards}.s5{animation:intro-up .6s var(--ease) .46s backwards}
+.foot{animation:intro-glow .5s ease-out .6s backwards}.bdock{animation:intro-up .6s var(--ease) .5s backwards}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.spin circle{stroke-dasharray:60,150!important}}
+`.replace("/*BLUR*/", `.bblur i:nth-child(1){-webkit-backdrop-filter:blur(0.7px);backdrop-filter:blur(0.7px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 1 / 8),transparent 100%);mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 1 / 8),transparent 100%)}
+.bblur i:nth-child(2){-webkit-backdrop-filter:blur(1.4px);backdrop-filter:blur(1.4px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 2 / 8),transparent calc(100% - var(--f) * 1 / 8));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 2 / 8),transparent calc(100% - var(--f) * 1 / 8))}
+.bblur i:nth-child(3){-webkit-backdrop-filter:blur(2.2px);backdrop-filter:blur(2.2px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 3 / 8),transparent calc(100% - var(--f) * 2 / 8));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 3 / 8),transparent calc(100% - var(--f) * 2 / 8))}
+.bblur i:nth-child(4){-webkit-backdrop-filter:blur(3.2px);backdrop-filter:blur(3.2px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 4 / 8),transparent calc(100% - var(--f) * 3 / 8));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 4 / 8),transparent calc(100% - var(--f) * 3 / 8))}
+.bblur i:nth-child(5){-webkit-backdrop-filter:blur(4.5px);backdrop-filter:blur(4.5px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 5 / 8),transparent calc(100% - var(--f) * 4 / 8));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 5 / 8),transparent calc(100% - var(--f) * 4 / 8))}
+.bblur i:nth-child(6){-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 6 / 8),transparent calc(100% - var(--f) * 5 / 8));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 6 / 8),transparent calc(100% - var(--f) * 5 / 8))}
+.bblur i:nth-child(7){-webkit-backdrop-filter:blur(7.8px);backdrop-filter:blur(7.8px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 7 / 8),transparent calc(100% - var(--f) * 6 / 8));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 7 / 8),transparent calc(100% - var(--f) * 6 / 8))}
+.bblur i:nth-child(8){-webkit-backdrop-filter:blur(10px) saturate(1.5);backdrop-filter:blur(10px) saturate(1.5);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 8 / 8),transparent calc(100% - var(--f) * 7 / 8));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 8 / 8),transparent calc(100% - var(--f) * 7 / 8))}`);
 
-const PAGE_JS = "var r=document.getElementById('run');if(r)r.onclick=function(){r.className='p busy';r.textContent='签到中… 约需 1 分钟，请勿关闭';};" +
-  "addEventListener('pageshow',function(){if(r){r.className='p';r.textContent='立即签到';}});" +
-  "var bs=document.querySelectorAll('.seg span');for(var i=0;i<bs.length;i++)bs[i].onclick=function(){var f=this.getAttribute('data-f');" +
-  "for(var j=0;j<bs.length;j++)bs[j].className=bs[j]===this?'on':'';var ls=document.querySelectorAll('li[data-st]');" +
-  "for(var k=0;k<ls.length;k++)ls[k].hidden=f!=='all'&&ls[k].getAttribute('data-st')!==f;};";
+const svgi = (d, z) => '<svg width="' + (z || 18) + '" height="' + (z || 18) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + "</svg>";
+const IC = {
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  check: '<path d="m5 12 5 5L20 7"/>',
+  bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+  qr: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20v.01M20 20v.01M17 17v3"/>',
+};
+const SPIN = '<svg class="spin" viewBox="0 0 50 50" width="18" height="18" aria-hidden="true"><circle cx="25" cy="25" r="20" fill="none" stroke-width="4.5" stroke-linecap="round"/></svg>';
+const BLUR_HTML = '<div class="bblur" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>';
+const headHtml = (title, sub, right) => '<header class="head"><img class="logo" src="' + LOGO + '" alt="" width="44" height="44"><div class="head-text"><h1><span class="h1-eyebrow">OliviaR13\u2019s</span> ' + title + "</h1><p>" + sub + "</p></div>" + (right || "") + "</header>";
+const shellOpen = (title) => '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><title>' + title + "</title><style>" + PAGE_CSS + "</style></head><body>";
+
+const PAGE_JS = "(function(){" +
+  "var ns=document.querySelectorAll('.num');for(var n=0;n<ns.length;n++){(function(el){var s=el.getAttribute('data-n');el.setAttribute('aria-label',s);el.textContent='';" +
+  "for(var i=0;i<s.length;i++){var c=s.charAt(i),w=document.createElement('span');if(c>='0'&&c<='9'){w.className='dg';var t=document.createElement('i');for(var d=0;d<10;d++){var b=document.createElement('b');b.textContent=d;t.appendChild(b)}" +
+  "t.style.transitionDelay=(i*70+250)+'ms';w.appendChild(t);(function(t,c){requestAnimationFrame(function(){requestAnimationFrame(function(){t.style.transform='translateY(-'+(c*10)+'%)'})})})(t,+c)}else{w.textContent=c}el.appendChild(w)}})(ns[n])}" +
+  "var tabs=document.getElementById('tabs'),ind=document.getElementById('ind'),cur=null;" +
+  "function place(btn,anim){if(!tabs||!ind)return;var tr=tabs.getBoundingClientRect(),br=btn.getBoundingClientRect();if(!anim||!cur){ind.className='tab-ind no-anim'}else{ind.className='tab-ind';ind.setAttribute('data-dir',btn.offsetLeft>cur.offsetLeft?'fwd':'back')}ind.style.left=(br.left-tr.left+tabs.scrollLeft)+'px';ind.style.right=(tr.right-br.right-tabs.scrollLeft)+'px';cur=btn}" +
+  "function filt(f){var ls=document.querySelectorAll('#items .item'),k=0;for(var i=0;i<ls.length;i++){var on=f==='all'||ls[i].getAttribute('data-st')===f;ls[i].hidden=!on;if(on){ls[i].style.setProperty('--i',k++);ls[i].style.animation='none';void ls[i].offsetWidth;ls[i].style.animation=''}}}" +
+  "if(tabs){var bs=tabs.querySelectorAll('.tab');for(var j=0;j<bs.length;j++)bs[j].onclick=function(){for(var q=0;q<bs.length;q++)bs[q].setAttribute('aria-pressed',bs[q]===this?'true':'false');place(this,true);filt(this.getAttribute('data-f'))};" +
+  "var first=tabs.querySelector('.tab');if(first)requestAnimationFrame(function(){place(first,false)})}" +
+  "var rb=document.getElementById('run');if(rb)rb.onclick=function(e){if(rb.hasAttribute('data-done')){e.preventDefault();return}rb.setAttribute('data-done','')};" +
+  "addEventListener('pageshow',function(){if(rb)rb.removeAttribute('data-done')});" +
+  "var tz=document.getElementById('toast');if(tz&&location.hash==='#done'){tz.className='toast show';history.replaceState(null,'',location.pathname);setTimeout(function(){tz.className='toast show leaving'},2800)}" +
+  "})();";
 
 function renderPage() {
-  const auth = readJ(AUTH_KEY), st = readState(), lv = loginView(auth, st), r = st.run;
-  const now = new Date();
+  const auth = readJ(AUTH_KEY), web = readJ(WEB_KEY), st = readState(), lv = loginView(auth, st), r = st.run;
+  const now = new Date(), mins = now.getHours() * 60 + now.getMinutes();
   const dateStr = now.getMonth() + 1 + "月" + now.getDate() + "日 周" + "日一二三四五六"[now.getDay()];
   const signed = r ? r.ok + r.already : 0;
-  const total = r ? Math.max(r.total, 1) : 1;
-  const C = 2 * Math.PI * 42, len = C * (r ? Math.min(1, signed / total) : 0);
+  const C = 2 * Math.PI * 40, len = C * (r && r.total ? Math.min(1, signed / r.total) : 0);
   const nVisited = Object.keys(st.topics).length;
+  const loggedIn = !!(web || auth) && st.login.state !== "expired";
 
-  // 顶部：进度环 + 登录状态
-  const chips = r ? '<div class="chips">' + (r.exp ? '<span class="chip ok">经验 +' + r.exp + "</span>" : "") +
+  // 总览
+  const chips = r ? '<div class="chips">' + (r.exp ? '<span class="heat">' + svgi(IC.bolt, 13) + "经验 +" + r.exp + "</span>" : "") +
     '<span class="chip">' + clock(r.at) + " · " + (r.trigger === "cron" ? "定时" : "手动") + '</span><span class="chip">用时 ' + Math.max(1, Math.round(r.ms / 1000)) + " 秒</span>" +
     (r.fail ? '<span class="chip fail">失败 ' + r.fail + "</span>" : "") + (r.skipped ? '<span class="chip">未处理 ' + r.skipped + "</span>" : "") + "</div>" : "";
-  const hero = '<div class="card hero"><div class="ring"><svg width="104" height="104" viewBox="0 0 104 104"><circle class="bg" cx="52" cy="52" r="42" fill="none" stroke="#ececf0" stroke-width="9"/><circle class="fg" cx="52" cy="52" r="42" fill="none" stroke="#30b350" stroke-width="9" stroke-linecap="round" stroke-dasharray="' + len.toFixed(1) + " " + C.toFixed(1) + '" stroke-opacity="' + (len > 0.5 ? 1 : 0) + '" style="--c:' + C.toFixed(1) + '"/></svg>' +
-    "<div><b>" + (r ? signed + "/" + r.total : "—") + "</b><small>今日已签</small></div></div>" +
-    '<div class="side"><span class="pill ' + lv.cls + '">登录' + lv.t + '</span><p class="sub">' + esc(lv.d) + "</p>" + chips + "</div></div>";
+  const hero = '<section class="panel hero s1"><div class="ring"><svg width="96" height="96" viewBox="0 0 96 96"><circle class="bg" cx="48" cy="48" r="40" fill="none" stroke="#e6e2d8" stroke-width="8"/>' +
+    '<circle class="fg" cx="48" cy="48" r="40" fill="none" stroke="#0f7f69" stroke-width="8" stroke-linecap="round" stroke-dasharray="' + len.toFixed(1) + " " + C.toFixed(1) + '" stroke-opacity="' + (len > 0.5 ? 1 : 0) + '" style="--c:' + C.toFixed(1) + '"/></svg>' +
+    '<div><span class="num" data-n="' + (r ? signed + "/" + r.total : "—") + '">' + (r ? signed + "/" + r.total : "—") + "</span><small>今日已签</small></div></div>" +
+    '<div class="side"><div class="rt">今天的超话签到</div><span class="chip ' + lv.cls.replace("bad", "bad") + '">登录' + lv.t + "</span>" + chips + "</div></section>";
 
-  // 设置进度（全部完成后自动隐藏）
-  const web = readJ(WEB_KEY);
-  const loggedIn = !!(web || auth) && st.login.state !== "expired";
-  const steps = [
-    { ok: loggedIn, t: "登录", d: loggedIn ? lv.d : web || auth ? "登录已过期，请重新登录" : "扫码登录网页版（推荐），或打开微博 App" },
-    { ok: !!(web || st.listFirst), part: !web && !st.listFirst && (!!st.listMore || nVisited > 0), t: "关注的超话",
-      d: web ? "网页登录后自动读取全部关注的超话" : st.listFirst ? "已记录「我的超话」" : st.listMore ? "请在「我的超话」页下拉刷新一次" : nVisited ? "已记录 " + nVisited + " 个进入过的超话" : "扫码登录后自动读取" },
-    { ok: !!(r && r.total && !r.netFail), t: "首次签到", d: r ? (r.netFail ? "没有收到微博的响应，请检查代理 / 网络" : r.total ? "已完成" : "没有可签的超话") : "点下方「立即签到」试一次" },
-  ];
-  const promo = web ? "" : '<div class="card promo"><div><b>扫码登录网页版，更稳</b><span>扫一次码，自动读取全部关注的超话</span></div><a href="/login">扫码登录</a></div>';
-  const setup = steps.every((x) => x.ok) ? "" : '<div class="card"><h2>开始使用</h2>' + steps.map((x) =>
-    '<div class="step"><span class="dot ' + (x.ok ? "ok" : x.part ? "part" : "") + '">' + (x.ok ? "✓" : "") + "</span><div><b>" + x.t + "</b><span>" + esc(x.d) + "</span></div></div>").join("") + "</div>";
+  // 状态行：登录 / 定时 / 来源
+  const row = (cls, ico, title, meta, right) => '<div class="row"><span class="ico ' + cls + '">' + svgi(IC[ico]) + '</span><div><div class="rt">' + title + '</div><div class="rm">' + esc(meta) + "</div></div>" + (right || "") + "</div>";
+  const au = st.auto && st.auto.day === today() ? st.auto : null, tick = st.tick;
+  let cc = "", ct = "待签到";
+  if (!tick) { cc = "warn"; ct = "未触发"; }
+  else if (au && au.done) { cc = "ok"; ct = "今日已完成"; }
+  else if (Date.now() - tick.at > 2 * 3600000) { cc = "warn"; ct = "较久未检查"; }
+  else if (mins < SCHED) { cc = ""; ct = "等待中"; }
+  else if (au && au.tries) { cc = "warn"; ct = "重试中"; }
+  const cronMeta = tick ? "Loon 上次检查：" + ago(tick.at) + (au && au.tries ? " · 今日已尝试 " + au.tries + " 次" : "") : "Loon 还没有触发过定时任务：请更新插件并保持 Loon 开启";
+  const srcMeta = r ? "关注列表 " + r.listCount + " 个" + (r.visited ? " · 进入过 " + r.visited + " 个" : "") + (r.listNote ? " · " + friendly(r.listNote) : "") : web ? "网页登录后自动读取全部关注的超话" : nVisited ? "已记录 " + nVisited + " 个进入过的超话" : "扫码登录后自动读取";
+  const loginRight = web || auth ? '<span class="chip ' + (lv.cls === "bad" ? "bad" : lv.cls) + '">' + lv.t + "</span>" : '<a class="btn btn-primary" href="/login">扫码登录</a>';
+  const status = '<section class="panel s2">' +
+    row(loggedIn ? "ok" : lv.cls, "user", web ? "微博网页登录" : auth ? "微博 App 登录" : "微博登录", lv.d, loginRight) +
+    row(cc === "ok" ? "ok" : cc, "clock", "每天 " + SCHED_TEXT + " 自动签到", cronMeta, '<span class="chip ' + cc + '">' + ct + "</span>") +
+    row(r && r.total ? "ok" : "", "list", "关注的超话", srcMeta, '<span class="chip ' + (web ? "ok" : "") + '">' + (web ? "网页" : "App") + "</span>") + "</section>";
 
   // 近 7 天
-  let week = '<div class="card"><h2>近 7 天</h2><div class="week">';
+  let week = '<section class="panel week s3">';
   for (let i = 6; i >= 0; i--) {
     const d = new Date(now.getTime() - i * 86400000);
     const key = d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2);
     const h = st.hist[key];
     week += '<div class="' + (i === 0 ? "now" : "") + '"><i class="' + (h ? (h.fail ? "warn" : "ok") : "") + '"></i>' + (i === 0 ? "今天" : "日一二三四五六"[d.getDay()]) + "</div>";
   }
-  week += "</div></div>";
+  week += "</section>";
 
-  // 列表（失败优先）+ 筛选
+  // 超话列表（失败优先）+ 页签筛选
   const order = { fail: 0, ok: 1, already: 2 };
   const items = (r ? r.items : []).slice().sort((a, b) => (order[a.st] || 0) - (order[b.st] || 0));
   const count = (k) => items.filter((i) => i.st === k).length;
   const lbl = { ok: "成功", already: "已签", fail: "失败" };
-  const rows = items.map((i) => {
+  const rows = items.map((i, n) => {
     const ch = Array.from(String(i.name || "?"))[0];
     const sub = i.st === "ok" ? (i.streak ? "连签 " + i.streak + " 天" : "签到成功") + (i.rank ? " · 今日第 " + i.rank + " 名" : "") + (i.exp ? " · 经验 +" + i.exp : "") : i.st === "already" ? "今日已签" : friendly(i.msg);
-    return '<li data-st="' + esc(i.st) + '"><span class="av" style="--h:' + ((ch.codePointAt(0) * 47) % 360) + '">' + esc(ch) + '</span><div class="tx"><b>' + esc(i.name) + "</b><small>" + esc(sub) +
-      '</small></div><span class="chip ' + esc(i.st) + '">' + (lbl[i.st] || "未知") + "</span></li>";
+    return '<li class="item" data-st="' + esc(i.st) + '" style="--i:' + Math.min(n, 14) + '"><span class="av" style="--h:' + ((ch.codePointAt(0) * 47) % 360) + '">' + esc(ch) + '</span><div class="it"><div class="rt">' + esc(i.name) +
+      '</div><div class="rm">' + esc(sub) + '</div></div><span class="chip ' + esc(i.st) + '">' + (lbl[i.st] || "未知") + "</span></li>";
   }).join("");
-  const list = '<div class="card"><h2>超话</h2>' + (items.length ?
-    '<div class="seg"><span class="on" data-f="all">全部 ' + items.length + '</span><span data-f="fail">失败 ' + count("fail") + '</span><span data-f="ok">成功 ' + count("ok") + '</span><span data-f="already">已签 ' + count("already") + "</span></div><ul>" + rows + "</ul>" :
-    '<p class="empty">' + (r ? "这次没有处理任何超话" : "还没有签到记录") + "</p>") + "</div>";
+  const tab = (f, t, n, on) => '<button class="tab" type="button" data-f="' + f + '" aria-pressed="' + (on ? "true" : "false") + '">' + t + "<small>" + n + "</small></button>";
+  const list = '<div class="tabs s4" id="tabs">' + tab("all", "全部", items.length, true) + tab("fail", "失败", count("fail")) + tab("ok", "成功", count("ok")) + tab("already", "已签", count("already")) + '<span class="tab-ind no-anim" id="ind"></span></div>' +
+    (items.length ? '<ul class="list enter s5" id="items">' + rows + "</ul>" : '<div class="panel s5"><div class="notice"><h2>' + (r ? "这次没有处理任何超话" : "还没有签到记录") + "</h2><p>" + (r ? "请看上面的「关注的超话」一行" : "点下面的「立即签到」试一次") + "</p></div></div>");
 
-  // 诊断信息（折叠）
-  const learned = st.listFirst ? "已记录「我的超话」首页请求" : st.listMore ? "只记录了「加载更多」，请在微博里下拉刷新「我的超话」页" : "还没有记录「我的超话」列表请求";
-  const diag = '<div class="card"><details><summary>诊断信息</summary><p>' + (r ? "关注列表 " + r.listCount + " 个 · 进入过 " + (r.visited || 0) + " 个" + (r.listNote ? "<br>" + esc(r.listNote) : "") : "进入过的超话 " + nVisited + " 个") +
-    (r && r.netFail ? "<br>⚠️ 本次没有收到微博服务器的任何响应（网络或代理问题，不是登录问题）" : "") + "<br>登录方式：" + (web ? "网页（Cookie）" : auth ? "App" : "无") + "<br>" + (web ? "" : learned + "<br>") + (web ? '<a href="/logout">退出网页登录</a><br>' : "") + "数据仅保存在本机 Loon 中</p></details></div>";
+  const learned = st.listFirst ? "已记录「我的超话」首页请求" : st.listMore ? "只记录了「加载更多」" : "未记录「我的超话」列表请求";
+  const diag = '<details><summary>诊断信息</summary><p>' + (r && r.netFail ? "⚠️ 本次没有收到微博服务器的任何响应（网络或代理问题，不是登录问题）<br>" : "") +
+    "登录方式：" + (web ? "网页（Cookie）" : auth ? "App" : "无") + (web ? "" : "<br>" + learned) + (web ? '<br><a href="/logout">退出网页登录</a>' : "") + "</p></details>";
+  const toastTxt = r ? "签到完成 · 成功 " + r.ok + " · 已签 " + r.already + (r.fail ? " · 失败 " + r.fail : "") : "完成";
 
-  return '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><title>微博超话签到</title><style>' + PAGE_CSS + "</style></head><body><main>" +
-    "<header><h1>超话签到</h1><span>" + dateStr + "</span></header>" + hero + promo + setup + week + list + diag +
-    '</main><div class="bar"><div><a href="/">刷新</a><a class="p" id="run" href="/run">立即签到</a></div></div><script>' + PAGE_JS + "</script></body></html>";
+  const dock = '<div class="bdock"><div class="bdock-in"><a class="btn btn-ghost" href="/">刷新</a>' +
+    (loggedIn ? '<a class="btn btn-primary swap" id="run" href="/run"><span class="lbl">立即签到</span><span class="lbl lbl-alt">' + SPIN + "签到中… 约需 1 分钟</span></a>" : '<a class="btn btn-primary" href="/login">扫码登录</a>') + "</div></div>";
+
+  return shellOpen("微博超话签到") + '<main class="shell">' +
+    headHtml("超话签到", dateStr + (web && web.nick ? " · " + esc(web.nick) : ""), '<a class="btn btn-icon" href="/login" aria-label="扫码登录">' + svgi(IC.qr) + "</a>") +
+    hero + status + week + list + '<div class="foot">数据仅保存在本机 Loon 中' + diag + "</div></main>" + BLUR_HTML + dock +
+    '<div class="toast" id="toast" role="status">' + esc(toastTxt) + "</div><script>" + PAGE_JS + "</script></body></html>";
 }
+
 function loginPage(qr) {
   const img = qr.image ? (qr.image.indexOf("//") === 0 ? "https:" + qr.image : qr.image) : "";
   const scan = "https://passport.weibo.cn/signin/qrcode/scan?qr=" + qr.id + "&sinainternalbrowser=topnav&showmenu=0";
   const app = "sinaweibo://browser?url=" + encodeURIComponent(scan);
-  const js = "var m=document.getElementById('m');function tick(){fetch('/login/check').then(function(r){return r.json()}).then(function(j){m.textContent=j.msg||'';if(j.s==='ok'){setTimeout(function(){location.replace('/')},600);return}if(j.s==='fail'){document.getElementById('re').style.display='block';return}setTimeout(tick,2000)}).catch(function(){setTimeout(tick,3000)})}tick();";
-  return '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><title>扫码登录</title><style>' + PAGE_CSS + "</style></head><body><main>" +
-    "<header><h1>扫码登录</h1><span>微博网页版</span></header>" +
-    '<div class="card"><h2>3 步完成</h2><ol><li>点下面的按钮，在微博 App 里打开确认页</li><li>在微博里点「确认登录」</li><li>回到这里，页面会自动完成</li></ol></div>' +
-    '<a class="big" href="' + esc(app) + '">在微博中打开确认</a>' +
-    (img ? '<div class="card qr"><h2>或用另一台设备的微博扫一扫</h2><img src="' + esc(img) + '" alt="二维码"></div>' : "") +
-    '<div id="m">等待确认…</div><a id="re" class="big" style="display:none;background:var(--card);color:var(--tx)" href="/login">重新获取二维码</a>' +
-    '<p class="hint"><a href="/" style="color:var(--sub)">返回状态页</a></p></main><script>' + js + "</script></body></html>";
+  const ck = svgi(IC.check).replace(/"/g, "'");
+  const js = "(function(){var m=document.getElementById('m'),w=document.getElementById('w'),re=document.getElementById('re'),ic=[document.getElementById('s1'),document.getElementById('s2'),document.getElementById('s3')],CK=\"" + ck + "\";" +
+    "function mark(n){for(var i=0;i<3;i++){ic[i].className='ico'+(i<n?' ok':'');ic[i].innerHTML=i<n?CK:(i+1)}}" +
+    "function tick(){fetch('/login/check').then(function(r){return r.json()}).then(function(j){m.textContent=j.msg||'';if(j.s==='scanned')mark(2);" +
+    "if(j.s==='ok'){mark(3);w.className='wait done';setTimeout(function(){location.replace('/#done')},700);return}" +
+    "if(j.s==='fail'){w.className='wait fail';re.style.display='';return}setTimeout(tick,2000)}).catch(function(){setTimeout(tick,3000)})}tick()})();";
+  const step = (id, n, t, d) => '<div class="row"><span class="ico" id="' + id + '">' + n + '</span><div><div class="rt">' + t + '</div><div class="rm">' + d + "</div></div></div>";
+  return shellOpen("扫码登录") + '<main class="shell">' + headHtml("扫码登录", "微博网页版 · 扫一次码，长期有效") +
+    '<section class="panel s1">' + step("s1", 1, "在微博中打开确认页", "点下面的按钮，会跳到微博 App") + step("s2", 2, "点「确认登录」", "在微博里确认这次登录") + step("s3", 3, "自动完成", "回到这里，页面会自动跳回状态页") + "</section>" +
+    '<a class="btn btn-primary btn-lg s2" href="' + esc(app) + '">在微博中打开确认</a>' +
+    (img ? '<section class="panel qr s3" style="margin-top:14px"><img src="' + esc(img) + '" alt="二维码"><div class="rm">或用另一台设备的微博扫一扫</div></section>' : "") +
+    '<div class="wait s4" id="w" style="margin-top:14px">' + SPIN + '<span id="m">等待确认…</span></div>' +
+    '<a id="re" class="btn btn-lg" style="display:none" href="/login">重新获取二维码</a>' +
+    '<div class="foot"><a href="/">返回状态页</a></div></main><script>' + js + "</script></body></html>";
 }
 
 function serve() {
@@ -616,9 +738,9 @@ function serve() {
   const H = { "Cache-Control": "no-store" };
   const html = (b) => $done({ response: { status: 200, headers: Object.assign({ "Content-Type": "text/html; charset=utf-8" }, H), body: b } });
   const json = (o) => $done({ response: { status: 200, headers: Object.assign({ "Content-Type": "application/json; charset=utf-8" }, H), body: JSON.stringify(o) } });
-  const go = () => $done({ response: { status: 302, headers: Object.assign({ Location: PAGE }, H), body: "" } });
+  const go = (h) => $done({ response: { status: 302, headers: Object.assign({ Location: PAGE + (h || "") }, H), body: "" } });
   const fail = (m) => html('<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body style="font:16px -apple-system,sans-serif;padding:24px"><p>' + esc(m) + '</p><p><a href="/login">重试</a> · <a href="/">返回</a></p></body>');
-  if (path === "/run") run("manual").catch((e) => log("run error " + e)).then(go);
+  if (path === "/run") run("manual").catch((e) => log("run error " + e)).then(() => go("#done"));
   else if (path === "/login") loginStart().then(html).catch((e) => fail(String((e && e.message) || e)));
   else if (path === "/login/check") loginCheck().then(json).catch((e) => json({ s: "fail", msg: String((e && e.message) || e) }));
   else if (path === "/logout") { $persistentStore.write("", WEB_KEY); go(); }
@@ -642,10 +764,9 @@ if (!enabled) {
 } else if (typeof $request !== "undefined" && $request) {
   if ($request.url.indexOf(HOST) !== -1) serve();
   else { try { capture(); } catch (e) { log("capture error: " + e); } $done({}); }
-} else if (S.type === "generic" && /状态/.test(S.name || "")) {
-  statusNotify();
+} else if (S.type === "generic" || /立即|状态/.test(S.name || "")) {
+  if (/状态/.test(S.name || "")) statusNotify();
+  else run("manual").catch((e) => push("脚本出错", String((e && e.message) || e))).then(() => $done());
 } else {
-  run(S.type === "cron" ? "cron" : "manual")
-    .catch((e) => push("脚本出错", String((e && e.message) || e)))
-    .then(() => $done());
+  auto().catch((e) => log("auto error " + e)).then(() => $done()); // 定时任务（含无法识别类型的调用）：一天最多签一次，不会重复打扰
 }
