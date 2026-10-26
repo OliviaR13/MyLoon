@@ -4,7 +4,7 @@
 //   http-request（状态页域名）     visual 状态页：http://weibo-checkin.loon/
 //   cron / generic               执行签到、推送汇总 / 推送当前状态
 // 所有登录信息只保存在本机的 Loon 持久化存储里，不会出现在仓库或日志中。
-// 参数：NOTIFY 通知开关，DEBUG 调试日志（日志不输出任何登录信息）
+// 参数：CHECKIN 签到总开关，NOTIFY 通知开关，DEBUG 调试日志（日志不输出任何登录信息）
 
 const AUTH_KEY = "MyLoon_WeiboCH_auth";
 const STATE_KEY = "MyLoon_WeiboCH_state";
@@ -18,6 +18,7 @@ const KEEP_HD = ["authorization", "user-agent", "x-validator", "x-shanhai-pass",
 const ID_RE = /100808[0-9a-f]{10,}/i;
 
 const arg = (typeof $argument === "object" && $argument) || {};
+const enabled = String(arg.CHECKIN) !== "false"; // 插件里的「超话签到」总开关
 const notify = String(arg.NOTIFY) !== "false";
 const debug = String(arg.DEBUG) === "true";
 const log = (...a) => { if (debug) console.log("[weibo_checkin] " + a.join(" ")); };
@@ -418,7 +419,12 @@ function statusNotify() {
 
 // ---------- 入口 ----------
 const S = (typeof $script !== "undefined" && $script) || {};
-if (typeof $request !== "undefined" && $request) {
+if (!enabled) {
+  if (typeof $request !== "undefined" && $request && $request.url.indexOf(HOST) !== -1) {
+    $done({ response: { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" }, body: '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><p style="font:16px -apple-system,sans-serif;padding:24px">超话签到已在插件设置中关闭。</p>' } });
+  } else if (typeof $request !== "undefined" && $request) $done({});
+  else $done();
+} else if (typeof $request !== "undefined" && $request) {
   if ($request.url.indexOf(HOST) !== -1) serve();
   else { try { capture(); } catch (e) { log("capture error: " + e); } $done({}); }
 } else if (S.type === "generic" && /状态/.test(S.name || "")) {
