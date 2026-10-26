@@ -29,7 +29,7 @@ const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&":
 // ---------- 存取 ----------
 const readJ = (k) => { try { return JSON.parse($persistentStore.read(k) || "null"); } catch (e) { return null; } };
 const writeJ = (k, o) => $persistentStore.write(JSON.stringify(o), k);
-const readState = () => Object.assign({ topics: {}, signed: { day: "", ids: {} }, login: {}, run: null, running: 0 }, readJ(STATE_KEY) || {});
+const readState = () => Object.assign({ topics: {}, signed: { day: "", ids: {} }, login: {}, run: null, running: 0, hist: {} }, readJ(STATE_KEY) || {});
 const today = () => { const d = new Date(); return d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2); };
 
 const pairsOf = (url) => (url.split("?")[1] || "").split("&").filter(Boolean);
@@ -332,6 +332,11 @@ async function run(trigger) {
     rec.total = rec.ok + rec.already + rec.fail + rec.skipped;
     rec.ms = Date.now() - rec.at;
     st.run = rec; st.running = 0;
+    if (!rec.expired && gotResponse && rec.total) { // 近两周的每日结果，状态页画「近 7 天」
+      const d = today(), prev = st.hist[d] || { signed: 0 };
+      st.hist[d] = { signed: Math.max(prev.signed, rec.ok + rec.already), fail: rec.fail, total: rec.total };
+      Object.keys(st.hist).sort().slice(0, -14).forEach((k) => delete st.hist[k]);
+    }
     if (rec.expired) st.login = { state: "expired" };
     else if (gotResponse) st.login = { state: "ok", verified: Date.now() };
     else rec.netFail = true;
@@ -365,41 +370,103 @@ function loginView(auth, st) {
   if (Date.now() - auth.at > 7 * 86400000) return { cls: "warn", t: "较久未刷新", d: ago(auth.at) + "获取，建议打开一次微博" };
   return { cls: "ok", t: "有效", d: ago(auth.at) + "获取" + (st.login.verified ? " · " + ago(st.login.verified) + "验证通过" : "") };
 }
+const friendly = (m) => {
+  m = String(m || "");
+  if (/Request timeout|无响应/.test(m)) return "请求超时";
+  if (/HTTPClient|NSURL|Domain=/.test(m)) return "网络请求失败";
+  return m.length > 36 ? m.slice(0, 36) + "…" : m;
+};
+const clock = (t) => { const d = new Date(t); return ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2); };
+
+const PAGE_CSS = ':root{--bg:#f2f2f7;--card:#fff;--tx:#1c1c1e;--sub:#8a8a8e;--ln:#ececf0;--ok:#30b350;--bad:#ff453a;--warn:#ff9f0a;--mute:#d1d1d6;--okbg:#e6f6ea;--badbg:#ffe9e7;--mutebg:#f0f0f3;--warnbg:#fff3df}' +
+  '@media(prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--tx:#f5f5f7;--sub:#98989d;--ln:#2c2c2e;--ok:#32d74b;--mute:#48484a;--okbg:#10301a;--badbg:#3a1614;--mutebg:#2c2c2e;--warnbg:#3a2a0a}}' +
+  '*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html{-webkit-text-size-adjust:100%}' +
+  'body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 -apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif;padding:max(18px,env(safe-area-inset-top)) 16px calc(112px + env(safe-area-inset-bottom))}' +
+  'main{max-width:560px;margin:0 auto}header{display:flex;align-items:baseline;justify-content:space-between;margin:6px 4px 14px}h1{font-size:28px;line-height:1.1;margin:0;letter-spacing:-.5px}header span{color:var(--sub);font-size:13px}' +
+  '.card{background:var(--card);border-radius:20px;padding:18px;margin-bottom:12px}h2{font-size:12px;letter-spacing:.4px;color:var(--sub);font-weight:600;margin:0 0 12px}' +
+  '.hero{display:flex;align-items:center;gap:18px}.ring{position:relative;width:104px;height:104px;flex:none}.ring svg{transform:rotate(-90deg)}.ring circle{fill:none;stroke-width:9;stroke-linecap:round}.ring .bg{stroke:var(--ln)}' +
+  '.ring .fg{stroke:var(--ok);animation:fill .9s cubic-bezier(.2,.8,.2,1)}@keyframes fill{from{stroke-dasharray:0 var(--c)}}' +
+  '.ring div{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}.ring b{font-size:26px;line-height:1;font-variant-numeric:tabular-nums}.ring small{color:var(--sub);font-size:11px;margin-top:3px}' +
+  '.side{min-width:0;flex:1}.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 12px 3px 9px;border-radius:99px;font-weight:600;font-size:14px}.pill:before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}' +
+  '.pill.ok{background:var(--okbg);color:var(--ok)}.pill.bad{background:var(--badbg);color:var(--bad)}.pill.warn{background:var(--warnbg);color:var(--warn)}.sub{color:var(--sub);font-size:13px;margin:6px 0 0}' +
+  '.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.chip{font-size:12px;padding:2px 9px;border-radius:99px;background:var(--mutebg);color:var(--sub);white-space:nowrap}.chip.ok{background:var(--okbg);color:var(--ok)}.chip.fail{background:var(--badbg);color:var(--bad)}.chip.already{background:var(--mutebg);color:var(--sub)}' +
+  '.step{display:flex;gap:12px;align-items:flex-start;padding:9px 0}.step+.step{border-top:1px solid var(--ln)}.dot{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid var(--mute);display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;margin-top:1px}' +
+  '.dot.ok{background:var(--ok);border-color:var(--ok)}.dot.part{border-color:var(--warn)}.step b{display:block;font-size:15px}.step span{color:var(--sub);font-size:13px}' +
+  '.week{display:flex;justify-content:space-between}.week div{text-align:center;color:var(--sub);font-size:11px}.week i{display:block;width:34px;height:34px;border-radius:11px;margin:0 auto 5px;background:var(--mutebg)}.week i.ok{background:var(--ok)}.week i.warn{background:var(--warn)}.week .now{color:var(--tx);font-weight:600}' +
+  '.seg{margin-bottom:6px}.seg span{display:inline-block;margin:0 6px 6px 0;font-size:13px;line-height:1.3;padding:6px 14px;border-radius:99px;background:var(--mutebg);color:var(--sub);white-space:nowrap;cursor:pointer}.seg span.on{background:var(--tx);color:var(--card);font-weight:600}' +
+  'ul{list-style:none;margin:0;padding:0}li{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--ln)}li:first-child{border-top:0}li[hidden]{display:none}' +
+  '.av{flex:none;width:40px;height:40px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;color:#fff;background:hsl(var(--h),52%,56%)}.tx{flex:1;min-width:0}.tx b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tx small{display:block;color:var(--sub);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+  '.empty{color:var(--sub);text-align:center;padding:18px 0 8px;font-size:14px}details summary{cursor:pointer;color:var(--sub);font-size:13px;list-style:none}details summary:after{content:" ›"}details[open] summary:after{content:" ⌄"}details p{margin:10px 0 0;color:var(--sub);font-size:12px;word-break:break-all}' +
+  '.bar{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:var(--bg);background:color-mix(in srgb,var(--bg) 82%,transparent);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}.bar div{max-width:560px;margin:0 auto;display:flex;gap:10px}' +
+  '.bar a{flex:1;text-align:center;text-decoration:none;font-weight:600;padding:14px;border-radius:15px;background:var(--card);color:var(--tx)}.bar a.p{flex:2;background:var(--ok);color:#fff}.bar a.busy{opacity:.65;pointer-events:none}' +
+  '.hint{text-align:center;color:var(--sub);font-size:12px;margin-top:14px}';
+
+const PAGE_JS = "var r=document.getElementById('run');if(r)r.onclick=function(){r.className='p busy';r.textContent='签到中… 约需 1 分钟，请勿关闭';};" +
+  "addEventListener('pageshow',function(){if(r){r.className='p';r.textContent='立即签到';}});" +
+  "var bs=document.querySelectorAll('.seg span');for(var i=0;i<bs.length;i++)bs[i].onclick=function(){var f=this.getAttribute('data-f');" +
+  "for(var j=0;j<bs.length;j++)bs[j].className=bs[j]===this?'on':'';var ls=document.querySelectorAll('li[data-st]');" +
+  "for(var k=0;k<ls.length;k++)ls[k].hidden=f!=='all'&&ls[k].getAttribute('data-st')!==f;};";
+
 function renderPage() {
   const auth = readJ(AUTH_KEY), st = readState(), lv = loginView(auth, st), r = st.run;
-  const dot = { ok: "ok", already: "mute", fail: "bad" };
-  let runHtml = '<p class="mute">还没有签到记录。点下面的「立即签到」试一次。</p>';
-  if (r) {
-    const tot = Math.max(1, r.ok + r.already + r.fail);
-    const seg = (n, c) => (n ? '<i class="' + c + '" style="flex:' + n + '"></i>' : "");
-    runHtml =
-      '<div class="stats"><div><b class="okc">' + r.ok + '</b>成功</div><div><b>' + r.already + '</b>已签</div><div><b class="badc">' + r.fail + '</b>失败</div><div><b>' + (r.exp ? "+" + r.exp : "—") + '</b>经验</div></div>' +
-      '<div class="bar">' + seg(r.ok, "ok") + seg(r.already, "mute") + seg(r.fail, "bad") + '</div>' +
-      '<p class="sub">' + ago(r.at) + " · 用时 " + Math.round(r.ms / 1000) + " 秒 · " + (r.trigger === "cron" ? "定时" : "手动") +
-      (r.skipped ? " · 超时未处理 " + r.skipped : "") + "</p>" +
-      '<ul>' + r.items.map((i) => '<li><span class="d ' + (dot[i.st] || "warn") + '"></span><span class="n">' + esc(i.name) + '</span><span class="m">' +
-        esc(i.st === "ok" ? (i.streak ? "连签 " + i.streak + " 天" : "签到成功") + (i.exp ? " · +" + i.exp : "") : i.msg) + "</span></li>").join("") + "</ul>";
+  const now = new Date();
+  const dateStr = now.getMonth() + 1 + "月" + now.getDate() + "日 周" + "日一二三四五六"[now.getDay()];
+  const signed = r ? r.ok + r.already : 0;
+  const total = r ? Math.max(r.total, 1) : 1;
+  const C = 2 * Math.PI * 42, len = C * (r ? Math.min(1, signed / total) : 0);
+  const nVisited = Object.keys(st.topics).length;
+
+  // 顶部：进度环 + 登录状态
+  const chips = r ? '<div class="chips">' + (r.exp ? '<span class="chip ok">经验 +' + r.exp + "</span>" : "") +
+    '<span class="chip">' + clock(r.at) + " · " + (r.trigger === "cron" ? "定时" : "手动") + '</span><span class="chip">用时 ' + Math.max(1, Math.round(r.ms / 1000)) + " 秒</span>" +
+    (r.fail ? '<span class="chip fail">失败 ' + r.fail + "</span>" : "") + (r.skipped ? '<span class="chip">未处理 ' + r.skipped + "</span>" : "") + "</div>" : "";
+  const hero = '<div class="card hero"><div class="ring"><svg width="104" height="104" viewBox="0 0 104 104"><circle class="bg" cx="52" cy="52" r="42" fill="none" stroke="#ececf0" stroke-width="9"/><circle class="fg" cx="52" cy="52" r="42" fill="none" stroke="#30b350" stroke-width="9" stroke-linecap="round" stroke-dasharray="' + len.toFixed(1) + " " + C.toFixed(1) + '" stroke-opacity="' + (len > 0.5 ? 1 : 0) + '" style="--c:' + C.toFixed(1) + '"/></svg>' +
+    "<div><b>" + (r ? signed + "/" + r.total : "—") + "</b><small>今日已签</small></div></div>" +
+    '<div class="side"><span class="pill ' + lv.cls + '">登录' + lv.t + '</span><p class="sub">' + esc(lv.d) + "</p>" + chips + "</div></div>";
+
+  // 设置进度（全部完成后自动隐藏）
+  const steps = [
+    { ok: !!auth && st.login.state !== "expired", t: "登录状态", d: auth ? lv.d : "打开微博 App 即可自动获取" },
+    { ok: !!st.listFirst, part: !st.listFirst && (!!st.listMore || nVisited > 0), t: "关注的超话",
+      d: st.listFirst ? "已记录「我的超话」" : st.listMore ? "请在「我的超话」页下拉刷新一次" : nVisited ? "已记录 " + nVisited + " 个进入过的超话；进入「我的超话」页可读取全部" : "打开微博 →「我的超话」，下拉刷新" },
+    { ok: !!(r && r.total && !r.netFail), t: "首次签到", d: r ? (r.netFail ? "没有收到微博的响应，请检查代理 / 网络" : r.total ? "已完成" : "没有可签的超话") : "点下方「立即签到」试一次" },
+  ];
+  const setup = steps.every((x) => x.ok) ? "" : '<div class="card"><h2>开始使用</h2>' + steps.map((x) =>
+    '<div class="step"><span class="dot ' + (x.ok ? "ok" : x.part ? "part" : "") + '">' + (x.ok ? "✓" : "") + "</span><div><b>" + x.t + "</b><span>" + esc(x.d) + "</span></div></div>").join("") + "</div>";
+
+  // 近 7 天
+  let week = '<div class="card"><h2>近 7 天</h2><div class="week">';
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 86400000);
+    const key = d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2);
+    const h = st.hist[key];
+    week += '<div class="' + (i === 0 ? "now" : "") + '"><i class="' + (h ? (h.fail ? "warn" : "ok") : "") + '"></i>' + (i === 0 ? "今天" : "日一二三四五六"[d.getDay()]) + "</div>";
   }
-  const net = r && r.netFail ? "<br>⚠️ 本次没有收到微博服务器的任何响应（网络或代理问题，不是登录问题）" : "";
-  const learned = st.listFirst ? "已记录「我的超话」首页请求" : st.listMore ? "只记录了「加载更多」，请在微博里下拉刷新「我的超话」页" : "还没记录「我的超话」列表请求（打开微博 →「我的超话」页即可）";
-  const src = (r ? "关注列表 " + r.listCount + " 个 · 访问记录 " + (r.visited || 0) + " 个" + (r.listNote ? "<br>" + esc(r.listNote) : "") : "访问记录 " + Object.keys(st.topics).length + " 个") + net + "<br>" + learned;
-  return '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>微博超话签到</title><style>' +
-    ':root{--bg:#f2f2f7;--card:#fff;--tx:#111;--sub:#8a8a8e;--ok:#34c759;--bad:#ff3b30;--warn:#ff9f0a;--mute:#c7c7cc;--ln:#eee}' +
-    '@media(prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--tx:#f5f5f7;--sub:#98989d;--mute:#48484a;--ln:#2c2c2e}}' +
-    '*{box-sizing:border-box}body{margin:0;padding:max(16px,env(safe-area-inset-top)) 16px 32px;background:var(--bg);color:var(--tx);font:15px/1.5 -apple-system,"PingFang SC",sans-serif}' +
-    'main{max-width:560px;margin:0 auto}h1{font-size:24px;margin:8px 4px 16px}.card{background:var(--card);border-radius:16px;padding:16px;margin-bottom:12px}' +
-    '.card h2{font-size:13px;color:var(--sub);font-weight:600;margin:0 0 10px}.row{display:flex;align-items:center;gap:10px}.pill{padding:2px 12px;border-radius:99px;color:#fff;font-weight:600}' +
-    '.pill.ok{background:var(--ok)}.pill.bad{background:var(--bad)}.pill.warn{background:var(--warn)}.sub,.mute{color:var(--sub);font-size:13px}p{margin:6px 0}' +
-    '.stats{display:flex;justify-content:space-between;text-align:center;color:var(--sub);font-size:12px}.stats b{display:block;font-size:26px;color:var(--tx)}.okc{color:var(--ok)!important}.badc{color:var(--bad)!important}' +
-    '.bar{display:flex;height:8px;border-radius:4px;overflow:hidden;gap:2px;margin:12px 0 4px;background:var(--ln)}.bar i{display:block}i.ok,.d.ok{background:var(--ok)}i.bad,.d.bad{background:var(--bad)}i.mute,.d.mute{background:var(--mute)}.d.warn{background:var(--warn)}' +
-    'ul{list-style:none;margin:8px 0 0;padding:0}li{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--ln)}.d{width:8px;height:8px;border-radius:50%;flex:none}.n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.m{color:var(--sub);font-size:12px;max-width:50%;text-align:right}' +
-    '.btns{display:flex;gap:10px}.btns a{flex:1;text-align:center;padding:12px;border-radius:12px;background:var(--card);color:var(--tx);text-decoration:none;font-weight:600}.btns a.p{background:var(--ok);color:#fff}' +
-    '</style></head><body><main><h1>微博超话签到</h1>' +
-    '<div class="card"><h2>登录状态</h2><div class="row"><span class="pill ' + lv.cls + '">' + lv.t + '</span><span class="sub">' + esc(lv.d) + '</span></div></div>' +
-    '<div class="card"><h2>最近一次签到</h2>' + runHtml + '</div>' +
-    '<div class="card"><h2>超话来源</h2><p class="sub">' + src + '</p></div>' +
-    '<div class="btns"><a class="p" href="/run">立即签到</a><a href="/">刷新</a></div>' +
-    '<p class="sub" style="text-align:center;margin-top:16px">数据仅保存在本机 Loon 中</p></main></body></html>';
+  week += "</div></div>";
+
+  // 列表（失败优先）+ 筛选
+  const order = { fail: 0, ok: 1, already: 2 };
+  const items = (r ? r.items : []).slice().sort((a, b) => (order[a.st] || 0) - (order[b.st] || 0));
+  const count = (k) => items.filter((i) => i.st === k).length;
+  const lbl = { ok: "成功", already: "已签", fail: "失败" };
+  const rows = items.map((i) => {
+    const ch = Array.from(String(i.name || "?"))[0];
+    const sub = i.st === "ok" ? (i.streak ? "连签 " + i.streak + " 天" : "签到成功") + (i.exp ? " · 经验 +" + i.exp : "") : i.st === "already" ? "今日已签" : friendly(i.msg);
+    return '<li data-st="' + esc(i.st) + '"><span class="av" style="--h:' + ((ch.codePointAt(0) * 47) % 360) + '">' + esc(ch) + '</span><div class="tx"><b>' + esc(i.name) + "</b><small>" + esc(sub) +
+      '</small></div><span class="chip ' + esc(i.st) + '">' + (lbl[i.st] || "未知") + "</span></li>";
+  }).join("");
+  const list = '<div class="card"><h2>超话</h2>' + (items.length ?
+    '<div class="seg"><span class="on" data-f="all">全部 ' + items.length + '</span><span data-f="fail">失败 ' + count("fail") + '</span><span data-f="ok">成功 ' + count("ok") + '</span><span data-f="already">已签 ' + count("already") + "</span></div><ul>" + rows + "</ul>" :
+    '<p class="empty">' + (r ? "这次没有处理任何超话" : "还没有签到记录") + "</p>") + "</div>";
+
+  // 诊断信息（折叠）
+  const learned = st.listFirst ? "已记录「我的超话」首页请求" : st.listMore ? "只记录了「加载更多」，请在微博里下拉刷新「我的超话」页" : "还没有记录「我的超话」列表请求";
+  const diag = '<div class="card"><details><summary>诊断信息</summary><p>' + (r ? "关注列表 " + r.listCount + " 个 · 进入过 " + (r.visited || 0) + " 个" + (r.listNote ? "<br>" + esc(r.listNote) : "") : "进入过的超话 " + nVisited + " 个") +
+    (r && r.netFail ? "<br>⚠️ 本次没有收到微博服务器的任何响应（网络或代理问题，不是登录问题）" : "") + "<br>" + learned + "<br>数据仅保存在本机 Loon 中</p></details></div>";
+
+  return '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><title>微博超话签到</title><style>' + PAGE_CSS + "</style></head><body><main>" +
+    "<header><h1>超话签到</h1><span>" + dateStr + "</span></header>" + hero + setup + week + list + diag +
+    '</main><div class="bar"><div><a href="/">刷新</a><a class="p" id="run" href="/run">立即签到</a></div></div><script>' + PAGE_JS + "</script></body></html>";
 }
 function serve() {
   const path = ($request.url.replace(/^https?:\/\/[^/]+/, "").split("?")[0]) || "/";
