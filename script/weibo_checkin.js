@@ -182,7 +182,7 @@ function setP(s, k, v, add) {
 // 按记录下来的请求模板翻页：每页返回的 moreInfo.params 就是下一页的 page / since_id / max_id
 async function fetchMine(auth, T, fromMore) {
   const topics = [], seen = new Set();
-  let note = "", qs = T.qs || "", body = T.body || "";
+  let note = "", qs = T.qs || "", body = T.body || "", complete = false, why = "";
   const post = T.method === "POST"; // 参数放在请求体（POST）或查询串（GET）里
   const apply = (k, v) => { qs = setP(qs, k, v, !post); if (post) body = setP(body, k, v, true); };
   if (fromMore) { apply("page", 1); apply("since_id", null); apply("max_id", 0); } // 只有「加载更多」的记录时，尝试从第 1 页开始
@@ -199,13 +199,16 @@ async function fetchMine(auth, T, fromMore) {
     for (const t of out) { if (!seen.has(t.id)) { seen.add(t.id); topics.push(t); added++; } }
     const mp = j.moreInfo && j.moreInfo.params;
     log("列表第 " + (n + 1) + " 页，新增 " + added + (reco ? "，已到推荐区" : ""));
-    if (reco || !mp || (!added && n > 0)) break;
+    if (reco || !mp) { complete = true; break; } // 读到推荐区或没有下一页，说明读完了
+    if (!added && n > 0) { why = "后面的页面没有新内容"; break; }
+    if (n === MAX_PAGES - 1) why = "超过 " + MAX_PAGES + " 页上限";
     for (const k of ["page", "since_id", "max_id"]) if (mp[k] !== undefined) apply(k, mp[k]);
     for (const kv of [["taskType", "loadMore"], ["manualType", "scroll"], ["invokeType", "manual"]]) { qs = setP(qs, kv[0], kv[1]); if (post) body = setP(body, kv[0], kv[1]); }
     await sleep(500);
   }
+  if (!complete && !note) note = "列表可能不完整（" + (why || "读取中断") + "）";
   if (!topics.length && !note) note = "没有读到关注的超话" + (fromMore ? "，请在微博里下拉刷新「我的超话」页以记录首页请求" : "");
-  return { topics, note };
+  return { topics, note, complete };
 }
 
 async function fetchList(auth, st) {
@@ -231,7 +234,7 @@ async function fetchList(auth, st) {
 async function fetchLegacy(auth) {
   const topics = [];
   const seen = new Set();
-  let sinceId = "", note = "";
+  let sinceId = "", note = "", complete = false, why = "";
   for (let page = 0; page < MAX_PAGES; page++) {
     let url = "https://api.weibo.cn/2/cardlist?" + auth.pairs.join("&") + "&containerid=100803_-_followsuper";
     if (sinceId) url += "&since_id=" + encodeURIComponent(sinceId);
@@ -247,17 +250,20 @@ async function fetchLegacy(auth) {
     }
     const next = j.cardlistInfo && j.cardlistInfo.since_id;
     log("列表第 " + (page + 1) + " 页，新增 " + added);
-    if (!next || String(next) === sinceId || !added) break;
+    if (!next) { complete = true; break; } // 没有下一页 = 读完了
+    if (String(next) === sinceId || !added) { why = "翻页没有新内容"; break; }
     sinceId = String(next);
+    if (page === MAX_PAGES - 1) why = "超过 " + MAX_PAGES + " 页上限";
     await sleep(500);
   }
-  return { topics, note };
+  if (!complete && !note) note = "列表可能不完整（" + (why || "读取中断") + "）";
+  return { topics, note, complete };
 }
 
 // ---------- 单个超话签到 ----------
 function judge(status, body) {
   const j = parse(body);
-  if (!j) return { r: "fail", msg: "返回异常（HTTP " + status + "）" };
+  if (!j) return { r: status >= 400 ? "fail" : "unknown", msg: "返回异常（HTTP " + status + "）" };
   const msg = clean(j.msg || j.errmsg || j.error || j.error_msg);
   const btn = clean(j.button && j.button.name);
   const ext = clean(j.ext_button && j.ext_button.name);
@@ -270,7 +276,11 @@ function judge(status, body) {
   }
   if (isExpired(status, j)) return { r: "expired", msg: "登录已失效" };
   if (/已.{0,3}签|重复/.test(msg) || /已签/.test(ext)) return { r: "already", msg };
-  return { r: "fail", msg: msg || "HTTP " + status };
+  // 走到这里：没有成功标志。有明确失败信息 / 业务标志 / HTTP 错误才算失败，说不清的归为「状态未知」
+  if (msg) return { r: "fail", msg };
+  if (j.result !== undefined) return { r: "fail", msg: "result=" + j.result };
+  if (status >= 400) return { r: "fail", msg: "HTTP " + status };
+  return { r: "unknown", msg: "响应无法识别（没有成功或失败标志）" };
 }
 
 async function checkin(auth, id) {
@@ -315,7 +325,7 @@ const webExpired = (status, body, j) => status === 401 || status === 403 ||
 
 async function fetchListWeb(web) {
   const topics = [], seen = new Set();
-  let note = "", maxPage = 1;
+  let note = "", maxPage = 1, complete = false;
   for (let page = 1; page <= Math.min(maxPage, MAX_PAGES); page++) {
     const { status, body } = await get("https://weibo.com/ajax/profile/topicContent?tabid=231093_-_chaohua&page=" + page, webHeaders(web, "https://weibo.com/"), { timeout: 15 });
     const j = parse(body);
@@ -329,17 +339,19 @@ async function fetchListWeb(web) {
       seen.add(id); topics.push({ id, name: it.title || label(id), done: false }); added++;
     }
     log("网页列表第 " + page + "/" + maxPage + " 页，新增 " + added);
-    if (!added) break;
+    if (page >= maxPage) { complete = true; break; } // 最后一页也读完了
+    if (!added) { note = "第 " + page + " 页没有新内容，列表可能不完整"; break; }
     await sleep(400);
   }
+  if (!complete && !note && maxPage > MAX_PAGES) note = "超话页数超过 " + MAX_PAGES + " 页上限，列表可能不完整";
   if (!topics.length && !note) note = "网页列表里没有关注的超话";
-  return { topics, note, src: "web" };
+  return { topics, note, src: "web", complete };
 }
 
 function judgeWeb(status, body) {
   const j = parse(body);
   if (webExpired(status, body, j)) return { r: "expired", msg: "登录已失效" };
-  if (!j) return { r: "fail", msg: "返回异常（HTTP " + status + "）" };
+  if (!j) return { r: status >= 400 ? "fail" : "unknown", msg: "返回异常（HTTP " + status + "）" };
   const d = j.data || {};
   const txt = clean([j.msg, d.alert_title, d.alert_subtitle, String(d.tipMessage || "").replace(/<[^>]+>/g, " ")].join(" "));
   const em = /(\d+)\s*点?经验|经验值?\s*\+?\s*(\d+)|\+\s*(\d+)/.exec(txt);
@@ -348,7 +360,9 @@ function judgeWeb(status, body) {
   if (/签到成功/.test(txt)) return { r: "ok", msg: txt, exp: exp ? +exp : 0, rank };
   if (/已签到|已经签到|今天已|重复/.test(txt)) return { r: "already", msg: txt };
   if (String(j.code) === "100000") return { r: "ok", msg: txt, exp: exp ? +exp : 0, rank };
-  return { r: "fail", msg: txt || "code " + j.code };
+  if (status >= 400) return { r: "fail", msg: txt || "HTTP " + status };
+  if (txt || j.code !== undefined) return { r: "fail", msg: txt || "code " + j.code };
+  return { r: "unknown", msg: "响应无法识别（没有成功或失败标志）" };
 }
 
 async function checkinWeb(web, id) {
@@ -385,14 +399,22 @@ async function exchangeLogin(alt) {
   const j2 = jsonp(r2.body);
   const ck = pickCookies(r2.headers, ["SUBP", "ALF", "SUB", "SCF"]);
   if (!ck.SUB) return { s: "fail", msg: "没有拿到网页登录 Cookie，请重新获取二维码" };
+  const ui = (j2 && j2.userinfo) || {}, uid = String(ui.uniqueid || ui.uid || ui.userid || ""), nick = ui.displayname || "";
   writeJ(WEB_KEY, {
     cookie: Object.keys(ck).map((k) => k + "=" + ck[k]).join("; "),
-    at: Date.now(), nick: (j2 && j2.userinfo && j2.userinfo.displayname) || "",
+    at: Date.now(), nick, uid,
   });
-  const st = readState();
+  const st = readState(), who = uid || nick;
+  let switched = false;
+  if (who && st.acct && st.acct !== who) { // 换了账号：旧账号的签到记录、跳过设置都不再适用，清掉避免混用
+    switched = true;
+    st.run = null; st.hist = {}; st.signed = { day: "", ids: {} }; st.auto = null;
+    writeJ(PREF_KEY, { skip: {} });
+  }
+  if (who) st.acct = who;
   st.qr = null; st.login = { state: "ok", verified: Date.now(), route: "web" };
   writeJ(STATE_KEY, st);
-  return { s: "ok", msg: "登录成功" };
+  return { s: "ok", msg: switched ? "登录成功，已切换账号，旧账号的记录已清除" : "登录成功" };
 }
 
 async function loginCheck() {
@@ -414,21 +436,22 @@ async function run(trigger, opt) {
   if (!auth && !web) {
     st.login = { state: "none" };
     writeJ(STATE_KEY, st);
-    push("还没有登录", "打开状态页扫码登录（推荐），或打开一次微博 App");
+    if (!(opt && opt.silentExpired)) push("还没有登录", "打开状态页扫码登录（推荐），或打开一次微博 App");
     return null;
   }
   if (st.running && Date.now() - st.running < 300000) { log("上一次还在运行，跳过"); return "busy"; }
   st.running = Date.now();
   writeJ(STATE_KEY, st);
 
-  const rec = { at: Date.now(), trigger, route: web ? "web" : "app", items: [], ok: 0, already: 0, fail: 0, skipped: 0, muted: 0, exp: 0, expired: false, listNote: "", listCount: 0 };
+  const rec = { at: Date.now(), trigger, route: web ? "web" : "app", items: [], ok: 0, already: 0, fail: 0, skipped: 0, muted: 0, unknown: 0, exp: 0, expired: false, listNote: "", listCount: 0, listErr: false, listState: "" };
   try {
-    let listed = [];
+    let listed = [], listFull = false;
     try {
       const r = web ? await fetchListWeb(web) : await fetchList(auth, st);
       listed = r.topics; rec.listNote = r.note; rec.listCount = listed.length; rec.listSrc = r.src;
+      listFull = !!r.complete; rec.listErr = !r.complete && !!r.note;
     } catch (e) {
-      if (e.expired) rec.expired = true; else rec.listNote = "列表接口：" + String(e.message || e).slice(0, 80);
+      if (e.expired) rec.expired = true; else { rec.listNote = "列表接口：" + String(e.message || e).slice(0, 80); rec.listErr = true; }
     }
 
     // 合并：列表里的 + 访问过的超话
@@ -436,6 +459,8 @@ async function run(trigger, opt) {
     for (const t of listed) all.set(t.id, { id: t.id, name: t.name || label(t.id), done: t.done });
     rec.visited = 0;
     for (const id of Object.keys(st.topics)) if ((!web || !listed.length) && !all.has(id)) { all.set(id, { id, name: label(id), done: false }); rec.visited++; }
+    // 列表来源：full = 完整关注列表；partial = 只读到一部分；visited = 没读到列表，只有访问过的；none = 什么都没有
+    rec.listState = listed.length ? (listFull ? "full" : "partial") : (rec.visited ? "visited" : "none");
 
     if (st.signed.day !== today()) st.signed = { day: today(), ids: {} };
     const start = Date.now(), prefs = readPrefs();
@@ -448,17 +473,18 @@ async function run(trigger, opt) {
       if (res.r === "expired") { rec.expired = true; break; }
       if (res.r === "ok") { rec.ok++; rec.exp += res.exp || 0; st.signed.ids[t.id] = 1; }
       else if (res.r === "already") { rec.already++; st.signed.ids[t.id] = 1; }
+      else if (res.r === "unknown") rec.unknown++; // 状态未知：不算已签，也不记入「今日已签」
       else rec.fail++;
       rec.items.push({ id: t.id, name: t.name, st: res.r, msg: res.msg, streak: res.streak, exp: res.exp, rank: res.rank });
       await sleep(1500 + Math.floor(Math.random() * 2000));
     }
   } finally {
-    rec.total = rec.ok + rec.already + rec.fail + rec.skipped;
+    rec.total = rec.ok + rec.already + rec.fail + rec.unknown + rec.skipped;
     rec.ms = Date.now() - rec.at;
     st.run = rec; st.running = 0;
     if (!rec.expired && gotResponse && rec.total) { // 近两周的每日结果，状态页画「近 7 天」
       const d = today(), prev = st.hist[d] || { signed: 0 };
-      st.hist[d] = { signed: Math.max(prev.signed, rec.ok + rec.already), fail: rec.fail, total: rec.total };
+      st.hist[d] = { signed: Math.max(prev.signed, rec.ok + rec.already), fail: rec.fail + rec.unknown, total: rec.total };
       Object.keys(st.hist).sort().slice(0, -14).forEach((k) => delete st.hist[k]);
     }
     if (rec.expired) st.login = { state: "expired", route: rec.route };
@@ -467,16 +493,20 @@ async function run(trigger, opt) {
     writeJ(STATE_KEY, st);
   }
 
-  if (rec.expired) { push("登录已失效", web ? "网页登录已过期，请打开状态页重新扫码" : "请重新打开微博 App 刷新登录状态"); return rec; }
+  if (rec.expired) { if (!(opt && opt.silentExpired)) push("登录已失效", web ? "网页登录已过期，请打开状态页重新扫码" : "请重新打开微博 App 刷新登录状态"); return rec; }
   if (!rec.total && rec.muted) { push("没有需要签到的超话", "已在设置里跳过 " + rec.muted + " 个超话"); return rec; }
   if (!rec.total) { push("没有可签到的超话", web ? (rec.listNote || "网页登录读不到关注的超话") : "请打开微博 →「我的超话」页一次，之后会自动记录"); return rec; }
   if (rec.netFail) { if (!(opt && opt.silentNet)) push("网络请求全部失败", "没有收到微博服务器的任何响应，详情见状态页"); return rec; }
-  const head = "共 " + rec.total + " 个：成功 " + rec.ok + " · 已签 " + rec.already + " · 失败 " + rec.fail;
+  const head = "共 " + rec.total + " 个：成功 " + rec.ok + " · 已签 " + rec.already + " · 失败 " + rec.fail + (rec.unknown ? " · 未知 " + rec.unknown : "");
   const lines = [];
   if (rec.ok) lines.push("✅ 新签到 " + rec.ok + " 个" + (rec.exp ? "，经验 +" + rec.exp : ""));
   const bad = rec.items.filter((i) => i.st === "fail").slice(0, 4).map((i) => i.name + "（" + i.msg + "）");
   if (bad.length) lines.push("❌ " + bad.join("；"));
-  if (rec.skipped) lines.push("⏱ 超时未处理 " + rec.skipped + " 个，下次继续");
+  const unk = rec.items.filter((i) => i.st === "unknown").slice(0, 3).map((i) => i.name);
+  if (rec.unknown) lines.push("❓ 状态未知 " + rec.unknown + " 个，不计入已签：" + unk.join("、") + (rec.unknown > unk.length ? " 等" : ""));
+  if (rec.skipped) lines.push("⏱ 超时未处理 " + rec.skipped + " 个，" + (rec.listState === "full" ? "下次继续" : "稍后继续"));
+  if (rec.listState === "partial") lines.push("⚠️ 只读到部分关注列表" + (rec.listNote ? "：" + friendly(rec.listNote) : ""));
+  else if (rec.listState === "visited") lines.push("⚠️ 没读到关注列表，只签了进入过的 " + rec.visited + " 个" + (rec.listNote ? "：" + friendly(rec.listNote) : ""));
   push(head, lines.join("\n"));
   return rec;
 }
@@ -498,11 +528,19 @@ async function auto() {
 
   a.tries++; a.last = Date.now();
   writeJ(STATE_KEY, st);
-  const res = await run("cron", { silentNet: a.tries < 3 });
+  const res = await run("cron", { silentNet: a.tries < 3, silentExpired: !!a.expNotified });
   const st2 = readState();
   const a2 = st2.auto && st2.auto.day === day ? st2.auto : a;
   if (res === "busy") a2.tries = Math.max(0, a2.tries - 1);
-  else a2.done = !(res && !res.expired && (res.netFail || (res.fail > 0 && a2.tries < 3)));
+  else if (!res || res.expired) {
+    // 没登录 / 登录失效：不占用重试次数，也不当作「今日已完成」；重新登录后下一轮定时检查会接着签
+    a2.tries = Math.max(0, a2.tries - 1); a2.last = 0; a2.done = false; a2.expNotified = true; a2.final = "expired";
+  } else {
+    a2.expNotified = false;
+    const retry = res.netFail || res.skipped > 0 || (a2.tries < 3 && (res.fail > 0 || res.unknown > 0 || res.listErr));
+    a2.done = !retry || a2.tries >= 4; // 最多尝试 4 次，用完就收工，状态页显示最终结果
+    a2.final = res.netFail ? "net" : res.skipped > 0 ? "timeout" : (res.fail > 0 || res.unknown > 0) ? "partial" : (res.listState && res.listState !== "full") ? "list" : "ok";
+  }
   st2.auto = a2;
   writeJ(STATE_KEY, st2);
 }
@@ -665,33 +703,50 @@ function renderPage() {
   const C = 2 * Math.PI * 40, len = C * (r && r.total ? Math.min(1, signed / r.total) : 0);
   const nVisited = Object.keys(st.topics).length;
   const loggedIn = !!(web || auth) && st.login.state !== "expired";
+  const ls = r && r.listState, partialList = ls === "partial" || ls === "visited"; // 关注列表不完整时，别让「已签」看起来像全部完成
 
   // 总览
   const chips = r ? '<div class="chips">' + (r.exp ? '<span class="heat">' + svgi(IC.bolt, 13) + "经验 +" + r.exp + "</span>" : "") +
     '<span class="chip">' + clock(r.at) + " · " + (r.trigger === "cron" ? "定时" : "手动") + '</span><span class="chip">用时 ' + Math.max(1, Math.round(r.ms / 1000)) + " 秒</span>" +
-    (r.fail ? '<span class="chip fail">失败 ' + r.fail + "</span>" : "") + (r.skipped ? '<span class="chip">未处理 ' + r.skipped + "</span>" : "") + (r.muted ? '<span class="chip">已跳过 ' + r.muted + "</span>" : "") + "</div>" : "";
+    (r.fail ? '<span class="chip fail">失败 ' + r.fail + "</span>" : "") + (r.unknown ? '<span class="chip warn">状态未知 ' + r.unknown + "</span>" : "") + (partialList ? '<span class="chip warn">' + (ls === "visited" ? "仅访问记录" : "部分列表") + "</span>" : "") + (r.skipped ? '<span class="chip">未处理 ' + r.skipped + "</span>" : "") + (r.muted ? '<span class="chip">已跳过 ' + r.muted + "</span>" : "") + "</div>" : "";
   const numTxt = r ? signed + "/" + r.total : "—"; // 位数越多字号越小，避免压到圆环上
   const hero = '<section class="panel hero s1"><div class="ring"><svg width="96" height="96" viewBox="0 0 96 96"><circle class="bg" cx="48" cy="48" r="40" fill="none" stroke="#e6e2d8" stroke-width="8"/>' +
     '<circle class="fg" cx="48" cy="48" r="40" fill="none" stroke="#0f7f69" stroke-width="8" stroke-linecap="round" stroke-dasharray="' + len.toFixed(1) + " " + C.toFixed(1) + '" stroke-opacity="' + (len > 0.5 ? 1 : 0) + '" style="--c:' + C.toFixed(1) + '"/></svg>' +
-    '<div><span class="num' + (numTxt.length >= 6 ? " n6" : numTxt.length === 5 ? " n5" : numTxt.length === 4 ? " n4" : "") + '" data-n="' + numTxt + '">' + numTxt + "</span><small>今日已签</small></div></div>" +
+    '<div><span class="num' + (numTxt.length >= 6 ? " n6" : numTxt.length === 5 ? " n5" : numTxt.length === 4 ? " n4" : "") + '" data-n="' + numTxt + '">' + numTxt + "</span><small>" + (partialList ? "部分列表" : "今日已签") + "</small></div></div>" +
     '<div class="side"><div class="rt">今天的超话签到</div><span class="chip ' + lv.cls.replace("bad", "bad") + '">登录' + lv.t + "</span>" + chips + "</div></section>";
 
   // 状态行：登录 / 定时 / 来源
   const row = (cls, ico, title, meta, right) => '<div class="row"><span class="ico ' + cls + '">' + svgi(IC[ico]) + '</span><div><div class="rt">' + title + '</div><div class="rm">' + esc(meta) + "</div></div>" + (right || "") + "</div>";
   const au = st.auto && st.auto.day === today() ? st.auto : null, tick = st.tick;
+  const fin = au && au.final;
   let cc = "", ct = "待签到";
   if (!tick) { cc = "warn"; ct = "未触发"; }
-  else if (au && au.done) { cc = "ok"; ct = "今日已完成"; }
+  else if (au && au.done) { // 今日不再重试：区分「全部完成」和「完成但有问题」
+    cc = !fin || fin === "ok" ? "ok" : "warn";
+    ct = { partial: "部分失败", list: "列表不完整", timeout: "未全部处理", net: "网络失败" }[fin] || "今日已完成";
+  }
   else if (Date.now() - tick.at > 2 * 3600000) { cc = "warn"; ct = "较久未检查"; }
+  else if (fin === "expired") { cc = "bad"; ct = "等待重新登录"; }
+  else if (fin === "net") { cc = "warn"; ct = "网络失败，待重试"; }
+  else if (fin === "timeout") { cc = "warn"; ct = "超时，待继续"; }
   else if (mins < SCHED) { cc = ""; ct = "等待中"; }
   else if (au && au.tries) { cc = "warn"; ct = "重试中"; }
   const cronMeta = tick ? "Loon 上次检查：" + ago(tick.at) + (au && au.tries ? " · 今日已尝试 " + au.tries + " 次" : "") : "Loon 还没有触发过定时任务：请更新插件并保持 Loon 开启";
-  const srcMeta = r ? "关注列表 " + r.listCount + " 个" + (r.visited ? " · 进入过 " + r.visited + " 个" : "") + (r.listNote ? " · " + friendly(r.listNote) : "") : web ? "网页登录后自动读取全部关注的超话" : nVisited ? "已记录 " + nVisited + " 个进入过的超话" : "扫码登录后自动读取";
+  const srcMeta = (() => {
+    if (!r) return web ? "网页登录后自动读取全部关注的超话" : nVisited ? "已记录 " + nVisited + " 个进入过的超话" : "扫码登录后自动读取";
+    const note = r.listNote ? " · " + friendly(r.listNote) : "", vis = r.visited ? " · 另有进入过的 " + r.visited + " 个" : "";
+    if (ls === "full") return "完整关注列表 " + r.listCount + " 个" + vis + note;
+    if (ls === "partial") return "部分列表：只读到 " + r.listCount + " 个" + vis + note;
+    if (ls === "visited") return "没读到关注列表，只有进入过的 " + r.visited + " 个" + note;
+    if (ls === "none") return "没有读到超话" + note;
+    return "关注列表 " + r.listCount + " 个" + (r.visited ? " · 进入过 " + r.visited + " 个" : "") + note; // 旧版本留下的记录
+  })();
+  const srcCls = ls === "full" ? "ok" : ls ? "warn" : web ? "ok" : "", srcTxt = ls === "full" ? "完整" : ls === "partial" ? "部分" : ls === "visited" ? "仅记录" : ls === "none" ? "无" : web ? "网页" : "App";
   const loginRight = web || auth ? '<span class="chip ' + (lv.cls === "bad" ? "bad" : lv.cls) + '">' + lv.t + "</span>" : '<a class="btn btn-primary" href="/login">扫码登录</a>';
   const status = '<section class="panel s2">' +
     row(loggedIn ? "ok" : lv.cls, "user", web ? "微博网页登录" : auth ? "微博 App 登录" : "微博登录", lv.d, loginRight) +
     row(cc === "ok" ? "ok" : cc, "clock", "每天 " + SCHED_TEXT + " 自动签到", cronMeta, '<span class="chip ' + cc + '">' + ct + "</span>") +
-    row(r && r.total ? "ok" : "", "list", "关注的超话", srcMeta, '<span class="chip ' + (web ? "ok" : "") + '">' + (web ? "网页" : "App") + "</span>") + "</section>";
+    row(ls && ls !== "full" ? "warn" : r && r.total ? "ok" : "", "list", "关注的超话 · " + (web ? "网页" : "App"), srcMeta, '<span class="chip ' + srcCls + '">' + srcTxt + "</span>") + "</section>";
 
   // 近 7 天
   let week = '<section class="panel week s3">';
@@ -704,24 +759,24 @@ function renderPage() {
   week += "</section>";
 
   // 超话列表（失败优先）+ 页签筛选
-  const order = { fail: 0, ok: 1, already: 2 };
+  const order = { fail: 0, unknown: 0, ok: 1, already: 2 };
   const items = (r ? r.items : []).slice().sort((a, b) => (order[a.st] || 0) - (order[b.st] || 0));
   const count = (k) => items.filter((i) => i.st === k).length;
-  const lbl = { ok: "成功", already: "已签", fail: "失败" };
+  const lbl = { ok: "成功", already: "已签", fail: "失败", unknown: "未知" };
   const rows = items.map((i, n) => {
     const ch = Array.from(String(i.name || "?"))[0];
     const sub = i.st === "ok" ? (i.streak ? "连签 " + i.streak + " 天" : "签到成功") + (i.rank ? " · 今日第 " + i.rank + " 名" : "") + (i.exp ? " · 经验 +" + i.exp : "") : i.st === "already" ? "今日已签" : friendly(i.msg);
     return '<li class="item" data-st="' + esc(i.st) + '" style="--i:' + Math.min(n, 14) + '"><span class="av" style="--h:' + ((ch.codePointAt(0) * 47) % 360) + '">' + esc(ch) + '</span><div class="it"><div class="rt">' + esc(i.name) +
-      '</div><div class="rm">' + esc(sub) + '</div></div><span class="chip ' + esc(i.st) + '">' + (lbl[i.st] || "未知") + "</span></li>";
+      '</div><div class="rm">' + esc(sub) + '</div></div><span class="chip ' + (i.st === "unknown" ? "warn" : esc(i.st)) + '">' + (lbl[i.st] || "未知") + "</span></li>";
   }).join("");
   const tab = (f, t, n, on) => '<button class="tab" type="button" data-f="' + f + '" aria-pressed="' + (on ? "true" : "false") + '">' + t + "<small>" + n + "</small></button>";
-  const list = '<div class="tabs s4" id="tabs">' + tab("all", "全部", items.length, true) + tab("fail", "失败", count("fail")) + tab("ok", "成功", count("ok")) + tab("already", "已签", count("already")) + '<span class="tab-ind no-anim" id="ind"></span></div>' +
+  const list = '<div class="tabs s4" id="tabs">' + tab("all", "全部", items.length, true) + tab("fail", "失败", count("fail")) + (count("unknown") ? tab("unknown", "未知", count("unknown")) : "") + tab("ok", "成功", count("ok")) + tab("already", "已签", count("already")) + '<span class="tab-ind no-anim" id="ind"></span></div>' +
     (items.length ? '<ul class="list enter s5" id="items">' + rows + "</ul>" : '<div class="panel s5"><div class="notice"><h2>' + (r ? "这次没有处理任何超话" : "还没有签到记录") + "</h2><p>" + (r ? "请看上面的「关注的超话」一行" : "点下面的「立即签到」试一次") + "</p></div></div>");
 
   const learned = st.listFirst ? "已记录「我的超话」首页请求" : st.listMore ? "只记录了「加载更多」" : "未记录「我的超话」列表请求";
   const diag = '<details><summary>诊断信息</summary><p>' + (r && r.netFail ? "⚠️ 本次没有收到微博服务器的任何响应（网络或代理问题，不是登录问题）<br>" : "") +
     "登录方式：" + (web ? "网页（Cookie）" : auth ? "App" : "无") + (web ? "" : "<br>" + learned) + "</p></details>";
-  const toastTxt = r ? "签到完成 · 成功 " + r.ok + " · 已签 " + r.already + (r.fail ? " · 失败 " + r.fail : "") : "完成";
+  const toastTxt = r ? "签到完成 · 成功 " + r.ok + " · 已签 " + r.already + (r.fail ? " · 失败 " + r.fail : "") + (r.unknown ? " · 未知 " + r.unknown : "") + (partialList ? " · 列表不完整" : "") : "完成";
 
   const dock = '<div class="bdock"><div class="bdock-in"><a class="btn btn-ghost" href="/">刷新</a>' +
     (loggedIn ? '<a class="btn btn-primary swap" id="run" href="/run"><span class="lbl">立即签到</span><span class="lbl lbl-alt">' + SPIN + "签到中… 约需 1 分钟</span></a>" : '<a class="btn btn-primary" href="/login">扫码登录</a>') + "</div></div>";
@@ -833,7 +888,7 @@ function serve() {
 
 function statusNotify() {
   const auth = readJ(AUTH_KEY), st = readState(), lv = loginView(auth, st), r = st.run;
-  const sum = r ? "成功 " + r.ok + " · 已签 " + r.already + " · 失败 " + r.fail + "（" + ago(r.at) + "）" : "还没有签到记录";
+  const sum = r ? "成功 " + r.ok + " · 已签 " + r.already + " · 失败 " + r.fail + (r.unknown ? " · 未知 " + r.unknown : "") + "（" + ago(r.at) + "）" : "还没有签到记录";
   $notification.post(TITLE, "登录：" + lv.t + "｜" + lv.d, sum, { openUrl: PAGE, url: PAGE });
   $done({ title: TITLE, content: "登录：" + lv.t + "\n" + sum, icon: lv.cls === "ok" ? "checkmark.seal.fill" : "exclamationmark.triangle.fill", "icon-color": lv.cls === "ok" ? "#34C759" : "#FF9F0A" });
 }
