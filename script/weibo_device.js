@@ -48,7 +48,7 @@ function resolveModel(v) {
 const arg = (typeof $argument === "object" && $argument) || {};
 const enabled = String(arg.ENABLE) !== "false"; // 开关关闭时原样放行，参数缺失时默认开启
 const model = resolveModel(arg.MODEL);
-const debug = String(arg.DEBUG) !== "false";
+const debug = String(arg.DEBUG) === "true"; // 默认不输出日志
 
 const url = $request.url;
 const path = url.split("?")[0];

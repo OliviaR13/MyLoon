@@ -4,8 +4,8 @@
 #!author = @OliviaR13
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png
-#!date = 2026-10-26
-#!version = 2.7.0
+#!date = 2026-10-27
+#!version = 2.8.0
 
 [Argument]
 ENABLE = switch,true,tag=启用来源机型,desc=开启后改写发博、评论、转发的来源机型。关闭后恢复真实机型，需到微博「微博来源」中重新选择
@@ -19,9 +19,7 @@ DEBUG = switch,false,tag=调试日志,desc=在 Loon 日志中显示脚本的执�
 DOMAIN, api.weibo.cn,PROXY
 
 [Script]
-http-request ^https?:\/\/api\.weibo\.cn\/2\/device\/ script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_device.js, requires-body=true, timeout=10, tag=微博机型伪装-来源列表, argument=[{ENABLE},{MODEL},{DEBUG}]
-http-request ^https?:\/\/api\.weibo\.cn\/2\/statuses\/(send|update|repost) script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_device.js, requires-body=true, timeout=10, tag=微博机型伪装-发博, argument=[{ENABLE},{MODEL},{DEBUG}]
-http-request ^https?:\/\/api\.weibo\.cn\/2\/comments\/(create|reply) script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_device.js, requires-body=true, timeout=10, tag=微博机型伪装-评论转发, argument=[{ENABLE},{MODEL},{DEBUG}]
+http-request ^https?:\/\/api\.weibo\.cn\/2\/(device\/|statuses\/(send|update|repost)|comments\/(create|reply)) script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_device.js, requires-body=true, timeout=10, tag=微博机型伪装, argument=[{ENABLE},{MODEL},{DEBUG}]
 http-request ^https?:\/\/api\.weibo\.cn\/2\/(remind\/(unread_count|hometab_dot)|client\/tabbar|groups\/allgroups\/v2|page\/button|shproxy\/chaohua\/) script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_checkin.js, requires-body=false, timeout=10, tag=微博超话-保存登录状态, argument=[{CHECKIN},{NOTIFY},{DEBUG}]
 http-request ^https?:\/\/api\.weibo\.cn\/2\/(statuses\/container_timeline\w*|cardlist|page|container\/(getIndex|asyn))(\?|$) script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_checkin.js, requires-body=true, timeout=10, tag=微博超话-记录超话列表, argument=[{CHECKIN},{NOTIFY},{DEBUG}]
 http-request ^http:\/\/weibo-checkin\.loon\/ script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_checkin.js, requires-body=false, timeout=300, tag=微博超话-状态页, argument=[{CHECKIN},{NOTIFY},{DEBUG},{TIME}]
