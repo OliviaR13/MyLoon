@@ -8,6 +8,7 @@
 
 const AUTH_KEY = "MyLoon_WeiboCH_auth";
 const STATE_KEY = "MyLoon_WeiboCH_state";
+const PREF_KEY = "MyLoon_WeiboCH_prefs"; // 状态页里的偏好（跳过哪些超话），只保存在本机
 const WEB_KEY = "MyLoon_WeiboCH_web"; // 网页版登录（扫码获得的 Cookie），只保存在本机
 const WEB_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36";
 const HOST = "weibo-checkin.loon";
@@ -35,6 +36,7 @@ const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&":
 const readJ = (k) => { try { return JSON.parse($persistentStore.read(k) || "null"); } catch (e) { return null; } };
 const writeJ = (k, o) => $persistentStore.write(JSON.stringify(o), k);
 const readState = () => Object.assign({ topics: {}, signed: { day: "", ids: {} }, login: {}, run: null, running: 0, hist: {} }, readJ(STATE_KEY) || {});
+const readPrefs = () => { const p = readJ(PREF_KEY) || {}; return { skip: (p.skip && typeof p.skip === "object") ? p.skip : {} }; };
 const today = () => { const d = new Date(); return d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2); };
 
 const pairsOf = (url) => (url.split("?")[1] || "").split("&").filter(Boolean);
@@ -419,7 +421,7 @@ async function run(trigger, opt) {
   st.running = Date.now();
   writeJ(STATE_KEY, st);
 
-  const rec = { at: Date.now(), trigger, route: web ? "web" : "app", items: [], ok: 0, already: 0, fail: 0, skipped: 0, exp: 0, expired: false, listNote: "", listCount: 0 };
+  const rec = { at: Date.now(), trigger, route: web ? "web" : "app", items: [], ok: 0, already: 0, fail: 0, skipped: 0, muted: 0, exp: 0, expired: false, listNote: "", listCount: 0 };
   try {
     let listed = [];
     try {
@@ -436,17 +438,18 @@ async function run(trigger, opt) {
     for (const id of Object.keys(st.topics)) if ((!web || !listed.length) && !all.has(id)) { all.set(id, { id, name: label(id), done: false }); rec.visited++; }
 
     if (st.signed.day !== today()) st.signed = { day: today(), ids: {} };
-    const start = Date.now();
+    const start = Date.now(), prefs = readPrefs();
     for (const t of all.values()) {
       if (rec.expired) break;
-      if (t.done || st.signed.ids[t.id]) { rec.already++; rec.items.push({ name: t.name, st: "already", msg: "今日已签" }); st.signed.ids[t.id] = 1; continue; }
+      if (prefs.skip[t.id]) { rec.muted++; continue; } // 在设置里关掉的超话
+      if (t.done || st.signed.ids[t.id]) { rec.already++; rec.items.push({ id: t.id, name: t.name, st: "already", msg: "今日已签" }); st.signed.ids[t.id] = 1; continue; }
       if (Date.now() - start > DEADLINE_MS) { rec.skipped++; continue; }
       const res = web ? await checkinWeb(web, t.id) : await checkin(auth, t.id);
       if (res.r === "expired") { rec.expired = true; break; }
       if (res.r === "ok") { rec.ok++; rec.exp += res.exp || 0; st.signed.ids[t.id] = 1; }
       else if (res.r === "already") { rec.already++; st.signed.ids[t.id] = 1; }
       else rec.fail++;
-      rec.items.push({ name: t.name, st: res.r, msg: res.msg, streak: res.streak, exp: res.exp, rank: res.rank });
+      rec.items.push({ id: t.id, name: t.name, st: res.r, msg: res.msg, streak: res.streak, exp: res.exp, rank: res.rank });
       await sleep(1500 + Math.floor(Math.random() * 2000));
     }
   } finally {
@@ -465,6 +468,7 @@ async function run(trigger, opt) {
   }
 
   if (rec.expired) { push("登录已失效", web ? "网页登录已过期，请打开状态页重新扫码" : "请重新打开微博 App 刷新登录状态"); return rec; }
+  if (!rec.total && rec.muted) { push("没有需要签到的超话", "已在设置里跳过 " + rec.muted + " 个超话"); return rec; }
   if (!rec.total) { push("没有可签到的超话", web ? (rec.listNote || "网页登录读不到关注的超话") : "请打开微博 →「我的超话」页一次，之后会自动记录"); return rec; }
   if (rec.netFail) { if (!(opt && opt.silentNet)) push("网络请求全部失败", "没有收到微博服务器的任何响应，详情见状态页"); return rec; }
   const head = "共 " + rec.total + " 个：成功 " + rec.ok + " · 已签 " + rec.already + " · 失败 " + rec.fail;
@@ -600,6 +604,15 @@ h1,h2,p{margin:0}a{color:var(--accent-text)}button,a{-webkit-touch-callout:none;
 body::after{animation:intro-glow 1.3s ease-out backwards}.head-text{animation:intro-up .6s var(--ease) .08s backwards}.head .btn{animation:intro-up .6s var(--ease) .16s backwards}
 .s1{animation:intro-up .6s var(--ease) .22s backwards}.s2{animation:intro-up .6s var(--ease) .28s backwards}.s3{animation:intro-up .6s var(--ease) .34s backwards}.s4{animation:intro-up .6s var(--ease) .4s backwards}.s5{animation:intro-up .6s var(--ease) .46s backwards}
 .foot{animation:intro-glow .5s ease-out .6s backwards}.bdock{animation:intro-up .6s var(--ease) .5s backwards}
+.sec{font-size:12.5px;font-weight:650;color:var(--muted);letter-spacing:.02em;margin:22px 4px 8px}
+.note{color:var(--muted);font-size:12.5px;line-height:1.5;padding:0 4px;margin:-6px 0 14px}
+.act{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:14px 16px}.row+.act{border-top:1px solid var(--line)}
+.btn-danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 35%,var(--line))}.btn-danger-fill{background:var(--bad);border-color:transparent;color:#fff}
+.cfm{display:contents}.cfm [data-cf],.cfm [data-cn]{display:none}.cfm[data-ask] [data-go]{display:none}.cfm[data-ask] [data-cf],.cfm[data-ask] [data-cn]{display:inline-flex;animation:intro-up .25s var(--ease) both}
+.sw{position:relative;flex:none;width:46px;height:28px;border:0;padding:0;border-radius:999px;background:var(--chip);box-shadow:inset 0 0 0 1px var(--line);cursor:pointer;transition:background-color .25s var(--ease)}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--card);box-shadow:0 1px 3px rgb(0 0 0 / .25);transition:transform .4s var(--spring)}
+.sw[aria-checked="true"]{background:var(--accent)}.sw[aria-checked="true"]::after{transform:translateX(18px)}.sw:disabled{opacity:.6}
+.item.off .av,.item.off .it{opacity:.5}.item .it{transition:opacity .2s}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.spin circle{stroke-dasharray:60,150!important}}
 `.replace("/*BLUR*/", `.bblur i:nth-child(1){-webkit-backdrop-filter:blur(0.7px);backdrop-filter:blur(0.7px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 1 / 8),transparent 100%);mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 1 / 8),transparent 100%)}
 .bblur i:nth-child(2){-webkit-backdrop-filter:blur(1.4px);backdrop-filter:blur(1.4px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 2 / 8),transparent calc(100% - var(--f) * 1 / 8));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 2 / 8),transparent calc(100% - var(--f) * 1 / 8))}
@@ -617,6 +630,7 @@ const IC = {
   list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
   check: '<path d="m5 12 5 5L20 7"/>',
   bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   qr: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20v.01M20 20v.01M17 17v3"/>',
 };
 const SPIN = '<svg class="spin" viewBox="0 0 50 50" width="18" height="18" aria-hidden="true"><circle cx="25" cy="25" r="20" fill="none" stroke-width="4.5" stroke-linecap="round"/></svg>';
@@ -635,7 +649,12 @@ const PAGE_JS = "(function(){" +
   "var first=tabs.querySelector('.tab');if(first)requestAnimationFrame(function(){place(first,false)})}" +
   "var rb=document.getElementById('run');if(rb)rb.onclick=function(e){if(rb.hasAttribute('data-done')){e.preventDefault();return}rb.setAttribute('data-done','')};" +
   "addEventListener('pageshow',function(){if(rb)rb.removeAttribute('data-done')});" +
-  "var tz=document.getElementById('toast');if(tz&&location.hash==='#done'){tz.className='toast show';history.replaceState(null,'',location.pathname);setTimeout(function(){tz.className='toast show leaving'},2800)}" +
+  "var tz=document.getElementById('toast'),tt;function toast(t){if(!tz)return;tz.textContent=t;tz.className='toast show';clearTimeout(tt);tt=setTimeout(function(){tz.className='toast show leaving'},2400)}" +
+  "var hs=location.hash,msg={'#login':'登录成功','#out':'已退出登录','#cleared':'已清除签到记录'};if(tz&&(hs==='#done'||msg[hs])){if(msg[hs])tz.textContent=msg[hs];tz.className='toast show';history.replaceState(null,'',location.pathname);tt=setTimeout(function(){tz.className='toast show leaving'},2800)}" +
+  "var cf=document.querySelectorAll('.cfm');for(var a=0;a<cf.length;a++)(function(b){var tm,go=b.querySelector('[data-go]'),cn=b.querySelector('[data-cn]');function rs(){b.removeAttribute('data-ask');clearTimeout(tm)}if(go)go.onclick=function(){b.setAttribute('data-ask','');clearTimeout(tm);tm=setTimeout(rs,4000)};if(cn)cn.onclick=rs})(cf[a]);" +
+  "var sws=document.querySelectorAll('.sw');for(var q=0;q<sws.length;q++)sws[q].onclick=function(){var el=this,on=el.getAttribute('aria-checked')==='true',row=el.closest('.item'),rm=row&&row.querySelector('.rm');el.setAttribute('aria-checked',on?'false':'true');el.disabled=true;" +
+  "fetch('/prefs/skip?id='+encodeURIComponent(el.getAttribute('data-id'))+'&on='+(on?1:0)).then(function(r){return r.json()}).then(function(j){if(!j.ok)throw 0;el.disabled=false;if(row)row.classList.toggle('off',on);if(rm)rm.textContent=on?'已跳过':'参与自动签到'})" +
+  ".catch(function(){el.setAttribute('aria-checked',on?'true':'false');el.disabled=false;toast('保存失败，请重试')})};" +
   "})();";
 
 function renderPage() {
@@ -650,7 +669,7 @@ function renderPage() {
   // 总览
   const chips = r ? '<div class="chips">' + (r.exp ? '<span class="heat">' + svgi(IC.bolt, 13) + "经验 +" + r.exp + "</span>" : "") +
     '<span class="chip">' + clock(r.at) + " · " + (r.trigger === "cron" ? "定时" : "手动") + '</span><span class="chip">用时 ' + Math.max(1, Math.round(r.ms / 1000)) + " 秒</span>" +
-    (r.fail ? '<span class="chip fail">失败 ' + r.fail + "</span>" : "") + (r.skipped ? '<span class="chip">未处理 ' + r.skipped + "</span>" : "") + "</div>" : "";
+    (r.fail ? '<span class="chip fail">失败 ' + r.fail + "</span>" : "") + (r.skipped ? '<span class="chip">未处理 ' + r.skipped + "</span>" : "") + (r.muted ? '<span class="chip">已跳过 ' + r.muted + "</span>" : "") + "</div>" : "";
   const hero = '<section class="panel hero s1"><div class="ring"><svg width="96" height="96" viewBox="0 0 96 96"><circle class="bg" cx="48" cy="48" r="40" fill="none" stroke="#e6e2d8" stroke-width="8"/>' +
     '<circle class="fg" cx="48" cy="48" r="40" fill="none" stroke="#0f7f69" stroke-width="8" stroke-linecap="round" stroke-dasharray="' + len.toFixed(1) + " " + C.toFixed(1) + '" stroke-opacity="' + (len > 0.5 ? 1 : 0) + '" style="--c:' + C.toFixed(1) + '"/></svg>' +
     '<div><span class="num" data-n="' + (r ? signed + "/" + r.total : "—") + '">' + (r ? signed + "/" + r.total : "—") + "</span><small>今日已签</small></div></div>" +
@@ -700,36 +719,84 @@ function renderPage() {
 
   const learned = st.listFirst ? "已记录「我的超话」首页请求" : st.listMore ? "只记录了「加载更多」" : "未记录「我的超话」列表请求";
   const diag = '<details><summary>诊断信息</summary><p>' + (r && r.netFail ? "⚠️ 本次没有收到微博服务器的任何响应（网络或代理问题，不是登录问题）<br>" : "") +
-    "登录方式：" + (web ? "网页（Cookie）" : auth ? "App" : "无") + (web ? "" : "<br>" + learned) + (web ? '<br><a href="/logout">退出网页登录</a>' : "") + "</p></details>";
+    "登录方式：" + (web ? "网页（Cookie）" : auth ? "App" : "无") + (web ? "" : "<br>" + learned) + "</p></details>";
   const toastTxt = r ? "签到完成 · 成功 " + r.ok + " · 已签 " + r.already + (r.fail ? " · 失败 " + r.fail : "") : "完成";
 
   const dock = '<div class="bdock"><div class="bdock-in"><a class="btn btn-ghost" href="/">刷新</a>' +
     (loggedIn ? '<a class="btn btn-primary swap" id="run" href="/run"><span class="lbl">立即签到</span><span class="lbl lbl-alt">' + SPIN + "签到中… 约需 1 分钟</span></a>" : '<a class="btn btn-primary" href="/login">扫码登录</a>') + "</div></div>";
 
   return shellOpen("微博超话签到") + '<main class="shell">' +
-    headHtml("超话签到", dateStr + (web && web.nick ? " · " + esc(web.nick) : ""), '<a class="btn btn-icon" href="/login" aria-label="扫码登录">' + svgi(IC.qr) + "</a>") +
+    headHtml("超话签到", dateStr + (web && web.nick ? " · " + esc(web.nick) : ""), '<a class="btn btn-icon" href="/settings" aria-label="设置">' + svgi(IC.gear) + "</a>") +
     hero + status + week + list + '<div class="foot">数据仅保存在本机 Loon 中' + diag + "</div></main>" + BLUR_HTML + dock +
     '<div class="toast" id="toast" role="status">' + esc(toastTxt) + "</div><script>" + PAGE_JS + "</script></body></html>";
 }
 
 function loginPage(qr) {
+  const web = readJ(WEB_KEY);
   const img = qr.image ? (qr.image.indexOf("//") === 0 ? "https:" + qr.image : qr.image) : "";
   const scan = "https://passport.weibo.cn/signin/qrcode/scan?qr=" + qr.id + "&sinainternalbrowser=topnav&showmenu=0";
   const app = "sinaweibo://browser?url=" + encodeURIComponent(scan);
   const ck = svgi(IC.check).replace(/"/g, "'");
-  const js = "(function(){var m=document.getElementById('m'),w=document.getElementById('w'),re=document.getElementById('re'),ic=[document.getElementById('s1'),document.getElementById('s2'),document.getElementById('s3')],CK=\"" + ck + "\";" +
-    "function mark(n){for(var i=0;i<3;i++){ic[i].className='ico'+(i<n?' ok':'');ic[i].innerHTML=i<n?CK:(i+1)}}" +
-    "function tick(){fetch('/login/check').then(function(r){return r.json()}).then(function(j){m.textContent=j.msg||'';if(j.s==='scanned')mark(2);" +
-    "if(j.s==='ok'){mark(3);w.className='wait done';setTimeout(function(){location.replace('/#done')},700);return}" +
-    "if(j.s==='fail'){w.className='wait fail';re.style.display='';return}setTimeout(tick,2000)}).catch(function(){setTimeout(tick,3000)})}tick()})();";
+  // 轮询：从微博切回来时立即检查；没扫码 2.5 分钟（扫了码 5 分钟）后停止并提示重新获取；连续出错时提示检查 Loon
+  const js = [
+    "(function(){var m=document.getElementById('m'),w=document.getElementById('w'),re=document.getElementById('re'),",
+    "ic=[document.getElementById('s1'),document.getElementById('s2'),document.getElementById('s3')],CK=\"" + ck + "\",",
+    "t0=Date.now(),busy=0,tm=0,dead=0,errs=0,sc=0;",
+    "function mark(n){for(var i=0;i<3;i++){ic[i].className='ico'+(i<n?' ok':'');ic[i].innerHTML=i<n?CK:(i+1)}}",
+    "function stop(t){dead=1;clearTimeout(tm);m.textContent=t;w.className='wait fail';re.style.display=''}",
+    "function tick(){if(dead||busy)return;if(Date.now()-t0>(sc?300000:150000)){stop('二维码已超时，请重新获取');return}busy=1;",
+    "fetch('/login/check').then(function(r){return r.json()}).then(function(j){busy=0;errs=0;m.textContent=j.msg||'';",
+    "if(j.s==='scanned'){sc=1;mark(2)}",
+    "if(j.s==='ok'){dead=1;mark(3);w.className='wait done';setTimeout(function(){location.replace('/#login')},700);return}",
+    "if(j.s==='fail'){stop(j.msg||'二维码已失效，请重新获取');return}",
+    "tm=setTimeout(tick,2000)}).catch(function(){busy=0;errs++;if(errs>=4)m.textContent='连不上脚本，请确认 Loon 已开启';tm=setTimeout(tick,3000)})}",
+    "document.addEventListener('visibilitychange',function(){if(!document.hidden&&!dead){clearTimeout(tm);tick()}});tick()})();",
+  ].join("");
   const step = (id, n, t, d) => '<div class="row"><span class="ico" id="' + id + '">' + n + '</span><div><div class="rt">' + t + '</div><div class="rm">' + d + "</div></div></div>";
   return shellOpen("扫码登录") + '<main class="shell">' + headHtml("扫码登录", "微博网页版 · 扫一次码，长期有效") +
+    (web ? '<p class="note">当前已登录' + (web.nick ? "：" + esc(web.nick) : "") + "，重新扫码会替换当前的网页登录。</p>" : "") +
     '<section class="panel s1">' + step("s1", 1, "在微博中打开确认页", "点下面的按钮，会跳到微博 App") + step("s2", 2, "点「确认登录」", "在微博里确认这次登录") + step("s3", 3, "自动完成", "回到这里，页面会自动跳回状态页") + "</section>" +
     '<a class="btn btn-primary btn-lg s2" href="' + esc(app) + '">在微博中打开确认</a>' +
-    (img ? '<section class="panel qr s3" style="margin-top:14px"><img src="' + esc(img) + '" alt="二维码"><div class="rm">或用另一台设备的微博扫一扫</div></section>' : "") +
+    (img ? '<section class="panel qr s3" style="margin-top:14px"><img src="' + esc(img) + '" alt="二维码" referrerpolicy="no-referrer"><div class="rm">或用另一台设备的微博扫一扫</div></section>' : "") +
     '<div class="wait s4" id="w" style="margin-top:14px">' + SPIN + '<span id="m">等待确认…</span></div>' +
     '<a id="re" class="btn btn-lg" style="display:none" href="/login">重新获取二维码</a>' +
     '<div class="foot"><a href="/">返回状态页</a></div></main><script>' + js + "</script></body></html>";
+}
+
+// ---------- 设置页：账号（重新扫码 / 退出登录）+ 签到偏好（跳过某些超话）+ 清除记录 ----------
+const rowHtml = (cls, ico, title, meta, right) => '<div class="row"><span class="ico ' + cls + '">' + svgi(IC[ico]) + '</span><div><div class="rt">' + title + '</div><div class="rm">' + esc(meta) + "</div></div>" + (right || "") + "</div>";
+const confirmBtn = (label, href, okLabel) => '<span class="cfm"><button class="btn btn-danger" type="button" data-go>' + label + '</button><a class="btn btn-danger-fill" href="' + href + '" data-cf>' + okLabel + '</a><button class="btn btn-ghost" type="button" data-cn>取消</button></span>';
+
+function renderSettings() {
+  const auth = readJ(AUTH_KEY), web = readJ(WEB_KEY), st = readState(), prefs = readPrefs(), lv = loginView(auth, st);
+  const has = !!(web || auth);
+
+  const acct = '<h2 class="sec s1">账号</h2><section class="panel s1">' +
+    rowHtml(lv.cls, "user", web ? "微博网页登录" : auth ? "微博 App 登录" : "微博登录", lv.d, '<span class="chip ' + lv.cls + '">' + lv.t + "</span>") +
+    '<div class="act">' + (has ? '<a class="btn" href="/login">重新扫码登录</a>' + confirmBtn("退出登录", "/logout", "确认退出") : '<a class="btn btn-primary" href="/login">扫码登录</a>') + "</div></section>" +
+    (has ? '<p class="note s1">退出登录会同时清除网页登录和 App 登录状态；之后再打开微博 App，脚本会重新记录 App 登录。</p>' : "");
+
+  const plan = '<h2 class="sec s2">自动签到</h2><section class="panel s2">' +
+    rowHtml("", "clock", "签到时间", "在 Loon 插件设置中修改", '<span class="chip">' + SCHED_TEXT + "</span>") +
+    rowHtml("", "bolt", "签到通知", "在 Loon 插件设置中修改", '<span class="chip ' + (notify ? "ok" : "") + '">' + (notify ? "开启" : "关闭") + "</span>") + "</section>";
+
+  // 超话：来自上次签到结果 + 已跳过的；开关打开 = 参与签到
+  const topics = new Map();
+  ((st.run && st.run.items) || []).forEach((i) => { if (i.id) topics.set(i.id, i.name); });
+  Object.keys(prefs.skip).forEach((id) => topics.set(id, prefs.skip[id] || topics.get(id) || label(id)));
+  const rows = Array.from(topics, ([id, name]) => {
+    const ch = Array.from(String(name || "?"))[0], on = !prefs.skip[id];
+    return '<li class="item' + (on ? "" : " off") + '"><span class="av" style="--h:' + ((ch.codePointAt(0) * 47) % 360) + '">' + esc(ch) + '</span><div class="it"><div class="rt">' + esc(name) + '</div><div class="rm">' + (on ? "参与自动签到" : "已跳过") +
+      '</div></div><button class="sw" type="button" role="switch" aria-checked="' + (on ? "true" : "false") + '" aria-label="参与签到" data-id="' + esc(id) + '"></button></li>';
+  }).join("");
+  const skipSec = '<h2 class="sec s3">要签到的超话</h2>' + (rows ? '<ul class="list s3">' + rows + "</ul>" : '<div class="panel s3"><div class="notice"><h2>还没有超话记录</h2><p>签到一次后，这里会列出你的超话，可以单独关掉不想签到的</p></div></div>');
+
+  const data = '<h2 class="sec s4">数据</h2><section class="panel s4"><div class="act">' + confirmBtn("清除签到记录", "/reset", "确认清除") + "</div></section>" +
+    '<p class="note s4">只清除状态页上的今日结果和近 7 天记录，不影响登录和上面的跳过设置。</p>';
+
+  const dock = '<div class="bdock"><div class="bdock-in"><a class="btn btn-primary" href="/">返回状态页</a></div></div>';
+  return shellOpen("设置") + '<main class="shell">' + headHtml("设置", "账号与签到偏好") + acct + plan + skipSec + data +
+    '<div class="foot">数据仅保存在本机 Loon 中</div></main>' + BLUR_HTML + dock + '<div class="toast" id="toast" role="status"></div><script>' + PAGE_JS + "</script></body></html>";
 }
 
 function serve() {
@@ -737,12 +804,29 @@ function serve() {
   const H = { "Cache-Control": "no-store" };
   const html = (b) => $done({ response: { status: 200, headers: Object.assign({ "Content-Type": "text/html; charset=utf-8" }, H), body: b } });
   const json = (o) => $done({ response: { status: 200, headers: Object.assign({ "Content-Type": "application/json; charset=utf-8" }, H), body: JSON.stringify(o) } });
-  const go = (h) => $done({ response: { status: 302, headers: Object.assign({ Location: PAGE + (h || "") }, H), body: "" } });
+  const go = (h, p) => $done({ response: { status: 302, headers: Object.assign({ Location: PAGE + (p || "") + (h || "") }, H), body: "" } });
+  const q = $request.url.split("?")[1] || "";
+  const qp = (k) => { const m = new RegExp("(?:^|&)" + k + "=([^&]*)").exec(q); try { return m ? decodeURIComponent(m[1]) : ""; } catch (e) { return ""; } };
   const fail = (m) => html('<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body style="font:16px -apple-system,sans-serif;padding:24px"><p>' + esc(m) + '</p><p><a href="/login">重试</a> · <a href="/">返回</a></p></body>');
   if (path === "/run") run("manual").catch((e) => log("run error " + e)).then(() => go("#done"));
   else if (path === "/login") loginStart().then(html).catch((e) => fail(String((e && e.message) || e)));
   else if (path === "/login/check") loginCheck().then(json).catch((e) => json({ s: "fail", msg: String((e && e.message) || e) }));
-  else if (path === "/logout") { $persistentStore.write("", WEB_KEY); go(); }
+  else if (path === "/settings") html(renderSettings());
+  else if (path === "/logout") { // 退出登录：网页 + App 登录状态都清掉，否则会悄悄退回到 App 登录继续签
+    $persistentStore.write("", WEB_KEY); $persistentStore.write("", AUTH_KEY);
+    const st = readState(); st.login = { state: "none" }; st.qr = null; writeJ(STATE_KEY, st);
+    go("#out");
+  } else if (path === "/reset") { const st = readState(); st.run = null; st.hist = {}; writeJ(STATE_KEY, st); go("#cleared", "settings"); }
+  else if (path === "/prefs/skip") {
+    const id = qp("id"), prefs = readPrefs();
+    if (!/^[0-9A-Za-z_-]{4,40}$/.test(id)) return json({ ok: false });
+    if (qp("on") === "1") {
+      const hit = ((readState().run || {}).items || []).find((i) => i.id === id);
+      prefs.skip[id] = (hit && hit.name) || prefs.skip[id] || label(id);
+    } else delete prefs.skip[id];
+    writeJ(PREF_KEY, prefs);
+    json({ ok: true });
+  }
   else html(renderPage());
 }
 
