@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-10-27T05:57:04.543672+00:00",
+  "generatedAt": "2026-10-27T05:58:45.072102+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -189,7 +189,7 @@
       "id": "weibo",
       "name": "微博增强｜属地分流 · 来源机型 · 超话签到",
       "file": "plugin/weibo.plugin",
-      "version": "2.9.0",
+      "version": "2.9.1",
       "author": "@OliviaR13",
       "category": "IP 属地",
       "tags": [
