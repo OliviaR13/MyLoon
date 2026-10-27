@@ -571,7 +571,7 @@ h1,h2,p{margin:0}a{color:var(--accent-text)}button,a{-webkit-touch-callout:none;
 .chip.cap,.chip.already{background:transparent;color:color-mix(in srgb,var(--text) 80%,var(--muted));box-shadow:inset 0 0 0 1px var(--line)}
 .heat{display:inline-flex;align-items:center;gap:4px;height:24px;white-space:nowrap;padding:0 9px 0 7px;border-radius:999px;background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--warn);font-size:12.5px;font-weight:650;line-height:1}
 .hero{display:flex;align-items:center;gap:18px;padding:18px}.ring{position:relative;width:96px;height:96px;flex:none}.ring svg{transform:rotate(-90deg)}.ring .bg{stroke:var(--line)}.ring .fg{stroke:var(--accent);animation:fill 1s var(--ease) .2s backwards}
-@keyframes fill{from{stroke-dasharray:0 var(--c)}}.ring div{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}.num{display:inline-flex;font-size:25px;font-weight:700;line-height:1;letter-spacing:-.02em}.ring small{color:var(--muted);font-size:11.5px;margin-top:4px}
+@keyframes fill{from{stroke-dasharray:0 var(--c)}}.ring div{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}.num{display:inline-flex;font-size:25px;font-weight:700;line-height:1;letter-spacing:-.02em}.num.n4{font-size:22px}.num.n5{font-size:19px}.num.n6{font-size:16px}.ring small{color:var(--muted);font-size:11.5px;margin-top:4px}
 .dg{display:inline-block;height:1em;overflow:hidden;vertical-align:top}.dg i{display:block;font-style:normal;transition:transform 1s var(--ease)}.dg b{display:block;height:1em;font-weight:inherit}
 .side{min-width:0;flex:1}.side .rt{margin-bottom:2px}.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .week{display:flex;justify-content:space-between;padding:16px}.week div{text-align:center;color:var(--muted);font-size:11.5px}.week i{display:block;width:34px;height:34px;border-radius:var(--r-md);margin:0 auto 6px;background:var(--chip);box-shadow:inset 0 0 0 1px var(--line)}
@@ -670,9 +670,10 @@ function renderPage() {
   const chips = r ? '<div class="chips">' + (r.exp ? '<span class="heat">' + svgi(IC.bolt, 13) + "经验 +" + r.exp + "</span>" : "") +
     '<span class="chip">' + clock(r.at) + " · " + (r.trigger === "cron" ? "定时" : "手动") + '</span><span class="chip">用时 ' + Math.max(1, Math.round(r.ms / 1000)) + " 秒</span>" +
     (r.fail ? '<span class="chip fail">失败 ' + r.fail + "</span>" : "") + (r.skipped ? '<span class="chip">未处理 ' + r.skipped + "</span>" : "") + (r.muted ? '<span class="chip">已跳过 ' + r.muted + "</span>" : "") + "</div>" : "";
+  const numTxt = r ? signed + "/" + r.total : "—"; // 位数越多字号越小，避免压到圆环上
   const hero = '<section class="panel hero s1"><div class="ring"><svg width="96" height="96" viewBox="0 0 96 96"><circle class="bg" cx="48" cy="48" r="40" fill="none" stroke="#e6e2d8" stroke-width="8"/>' +
     '<circle class="fg" cx="48" cy="48" r="40" fill="none" stroke="#0f7f69" stroke-width="8" stroke-linecap="round" stroke-dasharray="' + len.toFixed(1) + " " + C.toFixed(1) + '" stroke-opacity="' + (len > 0.5 ? 1 : 0) + '" style="--c:' + C.toFixed(1) + '"/></svg>' +
-    '<div><span class="num" data-n="' + (r ? signed + "/" + r.total : "—") + '">' + (r ? signed + "/" + r.total : "—") + "</span><small>今日已签</small></div></div>" +
+    '<div><span class="num' + (numTxt.length >= 6 ? " n6" : numTxt.length === 5 ? " n5" : numTxt.length === 4 ? " n4" : "") + '" data-n="' + numTxt + '">' + numTxt + "</span><small>今日已签</small></div></div>" +
     '<div class="side"><div class="rt">今天的超话签到</div><span class="chip ' + lv.cls.replace("bad", "bad") + '">登录' + lv.t + "</span>" + chips + "</div></section>";
 
   // 状态行：登录 / 定时 / 来源
