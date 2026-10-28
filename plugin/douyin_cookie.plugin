@@ -1,0 +1,15 @@
+#!name = 抖音 Cookie 抓取
+#!desc = 登录 www.douyin.com 网页版后自动保存 Cookie,配合 DouYinSparkFlow 续火花。Cookie 仅存本地,点通知可复制。
+#!tag = 抖音,Cookie,续火花
+#!system = iOS
+#!author = @OliviaR13
+#!icon = https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/icon/myloon.png
+#!loon_version = 3.2.1(749)
+#!date = 2026-10-29
+#!version = 1.0.0
+
+[Script]
+http-request ^https:\/\/www\.douyin\.com\/(aweme\/v1\/web|chat)\/ script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/douyin_cookie.js, timeout=10, tag=抖音Cookie
+
+[MITM]
+hostname = www.douyin.com
