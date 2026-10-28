@@ -35,6 +35,8 @@ const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&":
 // ---------- 存取 ----------
 const readJ = (k) => { try { return JSON.parse($persistentStore.read(k) || "null"); } catch (e) { return null; } };
 const writeJ = (k, o) => $persistentStore.write(JSON.stringify(o), k);
+// 删除一个 Key：文档要求用 undefined；个别运行时不认就退回写空串（readJ 能处理空串）
+const del = (k) => { $persistentStore.write(undefined, k); if ($persistentStore.read(k)) $persistentStore.write("", k); };
 const readState = () => Object.assign({ topics: {}, signed: { day: "", ids: {} }, login: {}, run: null, running: 0, hist: {} }, readJ(STATE_KEY) || {});
 const readPrefs = () => { const p = readJ(PREF_KEY) || {}; return { skip: (p.skip && typeof p.skip === "object") ? p.skip : {} }; };
 const today = () => { const d = new Date(); return d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2); };
@@ -869,7 +871,7 @@ function serve() {
   else if (path === "/login/check") loginCheck().then(json).catch((e) => json({ s: "fail", msg: String((e && e.message) || e) }));
   else if (path === "/settings") html(renderSettings());
   else if (path === "/logout") { // 退出登录：网页 + App 登录状态都清掉，否则会悄悄退回到 App 登录继续签
-    $persistentStore.write("", WEB_KEY); $persistentStore.write("", AUTH_KEY);
+    del(WEB_KEY); del(AUTH_KEY);
     const st = readState(); st.login = { state: "none" }; st.qr = null; writeJ(STATE_KEY, st);
     go("#out");
   } else if (path === "/reset") { const st = readState(); st.run = null; st.hist = {}; writeJ(STATE_KEY, st); go("#cleared", "settings"); }
