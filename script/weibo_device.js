@@ -62,13 +62,15 @@ if (!enabled) {
 
   // 请求头里如果带机型（如 H5 页面的 UA），同步替换
   const headers = $request.headers || {};
+  let uaChanged = false;
   for (const k of Object.keys(headers)) {
     if (k.toLowerCase() === "user-agent") {
-      headers[k] = headers[k].replace(/iPhone\d+(?:,|%2C)\d+/gi, model);
+      const next = headers[k].replace(/iPhone\d+(?:,|%2C)\d+/gi, model);
+      if (next !== headers[k]) { headers[k] = next; uaChanged = true; }
     }
   }
 
-  result = { url: newUrl, headers };
+  if (newUrl !== url || uaChanged) result = { url: newUrl, headers }; // 没有改动就原样放行
   if (debug) {
     const ua = (newUrl.match(/[?&]ua=([^&]*)/) || [])[1];
     console.log("[weibo_device] " + path.replace(/^https?:\/\/[^/]+/, "") + " changed=" + (newUrl !== url) + " ua=" + ua);
