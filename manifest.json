@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-10-28T22:25:02.013857+00:00",
+  "generatedAt": "2026-10-28T22:31:50.443259+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -124,28 +124,6 @@
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/icon/blued.png",
       "description": "Blued 及其内置 SDK（风控设备指纹、百度定位、个推推送等）相关域名统一直连，使各请求的出口 IP 保持一致。用于排查登录失效和收不到推送的问题。"
-    },
-    {
-      "id": "douyin_cookie",
-      "name": "抖音 Cookie 抓取",
-      "file": "plugin/douyin_cookie.plugin",
-      "version": "1.0.0",
-      "author": "@OliviaR13",
-      "category": "抖音",
-      "tags": [
-        "抖音",
-        "Cookie",
-        "续火花"
-      ],
-      "mitm": true,
-      "script": true,
-      "args": false,
-      "rule": false,
-      "proxy": false,
-      "date": "2026-10-29",
-      "homepage": null,
-      "icon": "https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/icon/myloon.png",
-      "description": "登录 www.douyin.com 网页版后自动保存 Cookie,配合 DouYinSparkFlow 续火花。Cookie 仅存本地,点通知可复制。"
     },
     {
       "id": "douyin_ip",
