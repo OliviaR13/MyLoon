@@ -67,20 +67,6 @@ function capture() {
     (/page_?id(?:=|%3D)(100808[0-9a-f]{10,})/i.exec(url));
   if (m) dirty = learn(st, m[1]) || dirty;
 
-  // 「我的超话」列表请求：记下来，之后用它翻页取关注列表（fid / flowId 等于列表页，而不是 lfid）
-  const LIST_RE = /(?:^|[?&])(?:fid|containerid|flowId)=232478_-_mine_topic(?:&|$)/;
-  const qsRaw = url.split("?")[1] || "";
-  if (hd.authorization && (LIST_RE.test(body) || LIST_RE.test(qsRaw))) {
-    const extra = qsRaw.split("&").filter((p) => p && KEEP_QS.indexOf(keyOf(p).toLowerCase()) === -1 && !/^(ul_|since_id=)/.test(p));
-    const more = /(?:^|[?&])taskType=loadMore(?:&|$)/.test(body + "&" + qsRaw);
-    st[more ? "listMore" : "listFirst"] = {
-      method: String($request.method || "GET").toUpperCase(), path: url.split("?")[0],
-      qs: extra.join("&"), body, ct: hd["content-type"] || "", at: Date.now(),
-    };
-    dirty = true;
-    log("已记录「我的超话」" + (more ? "加载更多" : "首页") + "请求");
-  }
-
   // 只记录当前账号：当前账号的请求带 authorization 头
   const pairs = pairsOf(url);
   const gsid = (pairs.find((p) => /^gsid=/i.test(p)) || "").slice(5);
@@ -131,137 +117,6 @@ const isExpired = (status, j) => status === 401 || status === 403 || !!(j && j.r
   Number(j.errno) === -100 || /login|token|登录|重新登/i.test(String(j.errmsg || j.error || j.msg || ""))));
 
 // ---------- 超话列表 ----------
-// 旧版列表接口（cardlist），失败时会退回到「访问过的超话」
-function extractTopics(json) {
-  const out = [];
-  const walk = (node) => {
-    if (!node || typeof node !== "object") return;
-    if (Array.isArray(node)) return node.forEach(walk);
-    walk(node.cards); walk(node.card_group);
-    const btn = (node.buttons || [])[0];
-    if (!btn) return;
-    const hay = JSON.stringify([btn, node.scheme]);
-    if (!/^(签到|已签)/.test(String(btn.name || "")) && !/active_checkin/.test(hay)) return;
-    const id = (ID_RE.exec(hay) || [])[0];
-    if (!id) return;
-    out.push({ id, name: node.title_sub || node.title || "", done: /已/.test(String(btn.name || "")) });
-  };
-  walk(json);
-  return out;
-}
-
-// 「我的超话」列表：已关注 = card_type 8；「猜你喜欢」之后是推荐（card_type 1022），要排除
-function extractMine(json) {
-  const out = [];
-  let reco = false;
-  const walk = (n) => {
-    if (!n || typeof n !== "object") return;
-    if (Array.isArray(n)) return n.forEach(walk);
-    if (n.category === "card" && n.data) {
-      const d = n.data;
-      if (d.itemid === "mine_topic_recommend_title" || Number(d.card_type) === 1022) { reco = true; return; }
-      if (!reco && Number(d.card_type) === 8) {
-        const id = (ID_RE.exec(String(d.scheme || "")) || [])[0];
-        const b = (d.buttons || [])[0];
-        const unfollowed = b && b.type === "follow" && !/已关注/.test(String(b.name || ""));
-        if (id && !unfollowed) out.push({ id, name: d.title_sub || "", done: false });
-      }
-      return;
-    }
-    Object.keys(n).forEach((k) => walk(n[k]));
-  };
-  walk(json);
-  return { out, reco };
-}
-
-function setP(s, k, v, add) {
-  const re = new RegExp("(^|&)" + k + "=[^&]*");
-  if (v === null) return s.replace(re, "").replace(/^&/, "");
-  if (re.test(s)) return s.replace(re, "$1" + k + "=" + encodeURIComponent(v));
-  return add ? (s ? s + "&" : "") + k + "=" + encodeURIComponent(v) : s;
-}
-
-// 按记录下来的请求模板翻页：每页返回的 moreInfo.params 就是下一页的 page / since_id / max_id
-async function fetchMine(auth, T, fromMore) {
-  const topics = [], seen = new Set();
-  let note = "", qs = T.qs || "", body = T.body || "", complete = false, why = "";
-  const post = T.method === "POST"; // 参数放在请求体（POST）或查询串（GET）里
-  const apply = (k, v) => { qs = setP(qs, k, v, !post); if (post) body = setP(body, k, v, true); };
-  if (fromMore) { apply("page", 1); apply("since_id", null); apply("max_id", 0); } // 只有「加载更多」的记录时，尝试从第 1 页开始
-  for (let n = 0; n < MAX_PAGES; n++) {
-    const url = T.path + "?" + auth.pairs.concat(qs.split("&").filter(Boolean)).join("&");
-    const headers = Object.assign({}, auth.headers);
-    if (T.method === "POST") headers["content-type"] = T.ct || "application/x-www-form-urlencoded; charset=utf-8";
-    const { status, body: resp } = await get(url, headers, { method: T.method, body: T.method === "POST" ? body : null, timeout: 15 });
-    const j = parse(resp);
-    if (isExpired(status, j)) throw Object.assign(new Error("expired"), { expired: true });
-    if (!j) { note = "列表返回异常（HTTP " + status + "）"; break; }
-    const { out, reco } = extractMine(j);
-    let added = 0;
-    for (const t of out) { if (!seen.has(t.id)) { seen.add(t.id); topics.push(t); added++; } }
-    const mp = j.moreInfo && j.moreInfo.params;
-    log("列表第 " + (n + 1) + " 页，新增 " + added + (reco ? "，已到推荐区" : ""));
-    if (reco || !mp) { complete = true; break; } // 读到推荐区或没有下一页，说明读完了
-    if (!added && n > 0) { why = "后面的页面没有新内容"; break; }
-    if (n === MAX_PAGES - 1) why = "超过 " + MAX_PAGES + " 页上限";
-    for (const k of ["page", "since_id", "max_id"]) if (mp[k] !== undefined) apply(k, mp[k]);
-    for (const kv of [["taskType", "loadMore"], ["manualType", "scroll"], ["invokeType", "manual"]]) { qs = setP(qs, kv[0], kv[1]); if (post) body = setP(body, kv[0], kv[1]); }
-    await sleep(500);
-  }
-  if (!complete && !note) note = "列表可能不完整（" + (why || "读取中断") + "）";
-  if (!topics.length && !note) note = "没有读到关注的超话" + (fromMore ? "，请在微博里下拉刷新「我的超话」页以记录首页请求" : "");
-  return { topics, note, complete };
-}
-
-async function fetchList(auth, st) {
-  const T = st.listFirst || st.listMore;
-  if (T) {
-    try {
-      const r = await fetchMine(auth, T, !st.listFirst);
-      return Object.assign(r, { src: "learned" });
-    } catch (e) {
-      if (e.expired) throw e;
-      return { topics: [], src: "learned", note: "列表请求失败：" + String(e.message || e).slice(0, 80) };
-    }
-  }
-  try {
-    const r = await fetchLegacy(auth);
-    return Object.assign(r, { src: "legacy" });
-  } catch (e) {
-    if (e.expired) throw e;
-    return { topics: [], src: "legacy", note: "旧版列表接口失败：" + String(e.message || e).slice(0, 80) };
-  }
-}
-
-async function fetchLegacy(auth) {
-  const topics = [];
-  const seen = new Set();
-  let sinceId = "", note = "", complete = false, why = "";
-  for (let page = 0; page < MAX_PAGES; page++) {
-    let url = "https://api.weibo.cn/2/cardlist?" + auth.pairs.join("&") + "&containerid=100803_-_followsuper";
-    if (sinceId) url += "&since_id=" + encodeURIComponent(sinceId);
-    const { status, body } = await get(url, auth.headers, { timeout: 10 });
-    const j = parse(body);
-    if (isExpired(status, j)) throw Object.assign(new Error("expired"), { expired: true });
-    if (!j) { note = "列表接口返回异常（HTTP " + status + "）"; break; }
-    if (j.errmsg && !j.cards) { note = "列表接口：" + clean(j.errmsg); break; }
-    let added = 0;
-    for (const t of extractTopics(j)) {
-      if (seen.has(t.id)) continue;
-      seen.add(t.id); topics.push(t); added++;
-    }
-    const next = j.cardlistInfo && j.cardlistInfo.since_id;
-    log("列表第 " + (page + 1) + " 页，新增 " + added);
-    if (!next) { complete = true; break; } // 没有下一页 = 读完了
-    if (String(next) === sinceId || !added) { why = "翻页没有新内容"; break; }
-    sinceId = String(next);
-    if (page === MAX_PAGES - 1) why = "超过 " + MAX_PAGES + " 页上限";
-    await sleep(500);
-  }
-  if (!complete && !note) note = "列表可能不完整（" + (why || "读取中断") + "）";
-  return { topics, note, complete };
-}
-
 // ---------- 单个超话签到 ----------
 function judge(status, body) {
   const j = parse(body);
@@ -449,7 +304,7 @@ async function run(trigger, opt) {
   try {
     let listed = [], listFull = false;
     try {
-      const r = web ? await fetchListWeb(web) : await fetchList(auth, st);
+      const r = web ? await fetchListWeb(web) : { topics: [], src: "none", complete: false, note: "需要先扫码登录网页版才能读取关注的超话" };
       listed = r.topics; rec.listNote = r.note; rec.listCount = listed.length; rec.listSrc = r.src;
       listFull = !!r.complete; rec.listErr = !r.complete && !!r.note;
     } catch (e) {
@@ -497,7 +352,7 @@ async function run(trigger, opt) {
 
   if (rec.expired) { if (!(opt && opt.silentExpired)) push("登录已失效", web ? "网页登录已过期，请打开状态页重新扫码" : "请重新打开微博 App 刷新登录状态"); return rec; }
   if (!rec.total && rec.muted) { push("没有需要签到的超话", "已在设置里跳过 " + rec.muted + " 个超话"); return rec; }
-  if (!rec.total) { push("没有可签到的超话", web ? (rec.listNote || "网页登录读不到关注的超话") : "请打开微博 →「我的超话」页一次，之后会自动记录"); return rec; }
+  if (!rec.total) { push("没有可签到的超话", web ? (rec.listNote || "网页登录读不到关注的超话") : "请先在状态页扫码登录网页版，才能读取关注的超话"); return rec; }
   if (rec.netFail) { if (!(opt && opt.silentNet)) push("网络请求全部失败", "没有收到微博服务器的任何响应，详情见状态页"); return rec; }
   const head = "共 " + rec.total + " 个：成功 " + rec.ok + " · 已签 " + rec.already + " · 失败 " + rec.fail + (rec.unknown ? " · 未知 " + rec.unknown : "");
   const lines = [];
@@ -616,14 +471,14 @@ h1,h2,p{margin:0}a{color:var(--accent-text)}button,a{-webkit-touch-callout:none;
 .side{min-width:0;flex:1}.side .rt{margin-bottom:2px}.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .week{display:flex;justify-content:space-between;padding:16px}.week div{text-align:center;color:var(--muted);font-size:11.5px}.week i{display:block;width:34px;height:34px;border-radius:var(--r-md);margin:0 auto 6px;background:var(--chip);box-shadow:inset 0 0 0 1px var(--line)}
 .week i.ok{background:var(--accent);box-shadow:none}.week i.warn{background:var(--warn);box-shadow:none}.week .now{color:var(--accent-text);font-weight:650}
-.tabs{position:relative;display:flex;gap:20px;border-bottom:1px solid var(--line);margin:22px 0 14px;overflow-x:auto;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}
-.tab{font:inherit;font-size:15px;font-weight:600;color:var(--muted);background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:8px 2px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;transition:color .2s}
+.tabs{position:relative;display:flex;gap:20px;box-shadow:inset 0 -1px 0 var(--line);margin:22px 0 14px;overflow-x:auto;overflow-y:hidden;overscroll-behavior:contain;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}
+.tab{font:inherit;font-size:15px;font-weight:600;color:var(--muted);background:none;border:0;border-bottom:2px solid transparent;margin-bottom:0;padding:8px 2px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;transition:color .2s}
 .tab[aria-pressed="true"]{color:var(--text)}.tab small{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--muted);background:var(--chip);border-radius:999px;padding:1px 7px;line-height:1.5}
 .tab[aria-pressed="true"] small{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent-text)}
-.tab-ind{position:absolute;bottom:-1px;height:2px;border-radius:2px;background:var(--accent);pointer-events:none}
+.tab-ind{position:absolute;bottom:0;height:2px;border-radius:2px;background:var(--accent);pointer-events:none}
 .tab-ind[data-dir="fwd"]{transition:right .18s var(--ease),left .45s var(--spring) .07s}.tab-ind[data-dir="back"]{transition:left .18s var(--ease),right .45s var(--spring) .07s}.tab-ind.no-anim{transition:none}
 .list{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card);overflow:hidden}
-.item{display:grid;grid-template-columns:40px 1fr auto;gap:12px 14px;align-items:center;padding:14px 16px}.item+.item{border-top:1px solid var(--line)}.item[hidden]{display:none}
+.item{display:grid;grid-template-columns:40px 1fr auto;gap:12px 14px;align-items:center;padding:14px 16px}.item+.item{border-top:1px solid var(--line)}.item[hidden],#items[hidden],#empty[hidden]{display:none}
 .list.enter .item{animation:rise .34s var(--ease) both;animation-delay:calc(var(--i,0) * 45ms)}@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .av{width:40px;height:40px;border-radius:var(--r-md);display:grid;place-items:center;font-weight:700;font-size:16px;box-shadow:0 0 0 1px var(--line);background:color-mix(in srgb,hsl(var(--h) 55% 50%) 16%,var(--card));color:color-mix(in srgb,hsl(var(--h) 60% 38%) 85%,var(--text))}
 .it{min-width:0}.it .rt{font-size:15.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -684,7 +539,9 @@ const PAGE_JS = "(function(){" +
   "t.style.transitionDelay=(i*70+250)+'ms';w.appendChild(t);(function(t,c){requestAnimationFrame(function(){requestAnimationFrame(function(){t.style.transform='translateY(-'+(c*10)+'%)'})})})(t,+c)}else{w.textContent=c}el.appendChild(w)}})(ns[n])}" +
   "var tabs=document.getElementById('tabs'),ind=document.getElementById('ind'),cur=null;" +
   "function place(btn,anim){if(!tabs||!ind)return;var tr=tabs.getBoundingClientRect(),br=btn.getBoundingClientRect();if(!anim||!cur){ind.className='tab-ind no-anim'}else{ind.className='tab-ind';ind.setAttribute('data-dir',btn.offsetLeft>cur.offsetLeft?'fwd':'back')}ind.style.left=(br.left-tr.left+tabs.scrollLeft)+'px';ind.style.right=(tr.right-br.right-tabs.scrollLeft)+'px';cur=btn}" +
-  "function filt(f){var ls=document.querySelectorAll('#items .item'),k=0;for(var i=0;i<ls.length;i++){var on=f==='all'||ls[i].getAttribute('data-st')===f;ls[i].hidden=!on;if(on){ls[i].style.setProperty('--i',k++);ls[i].style.animation='none';void ls[i].offsetWidth;ls[i].style.animation=''}}}" +
+  "var EM={all:['还没有超话记录','点下面的「立即签到」试一次'],fail:['没有失败的超话','这次签到一切顺利'],unknown:['没有状态未知的超话','每个超话的结果都已确认'],ok:['这次没有新签到成功的超话','已经签过的会显示在「已签」里'],already:['还没有已签的超话','签到完成后会显示在这里']};" +
+  "function filt(f){var ls=document.querySelectorAll('#items .item'),k=0;for(var i=0;i<ls.length;i++){var on=f==='all'||ls[i].getAttribute('data-st')===f;ls[i].hidden=!on;if(on){ls[i].style.setProperty('--i',k++);ls[i].style.animation='none';void ls[i].offsetWidth;ls[i].style.animation=''}}" +
+  "var ul=document.getElementById('items'),em=document.getElementById('empty');if(ul)ul.hidden=!k;if(em){em.hidden=!!k;if(!k){var t=EM[f]||EM.all;document.getElementById('et').textContent=t[0];document.getElementById('ep').textContent=t[1]}}}" +
   "if(tabs){var bs=tabs.querySelectorAll('.tab');for(var j=0;j<bs.length;j++)bs[j].onclick=function(){for(var q=0;q<bs.length;q++)bs[q].setAttribute('aria-pressed',bs[q]===this?'true':'false');place(this,true);filt(this.getAttribute('data-f'))};" +
   "var first=tabs.querySelector('.tab');if(first)requestAnimationFrame(function(){place(first,false)})}" +
   "var rb=document.getElementById('run');if(rb)rb.onclick=function(e){if(rb.hasAttribute('data-done')){e.preventDefault();return}rb.setAttribute('data-done','')};" +
@@ -748,7 +605,7 @@ function renderPage() {
   const status = '<section class="panel s2">' +
     row(loggedIn ? "ok" : lv.cls, "user", web ? "微博网页登录" : auth ? "微博 App 登录" : "微博登录", lv.d, loginRight) +
     row(cc === "ok" ? "ok" : cc, "clock", "每天 " + SCHED_TEXT + " 自动签到", cronMeta, '<span class="chip ' + cc + '">' + ct + "</span>") +
-    row(ls && ls !== "full" ? "warn" : r && r.total ? "ok" : "", "list", "关注的超话 · " + (web ? "网页" : "App"), srcMeta, '<span class="chip ' + srcCls + '">' + srcTxt + "</span>") + "</section>";
+    row(ls && ls !== "full" ? "warn" : r && r.total ? "ok" : "", "list", "关注的超话 · 网页", srcMeta, '<span class="chip ' + srcCls + '">' + srcTxt + "</span>") + "</section>";
 
   // 近 7 天
   let week = '<section class="panel week s3">';
@@ -773,11 +630,10 @@ function renderPage() {
   }).join("");
   const tab = (f, t, n, on) => '<button class="tab" type="button" data-f="' + f + '" aria-pressed="' + (on ? "true" : "false") + '">' + t + "<small>" + n + "</small></button>";
   const list = '<div class="tabs s4" id="tabs">' + tab("all", "全部", items.length, true) + tab("fail", "失败", count("fail")) + (count("unknown") ? tab("unknown", "未知", count("unknown")) : "") + tab("ok", "成功", count("ok")) + tab("already", "已签", count("already")) + '<span class="tab-ind no-anim" id="ind"></span></div>' +
-    (items.length ? '<ul class="list enter s5" id="items">' + rows + "</ul>" : '<div class="panel s5"><div class="notice"><h2>' + (r ? "这次没有处理任何超话" : "还没有签到记录") + "</h2><p>" + (r ? "请看上面的「关注的超话」一行" : "点下面的「立即签到」试一次") + "</p></div></div>");
+    (items.length ? '<ul class="list enter s5" id="items">' + rows + "</ul>" + '<div class="panel s5" id="empty" hidden><div class="notice"><h2 id="et"></h2><p id="ep"></p></div></div>' : '<div class="panel s5"><div class="notice"><h2>' + (r ? "这次没有处理任何超话" : "还没有签到记录") + "</h2><p>" + (r ? "请看上面的「关注的超话」一行" : "点下面的「立即签到」试一次") + "</p></div></div>");
 
-  const learned = st.listFirst ? "已记录「我的超话」首页请求" : st.listMore ? "只记录了「加载更多」" : "未记录「我的超话」列表请求";
   const diag = '<details><summary>诊断信息</summary><p>' + (r && r.netFail ? "⚠️ 本次没有收到微博服务器的任何响应（网络或代理问题，不是登录问题）<br>" : "") +
-    "登录方式：" + (web ? "网页（Cookie）" : auth ? "App" : "无") + (web ? "" : "<br>" + learned) + "</p></details>";
+    "登录方式：" + (web ? "网页（Cookie）" : auth ? "App" : "无") + "" + "</p></details>";
   const toastTxt = r ? "签到完成 · 成功 " + r.ok + " · 已签 " + r.already + (r.fail ? " · 失败 " + r.fail : "") + (r.unknown ? " · 未知 " + r.unknown : "") + (partialList ? " · 列表不完整" : "") : "完成";
 
   const dock = '<div class="bdock"><div class="bdock-in"><a class="btn btn-ghost" href="/">刷新</a>' +
