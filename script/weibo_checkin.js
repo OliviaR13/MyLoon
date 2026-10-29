@@ -466,7 +466,7 @@ h1,h2,p{margin:0}a{color:var(--accent-text)}button,a{-webkit-touch-callout:none;
 .chip.cap,.chip.already{background:transparent;color:color-mix(in srgb,var(--text) 80%,var(--muted));box-shadow:inset 0 0 0 1px var(--line)}
 .heat{display:inline-flex;align-items:center;gap:4px;height:24px;white-space:nowrap;padding:0 9px 0 7px;border-radius:999px;background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--warn);font-size:12.5px;font-weight:650;line-height:1}
 .hero{display:flex;align-items:center;gap:18px;padding:18px}.ring{position:relative;width:96px;height:96px;flex:none}.ring svg{transform:rotate(-90deg)}.ring .bg{stroke:var(--line)}.ring .fg{stroke:var(--accent);animation:fill 1s var(--ease) .2s backwards}
-@keyframes fill{from{stroke-dasharray:0 var(--c)}}.ring div{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}.num{display:inline-flex;font-size:25px;font-weight:700;line-height:1;letter-spacing:-.02em}.num.n4{font-size:22px}.num.n5{font-size:19px}.num.n6{font-size:16px}.ring small{color:var(--muted);font-size:11.5px;margin-top:4px}
+@keyframes fill{from{stroke-dasharray:0 var(--c)}}.ring div{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}.num{display:inline-flex;font-size:25px;font-weight:700;line-height:1;letter-spacing:-.02em}.num.n4{font-size:22px}.num.n5{font-size:19px}.num.n6{font-size:16px}.hero.stale .ring{opacity:.55}.ring small{color:var(--muted);font-size:11.5px;margin-top:4px}
 .dg{display:inline-block;height:1em;overflow:hidden;vertical-align:top}.dg i{display:block;font-style:normal;transition:transform 1s var(--ease)}.dg b{display:block;height:1em;font-weight:inherit}
 .side{min-width:0;flex:1}.side .rt{margin-bottom:2px}.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .week{display:flex;justify-content:space-between;padding:16px}.week div{text-align:center;color:var(--muted);font-size:11.5px}.week i{display:block;width:34px;height:34px;border-radius:var(--r-md);margin:0 auto 6px;background:var(--chip);box-shadow:inset 0 0 0 1px var(--line)}
@@ -531,7 +531,7 @@ const IC = {
 const SPIN = '<svg class="spin" viewBox="0 0 50 50" width="18" height="18" aria-hidden="true"><circle cx="25" cy="25" r="20" fill="none" stroke-width="4.5" stroke-linecap="round"/></svg>';
 const BLUR_HTML = '<div class="bblur" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>';
 const headHtml = (title, sub, right) => '<header class="head"><div class="head-text"><h1>' + title + "</h1><p>" + sub + "</p></div>" + (right || "") + "</header>";
-const shellOpen = (title) => '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><title>' + title + "</title><style>" + PAGE_CSS + "</style></head><body>";
+const shellOpen = (title) => '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><meta name="theme-color" content="#f6f4ef" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#12110f" media="(prefers-color-scheme: dark)"><title>' + title + "</title><style>" + PAGE_CSS + "</style></head><body>";
 
 const PAGE_JS = "(function(){" +
   "var ns=document.querySelectorAll('.num');for(var n=0;n<ns.length;n++){(function(el){var s=el.getAttribute('data-n');el.setAttribute('aria-label',s);el.textContent='';" +
@@ -545,7 +545,8 @@ const PAGE_JS = "(function(){" +
   "if(tabs){var bs=tabs.querySelectorAll('.tab');for(var j=0;j<bs.length;j++)bs[j].onclick=function(){for(var q=0;q<bs.length;q++)bs[q].setAttribute('aria-pressed',bs[q]===this?'true':'false');place(this,true);filt(this.getAttribute('data-f'))};" +
   "var first=tabs.querySelector('.tab');if(first)requestAnimationFrame(function(){place(first,false)})}" +
   "var rb=document.getElementById('run');if(rb)rb.onclick=function(e){if(rb.hasAttribute('data-done')){e.preventDefault();return}rb.setAttribute('data-done','')};" +
-  "addEventListener('pageshow',function(){if(rb)rb.removeAttribute('data-done')});" +
+  "addEventListener('pageshow',function(e){if(e.persisted){location.reload();return}if(rb)rb.removeAttribute('data-done')});" +
+  "var rz;addEventListener('resize',function(){clearTimeout(rz);rz=setTimeout(function(){var on=tabs&&tabs.querySelector('.tab[aria-pressed=\\'true\\']');if(on)place(on,false)},120)});" +
   "var tz=document.getElementById('toast'),tt;function toast(t){if(!tz)return;tz.textContent=t;tz.className='toast show';clearTimeout(tt);tt=setTimeout(function(){tz.className='toast show leaving'},2400)}" +
   "var hs=location.hash,msg={'#login':'登录成功','#out':'已退出登录','#cleared':'已清除签到记录'};if(tz&&(hs==='#done'||msg[hs])){if(msg[hs])tz.textContent=msg[hs];tz.className='toast show';history.replaceState(null,'',location.pathname);tt=setTimeout(function(){tz.className='toast show leaving'},2800)}" +
   "var cf=document.querySelectorAll('.cfm');for(var a=0;a<cf.length;a++)(function(b){var tm,go=b.querySelector('[data-go]'),cn=b.querySelector('[data-cn]');function rs(){b.removeAttribute('data-ask');clearTimeout(tm)}if(go)go.onclick=function(){b.setAttribute('data-ask','');clearTimeout(tm);tm=setTimeout(rs,4000)};if(cn)cn.onclick=rs})(cf[a]);" +
@@ -558,6 +559,9 @@ function renderPage() {
   const auth = readJ(AUTH_KEY), web = readJ(WEB_KEY), st = readState(), lv = loginView(auth, st), r = st.run;
   const now = new Date(), mins = now.getHours() * 60 + now.getMinutes();
   const dateStr = now.getMonth() + 1 + "月" + now.getDate() + "日 周" + "日一二三四五六"[now.getDay()];
+  const ymd = (t) => { const d = new Date(t); return d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2); };
+  const stale = !!(r && r.at && ymd(r.at) !== today()); // 结果不是今天的：别写成「今日已签」
+  const staleDay = stale ? (new Date(r.at).getMonth() + 1) + "/" + new Date(r.at).getDate() : "";
   const signed = r ? r.ok + r.already : 0;
   const C = 2 * Math.PI * 40, len = C * (r && r.total ? Math.min(1, signed / r.total) : 0);
   const nVisited = Object.keys(st.topics).length;
@@ -569,13 +573,12 @@ function renderPage() {
     '<span class="chip">' + clock(r.at) + " · " + (r.trigger === "cron" ? "定时" : "手动") + '</span><span class="chip">用时 ' + Math.max(1, Math.round(r.ms / 1000)) + " 秒</span>" +
     (r.fail ? '<span class="chip fail">失败 ' + r.fail + "</span>" : "") + (r.unknown ? '<span class="chip warn">状态未知 ' + r.unknown + "</span>" : "") + (partialList ? '<span class="chip warn">' + (ls === "visited" ? "仅访问记录" : "部分列表") + "</span>" : "") + (r.skipped ? '<span class="chip">未处理 ' + r.skipped + "</span>" : "") + (r.muted ? '<span class="chip">已跳过 ' + r.muted + "</span>" : "") + "</div>" : "";
   const numTxt = r ? signed + "/" + r.total : "—"; // 位数越多字号越小，避免压到圆环上
-  const hero = '<section class="panel hero s1"><div class="ring"><svg width="96" height="96" viewBox="0 0 96 96"><circle class="bg" cx="48" cy="48" r="40" fill="none" stroke="#e6e2d8" stroke-width="8"/>' +
+  const hero = '<section class="panel hero s1' + (stale ? " stale" : "") + '"><div class="ring"><svg width="96" height="96" viewBox="0 0 96 96"><circle class="bg" cx="48" cy="48" r="40" fill="none" stroke="#e6e2d8" stroke-width="8"/>' +
     '<circle class="fg" cx="48" cy="48" r="40" fill="none" stroke="#0f7f69" stroke-width="8" stroke-linecap="round" stroke-dasharray="' + len.toFixed(1) + " " + C.toFixed(1) + '" stroke-opacity="' + (len > 0.5 ? 1 : 0) + '" style="--c:' + C.toFixed(1) + '"/></svg>' +
-    '<div><span class="num' + (numTxt.length >= 6 ? " n6" : numTxt.length === 5 ? " n5" : numTxt.length === 4 ? " n4" : "") + '" data-n="' + numTxt + '">' + numTxt + "</span><small>" + (partialList ? "部分列表" : "今日已签") + "</small></div></div>" +
-    '<div class="side"><div class="rt">今天的超话签到</div><span class="chip ' + lv.cls.replace("bad", "bad") + '">登录' + lv.t + "</span>" + chips + "</div></section>";
+    '<div><span class="num' + (numTxt.length >= 6 ? " n6" : numTxt.length === 5 ? " n5" : numTxt.length === 4 ? " n4" : "") + '" data-n="' + numTxt + '">' + numTxt + "</span><small>" + (stale ? staleDay + " 的结果" : partialList ? "部分列表" : "今日已签") + "</small></div></div>" +
+    '<div class="side"><div class="rt">' + (stale ? "上次的超话签到" : "今天的超话签到") + '</div><span class="chip ' + lv.cls + '">' + (/^未/.test(lv.t) ? lv.t : "登录" + lv.t) + "</span>" + chips + "</div></section>";
 
   // 状态行：登录 / 定时 / 来源
-  const row = (cls, ico, title, meta, right) => '<div class="row"><span class="ico ' + cls + '">' + svgi(IC[ico]) + '</span><div><div class="rt">' + title + '</div><div class="rm">' + esc(meta) + "</div></div>" + (right || "") + "</div>";
   const au = st.auto && st.auto.day === today() ? st.auto : null, tick = st.tick;
   const fin = au && au.final;
   let cc = "", ct = "待签到";
@@ -603,9 +606,9 @@ function renderPage() {
   const srcCls = ls === "full" ? "ok" : ls ? "warn" : web ? "ok" : "", srcTxt = ls === "full" ? "完整" : ls === "partial" ? "部分" : ls === "visited" ? "仅记录" : ls === "none" ? "无" : web ? "网页" : "App";
   const loginRight = web || auth ? '<span class="chip ' + (lv.cls === "bad" ? "bad" : lv.cls) + '">' + lv.t + "</span>" : '<a class="btn btn-primary" href="/login">扫码登录</a>';
   const status = '<section class="panel s2">' +
-    row(loggedIn ? "ok" : lv.cls, "user", web ? "微博网页登录" : auth ? "微博 App 登录" : "微博登录", lv.d, loginRight) +
-    row(cc === "ok" ? "ok" : cc, "clock", "每天 " + SCHED_TEXT + " 自动签到", cronMeta, '<span class="chip ' + cc + '">' + ct + "</span>") +
-    row(ls && ls !== "full" ? "warn" : r && r.total ? "ok" : "", "list", "关注的超话 · 网页", srcMeta, '<span class="chip ' + srcCls + '">' + srcTxt + "</span>") + "</section>";
+    rowHtml(loggedIn ? "ok" : lv.cls, "user", web ? "微博网页登录" : auth ? "微博 App 登录" : "微博登录", lv.d, loginRight) +
+    rowHtml(cc === "ok" ? "ok" : cc, "clock", "每天 " + SCHED_TEXT + " 自动签到", cronMeta, '<span class="chip ' + cc + '">' + ct + "</span>") +
+    rowHtml(ls && ls !== "full" ? "warn" : r && r.total ? "ok" : "", "list", "关注的超话 · 网页", srcMeta, '<span class="chip ' + srcCls + '">' + srcTxt + "</span>") + "</section>";
 
   // 近 7 天
   let week = '<section class="panel week s3">';
@@ -613,7 +616,7 @@ function renderPage() {
     const d = new Date(now.getTime() - i * 86400000);
     const key = d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2);
     const h = st.hist[key];
-    week += '<div class="' + (i === 0 ? "now" : "") + '"><i class="' + (h ? (h.fail ? "warn" : "ok") : "") + '"></i>' + (i === 0 ? "今天" : "日一二三四五六"[d.getDay()]) + "</div>";
+    week += '<div class="' + (i === 0 ? "now" : "") + '"><i class="' + (h ? (h.fail ? "warn" : "ok") : "") + '" role="img" aria-label="' + (d.getMonth() + 1) + "月" + d.getDate() + "日 " + (h ? "已签 " + h.signed + "/" + h.total + (h.fail ? "，" + h.fail + " 个未成功" : "") : "无记录") + '"></i>' + (i === 0 ? "今天" : "日一二三四五六"[d.getDay()]) + "</div>";
   }
   week += "</section>";
 

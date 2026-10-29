@@ -6,8 +6,8 @@
 #!author = @OliviaR13
 #!homepage = http://weibo-checkin.loon/
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png
-#!date = 2026-10-28
-#!version = 2.11.1
+#!date = 2026-10-29
+#!version = 2.11.2
 
 [Argument]
 ENABLE = switch,true,tag=启用来源机型,desc=开启后改写发博、评论、转发的来源机型。关闭后恢复真实机型，需到微博「微博来源」中重新选择
