@@ -377,23 +377,25 @@ async function run(trigger, opt) {
 }
 
 // ---------- 定时入口 ----------
-// Loon 每 15 分钟调用一次；到了设定的时间才真正签到，错过的会补签，失败的会隔一会儿重试。
+// Loon 每 5 分钟调用一次；到了设定的时间才真正签到，错过的会补签，失败的会隔一会儿重试。
 // 每次调用都记录一下，状态页就能看出 Loon 到底有没有触发过定时任务。
-async function auto() {
+async function auto(src) {
   const day = today();
   const now = new Date(), mins = now.getHours() * 60 + now.getMinutes();
   const st = readState();
   const a = st.auto && st.auto.day === day ? st.auto : { day, tries: 0, done: false, last: 0 };
-  st.tick = { at: Date.now() };
+  const open = src === "open"; // 打开微博时的补签：微博会频繁请求，不满足条件就什么都不做、也不写状态
+  if (open && (a.done || mins < SCHED || a.tries >= 6 || (a.last && Date.now() - a.last < 10 * 60000) || !(readJ(WEB_KEY) || readJ(AUTH_KEY)))) return;
+  if (open) st.open = { at: Date.now() }; else st.tick = { at: Date.now() };
   st.auto = a;
   writeJ(STATE_KEY, st);
-  log("定时检查：现在 " + mins + " 分，设定 " + SCHED + " 分，今日已完成=" + a.done + "，已尝试 " + a.tries + " 次");
+  log((open ? "打开微博补签检查：" : "定时检查：") + "现在 " + mins + " 分，设定 " + SCHED + " 分，今日已完成=" + a.done + "，已尝试 " + a.tries + " 次");
   if (a.done || mins < SCHED) return;
-  if (a.tries >= 4 || (a.last && Date.now() - a.last < 25 * 60000)) return;
+  if (a.tries >= 6 || (a.last && Date.now() - a.last < 10 * 60000)) return; // 到点后每 10 分钟重试一次，最多 6 次
 
   a.tries++; a.last = Date.now();
   writeJ(STATE_KEY, st);
-  const res = await run("cron", { silentNet: a.tries < 3, silentExpired: !!a.expNotified });
+  const res = await run(open ? "open" : "cron", { silentNet: a.tries < 3, silentExpired: !!a.expNotified });
   const st2 = readState();
   const a2 = st2.auto && st2.auto.day === day ? st2.auto : a;
   if (res === "busy") a2.tries = Math.max(0, a2.tries - 1);
@@ -402,8 +404,8 @@ async function auto() {
     a2.tries = Math.max(0, a2.tries - 1); a2.last = 0; a2.done = false; a2.expNotified = true; a2.final = "expired";
   } else {
     a2.expNotified = false;
-    const retry = res.netFail || res.skipped > 0 || (a2.tries < 3 && (res.fail > 0 || res.unknown > 0 || res.listErr));
-    a2.done = !retry || a2.tries >= 4; // 最多尝试 4 次，用完就收工，状态页显示最终结果
+    const retry = res.netFail || res.skipped > 0 || (a2.tries < 5 && (res.fail > 0 || res.unknown > 0 || res.listErr));
+    a2.done = !retry || a2.tries >= 6; // 最多尝试 6 次，用完就收工，状态页显示最终结果
     a2.final = res.netFail ? "net" : res.skipped > 0 ? "timeout" : (res.fail > 0 || res.unknown > 0) ? "partial" : (res.listState && res.listState !== "full") ? "list" : "ok";
   }
   st2.auto = a2;
@@ -620,7 +622,7 @@ function renderPage() {
 
   // 总览
   const chips = r ? '<div class="chips">' + (r.exp ? '<span class="heat">' + svgi(IC.bolt, 13) + "经验 +" + r.exp + "</span>" : "") +
-    '<span class="chip">' + clock(r.at) + " · " + (r.trigger === "cron" ? "定时" : "手动") + '</span><span class="chip">用时 ' + Math.max(1, Math.round(r.ms / 1000)) + " 秒</span>" +
+    '<span class="chip">' + clock(r.at) + " · " + (r.trigger === "cron" ? "定时" : r.trigger === "open" ? "补签" : "手动") + '</span><span class="chip">用时 ' + Math.max(1, Math.round(r.ms / 1000)) + " 秒</span>" +
     (r.fail ? '<span class="chip fail">失败 ' + r.fail + "</span>" : "") + (r.unknown ? '<span class="chip warn">状态未知 ' + r.unknown + "</span>" : "") + (partialList ? '<span class="chip warn">' + (ls === "visited" ? "仅访问记录" : "部分列表") + "</span>" : "") + (r.skipped ? '<span class="chip">未处理 ' + r.skipped + "</span>" : "") + (r.muted ? '<span class="chip">已跳过 ' + r.muted + "</span>" : "") + "</div>" : "";
   const numTxt = r ? signed + "/" + r.total : "—"; // 位数越多字号越小，避免压到圆环上
   const hero = '<section class="panel hero s1' + (stale ? " stale" : "") + '"><div class="ring"><svg width="96" height="96" viewBox="0 0 96 96"><circle class="bg" cx="48" cy="48" r="40" fill="none" stroke="#e6e2d8" stroke-width="8"/>' +
@@ -686,7 +688,8 @@ function renderPage() {
     (items.length ? '<ul class="list enter s5" id="items">' + rows + "</ul>" + '<div class="panel s5" id="empty" hidden><div class="notice"><h2 id="et"></h2><p id="ep"></p></div></div>' : '<div class="panel s5"><div class="notice"><h2>' + (r ? "这次没有处理任何超话" : "还没有签到记录") + "</h2><p>" + (r ? "请看上面的「关注的超话」一行" : "点下面的「立即签到」试一次") + "</p></div></div>");
 
   const diag = '<details><summary>诊断信息</summary><p>' + (r && r.netFail ? "⚠️ 本次没有收到微博服务器的任何响应（网络或代理问题，不是登录问题）<br>" : "") +
-    "登录方式：" + (web ? "网页（Cookie）" : auth ? "App" : "无") + "" + "</p></details>";
+    "登录方式：" + (web ? "网页（Cookie）" : auth ? "App" : "无") + (web ? "" : "<br>⚠️ 没有扫码登录：到点自动签到只能靠打开微博时抓到的登录信息，容易过期，建议点「设置」重新扫码") +
+    "<br>Loon 定时检查：" + (st.tick ? ago(st.tick.at) : "从未触发") + "<br>打开微博补签检查：" + (st.open ? ago(st.open.at) : "从未触发") + "</p></details>";
   const toastTxt = r ? "签到完成 · 成功 " + r.ok + " · 已签 " + r.already + (r.fail ? " · 失败 " + r.fail : "") + (r.unknown ? " · 未知 " + r.unknown : "") + (partialList ? " · 列表不完整" : "") : "完成";
 
   const dock = '<div class="bdock"><div class="bdock-in"><a class="btn btn-ghost" href="/">刷新</a>' +
@@ -819,7 +822,12 @@ if (!enabled) {
   else $done();
 } else if (typeof $request !== "undefined" && $request) {
   if ($request.url.indexOf(HOST) !== -1) serve();
-  else { try { capture(); } catch (e) { log("capture error: " + e); } $done({}); }
+  else {
+    try { capture(); } catch (e) { log("capture error: " + e); }
+    // 打开微博时的补签：只挂在后台轮询接口上（不影响首页加载）；到点后今天还没签完，就在这次请求里把签到做完
+    if (arg.TIME != null && /\/2\/remind\/(unread_count|hometab_dot)/i.test($request.url)) auto("open").catch((e) => log("open error " + e)).then(() => $done({}));
+    else $done({});
+  }
 } else if (S.type === "generic" || /立即|状态/.test(S.name || "")) {
   if (/状态/.test(S.name || "")) statusNotify();
   else run("manual").catch((e) => push("脚本出错", String((e && e.message) || e))).then(() => $done());

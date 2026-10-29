@@ -6,15 +6,15 @@
 #!author = @OliviaR13
 #!homepage = http://weibo-checkin.loon/
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Weibo.png
-#!date = 2026-10-29
-#!version = 2.12.0
+#!date = 2026-10-30
+#!version = 2.13.0
 
 [Argument]
 ENABLE = switch,true,tag=启用来源机型,desc=开启后改写发博、评论、转发的来源机型。关闭后恢复真实机型，需到微博「微博来源」中重新选择
 MODEL = select,"iPhone 18 Pro Max","iPhone 18 Pro","iPhone Duo","iPhone 17 Pro Max","iPhone 17 Pro","iPhone 17","iPhone Air","iPhone 17e","iPhone 16 Pro Max","iPhone 16 Pro","iPhone 16 Plus","iPhone 16","iPhone 16e","iPhone 15 Pro Max","iPhone 15 Pro","iPhone 15 Plus","iPhone 15","iPhone 14 Pro Max","iPhone 14 Pro","iPhone 14 Plus","iPhone 14","iPhone 13 Pro Max","iPhone 13 Pro","iPhone 13","iPhone 13 mini","iPhone 12 Pro Max","iPhone 12 Pro","iPhone 12","iPhone 12 mini","iPhone 11 Pro Max","iPhone 11 Pro","iPhone 11",tag=来源机型,desc=切换后需到微博「微博来源」中重新选择一次
 CHECKIN = switch,true,tag=超话签到,desc=总开关。开启后每天定时给关注的超话签到；先在状态页 http://weibo-checkin.loon/ 扫码登录
-TIME = input,"08:10",tag=签到时间,desc=每天几点开始自动签到（24 小时制，如 08:10）。Loon 每 15 分钟检查一次，到点后签到，错过会补签，失败会自动重试
-CRON = input,"*/15 * * * *",tag=检查频率,desc=Loon 按此 cron 表达式触发脚本，到了「签到时间」才真正签到。一般不用改（默认每 15 分钟检查一次）
+TIME = input,"08:10",tag=签到时间,desc=每天几点开始自动签到（24 小时制，如 08:10）。Loon 每 5 分钟检查一次，到点后签到，错过会补签，失败会自动重试
+CRON = input,"*/5 * * * *",tag=检查频率,desc=Loon 按此 cron 表达式触发脚本，到了「签到时间」才真正签到。一般不用改（默认每 5 分钟检查一次）
 NOTIFY = switch,true,tag=签到通知,desc=获取登录状态、签到完成时推送；点击通知可打开状态页
 DEBUG = switch,false,tag=调试日志,desc=在 Loon 日志中显示脚本的执行过程，用于排查问题（不会输出任何登录信息）
 
@@ -23,8 +23,9 @@ DOMAIN, api.weibo.cn,PROXY
 
 [Script]
 request if ${url} ~= /^https?:\/\/api\.weibo\.cn\/2\/(device\/|statuses\/(send|update|repost)|comments\/(create|reply))/i then script("https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_device.js", {${ENABLE}, ${MODEL}, ${DEBUG}}) with enable=${ENABLE}, tag="微博机型伪装", timeout=10, requires_body=true
-request if ${url} ~= /^https?:\/\/api\.weibo\.cn\/2\/(remind\/(unread_count|hometab_dot)|client\/tabbar|groups\/allgroups\/v2|page\/button|shproxy\/chaohua\/)/i then script("https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_checkin.js", {${CHECKIN}, ${NOTIFY}, ${DEBUG}}) with enable=${CHECKIN}, tag="微博超话-保存登录状态", timeout=10
+request if ${url} ~= /^https?:\/\/api\.weibo\.cn\/2\/(client\/tabbar|groups\/allgroups\/v2|page\/button|shproxy\/chaohua\/)/i then script("https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_checkin.js", {${CHECKIN}, ${NOTIFY}, ${DEBUG}}) with enable=${CHECKIN}, tag="微博超话-保存登录状态", timeout=10
 request if ${url} ~= /^https?:\/\/api\.weibo\.cn\/2\/(statuses\/container_timeline\w*|cardlist|page|container\/(getIndex|asyn))(\?|$)/i then script("https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_checkin.js", {${CHECKIN}, ${NOTIFY}, ${DEBUG}}) with enable=${CHECKIN}, tag="微博超话-记录超话列表", timeout=10, requires_body=true
+request if ${url} ~= /^https?:\/\/api\.weibo\.cn\/2\/remind\/(unread_count|hometab_dot)/i then script("https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_checkin.js", {${CHECKIN}, ${NOTIFY}, ${DEBUG}, ${TIME}}) with enable=${CHECKIN}, tag="微博超话-保存登录并补签", timeout=300
 request if ${url} ~= /^http:\/\/weibo-checkin\.loon\//i then script("https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_checkin.js", {${CHECKIN}, ${NOTIFY}, ${DEBUG}, ${TIME}}) with tag="微博超话-状态页", timeout=300
 cron ${CRON} then script("https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_checkin.js", {${CHECKIN}, ${NOTIFY}, ${DEBUG}, ${TIME}}) with tag="微博超话签到", timeout=300
 generic then script("https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo_checkin.js", {${CHECKIN}, ${NOTIFY}, ${DEBUG}}) with enable=${CHECKIN}, tag="微博超话-立即签到", timeout=300
