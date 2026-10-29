@@ -9,6 +9,7 @@
 const AUTH_KEY = "MyLoon_WeiboCH_auth";
 const STATE_KEY = "MyLoon_WeiboCH_state";
 const PREF_KEY = "MyLoon_WeiboCH_prefs"; // 状态页里的偏好（跳过哪些超话），只保存在本机
+const PROG_KEY = "MyLoon_WeiboCH_prog"; // 签到进度（只保存在本机），状态页轮询它来显示「正在签哪个超话」
 const WEB_KEY = "MyLoon_WeiboCH_web"; // 网页版登录（扫码获得的 Cookie），只保存在本机
 const WEB_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36";
 const HOST = "weibo-checkin.loon";
@@ -299,6 +300,9 @@ async function run(trigger, opt) {
   if (st.running && Date.now() - st.running < 300000) { log("上一次还在运行，跳过"); return "busy"; }
   st.running = Date.now();
   writeJ(STATE_KEY, st);
+  const P = { id: Date.now(), phase: "list", total: 0, n: 0, cur: "", items: [], upd: 0 };
+  const prog = () => { P.upd = Date.now(); writeJ(PROG_KEY, P); };
+  prog();
 
   const rec = { at: Date.now(), trigger, route: web ? "web" : "app", items: [], ok: 0, already: 0, fail: 0, skipped: 0, muted: 0, unknown: 0, exp: 0, expired: false, listNote: "", listCount: 0, listErr: false, listState: "" };
   try {
@@ -321,11 +325,13 @@ async function run(trigger, opt) {
 
     if (st.signed.day !== today()) st.signed = { day: today(), ids: {} };
     const start = Date.now(), prefs = readPrefs();
+    P.total = Array.from(all.values()).filter((t) => !prefs.skip[t.id]).length; P.phase = "run"; prog();
     for (const t of all.values()) {
       if (rec.expired) break;
       if (prefs.skip[t.id]) { rec.muted++; continue; } // 在设置里关掉的超话
-      if (t.done || st.signed.ids[t.id]) { rec.already++; rec.items.push({ id: t.id, name: t.name, st: "already", msg: "今日已签" }); st.signed.ids[t.id] = 1; continue; }
+      if (t.done || st.signed.ids[t.id]) { rec.already++; rec.items.push({ id: t.id, name: t.name, st: "already", msg: "今日已签" }); st.signed.ids[t.id] = 1; P.n++; P.items.push({ n: t.name, s: "already" }); prog(); continue; }
       if (Date.now() - start > DEADLINE_MS) { rec.skipped++; continue; }
+      P.cur = t.name; prog();
       const res = web ? await checkinWeb(web, t.id) : await checkin(auth, t.id);
       if (res.r === "expired") { rec.expired = true; break; }
       if (res.r === "ok") { rec.ok++; rec.exp += res.exp || 0; st.signed.ids[t.id] = 1; }
@@ -333,9 +339,11 @@ async function run(trigger, opt) {
       else if (res.r === "unknown") rec.unknown++; // 状态未知：不算已签，也不记入「今日已签」
       else rec.fail++;
       rec.items.push({ id: t.id, name: t.name, st: res.r, msg: res.msg, streak: res.streak, exp: res.exp, rank: res.rank });
+      P.n++; P.cur = ""; P.items.push({ n: t.name, s: ["ok", "already", "unknown"].indexOf(res.r) >= 0 ? res.r : "fail" }); prog();
       await sleep(1500 + Math.floor(Math.random() * 2000));
     }
   } finally {
+    P.phase = "done"; P.cur = ""; prog();
     rec.total = rec.ok + rec.already + rec.fail + rec.unknown + rec.skipped;
     rec.ms = Date.now() - rec.at;
     st.run = rec; st.running = 0;
@@ -466,7 +474,11 @@ h1,h2,p{margin:0}a{color:var(--accent-text)}button,a{-webkit-touch-callout:none;
 .chip.cap,.chip.already{background:transparent;color:color-mix(in srgb,var(--text) 80%,var(--muted));box-shadow:inset 0 0 0 1px var(--line)}
 .heat{display:inline-flex;align-items:center;gap:4px;height:24px;white-space:nowrap;padding:0 9px 0 7px;border-radius:999px;background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--warn);font-size:12.5px;font-weight:650;line-height:1}
 .hero{display:flex;align-items:center;gap:18px;padding:18px}.ring{position:relative;width:96px;height:96px;flex:none}.ring svg{transform:rotate(-90deg)}.ring .bg{stroke:var(--line)}.ring .fg{stroke:var(--accent);animation:fill 1s var(--ease) .2s backwards}
-@keyframes fill{from{stroke-dasharray:0 var(--c)}}.ring div{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}.num{display:inline-flex;font-size:25px;font-weight:700;line-height:1;letter-spacing:-.02em}.num.n4{font-size:22px}.num.n5{font-size:19px}.num.n6{font-size:16px}.hero.stale .ring{opacity:.55}.ring small{color:var(--muted);font-size:11.5px;margin-top:4px}
+@keyframes fill{from{stroke-dasharray:0 var(--c)}}.ring div{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}.num{display:inline-flex;font-size:25px;font-weight:700;line-height:1;letter-spacing:-.02em}.num.n4{font-size:22px}.num.n5{font-size:19px}.num.n6{font-size:16px}.prog[hidden]{display:none}.prog{padding:16px}.prog-h{display:flex;align-items:center;gap:10px;font-weight:650;font-size:15.5px}.prog-h svg{color:var(--accent);flex:none}.prog.fin .spin{display:none}
+.pbar{height:6px;border-radius:99px;background:var(--chip);overflow:hidden;margin:12px 0 8px}.pbar i{display:block;height:100%;width:0;background:var(--accent);border-radius:inherit;transition:width .5s var(--ease)}
+.pc{color:var(--muted);font-size:12.5px;min-height:1.4em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl{list-style:none;margin:8px 0 0;padding:0;max-height:260px;overflow:auto;overscroll-behavior:contain}.pl li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);animation:rise .3s var(--ease) both}.pl li span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.hero.stale .ring{opacity:.55}.ring small{color:var(--muted);font-size:11.5px;margin-top:4px}
 .dg{display:inline-block;height:1em;overflow:hidden;vertical-align:top}.dg i{display:block;font-style:normal;transition:transform 1s var(--ease)}.dg b{display:block;height:1em;font-weight:inherit}
 .side{min-width:0;flex:1}.side .rt{margin-bottom:2px}.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .week{display:flex;justify-content:space-between;padding:16px}.week div{text-align:center;color:var(--muted);font-size:11.5px}.week i{display:block;width:34px;height:34px;border-radius:var(--r-md);margin:0 auto 6px;background:var(--chip);box-shadow:inset 0 0 0 1px var(--line)}
@@ -555,6 +567,41 @@ const PAGE_JS = "(function(){" +
   ".catch(function(){el.setAttribute('aria-checked',on?'true':'false');el.disabled=false;toast('保存失败，请重试')})};" +
   "})();";
 
+// 签到进度：点「立即签到」后页面不跳转，而是请求 /run/go（脚本在后台签到），同时每秒轮询 /run/progress 显示进度
+const PROG_JS = `(function(){
+var rb=document.getElementById('run'),box=document.getElementById('prog');if(!box)return;
+var bar=document.getElementById('pbar'),tt=document.getElementById('pt'),cur=document.getElementById('pc'),ul=document.getElementById('pl');
+var t0=0,shown=0,tm,fails=0,gone=0,seen=0,fin=0,LB={ok:'成功',already:'已签',fail:'失败',unknown:'未知'},CL={ok:'ok',already:'already',fail:'fail',unknown:'warn'};
+function paint(p){
+  var tot=p.total||0,n=p.n||0;box.hidden=false;
+  bar.style.width=(p.phase==='done'?100:tot?Math.max(4,n/tot*100):6)+'%';
+  if(p.phase==='list'){tt.textContent='正在读取关注的超话…';cur.textContent=''}
+  else if(p.phase==='done'){tt.textContent='签到完成 · '+n+'/'+tot;cur.textContent='';box.className='panel prog fin'}
+  else{tt.textContent='正在签到 · '+n+'/'+tot;cur.textContent=p.cur?'正在签到：'+p.cur:''}
+  var it=p.items||[];
+  for(;shown<it.length;shown++){var li=document.createElement('li'),a=document.createElement('span'),c=document.createElement('span');
+    a.textContent=it[shown].n;c.className='chip '+(CL[it[shown].s]||'');c.textContent=LB[it[shown].s]||'';li.appendChild(a);li.appendChild(c);ul.insertBefore(li,ul.firstChild)}
+}
+function done(){if(fin)return;fin=1;clearTimeout(tm);setTimeout(function(){location.replace('/?r='+Date.now()+'#done')},1000)}
+function poll(){
+  fetch('/run/progress?_='+Date.now()).then(function(r){return r.json()}).then(function(p){
+    fails=0;
+    if(p&&p.phase&&p.id>=t0-5000){seen=1;paint(p);if(p.phase==='done'){done();return}}
+    else if(gone&&!seen){location.reload();return}
+    tm=setTimeout(poll,1000)
+  }).catch(function(){if(++fails>8){location.reload();return}tm=setTimeout(poll,2000)})
+}
+function start(e){
+  if(e)e.preventDefault();if(!rb||rb.hasAttribute('data-done'))return;
+  rb.setAttribute('data-done','');t0=Date.now();shown=0;seen=0;gone=0;ul.innerHTML='';box.className='panel prog';
+  paint({phase:'list'});window.scrollTo({top:0,behavior:'smooth'});
+  fetch('/run/go').then(function(){gone=1}).catch(function(){gone=1});
+  tm=setTimeout(poll,700)
+}
+if(rb)rb.onclick=start;
+if(box.getAttribute('data-live')){if(rb)rb.setAttribute('data-done','');box.hidden=false;poll()}
+})();`;
+
 function renderPage() {
   const auth = readJ(AUTH_KEY), web = readJ(WEB_KEY), st = readState(), lv = loginView(auth, st), r = st.run;
   const now = new Date(), mins = now.getHours() * 60 + now.getMinutes();
@@ -567,6 +614,9 @@ function renderPage() {
   const nVisited = Object.keys(st.topics).length;
   const loggedIn = !!(web || auth) && st.login.state !== "expired";
   const ls = r && r.listState, partialList = ls === "partial" || ls === "visited"; // 关注列表不完整时，别让「已签」看起来像全部完成
+
+  const pg = readJ(PROG_KEY), live = !!(pg && pg.phase !== "done" && Date.now() - pg.upd < 120000); // 正在签到（含定时任务）：打开页面直接显示进度
+  const progBox = '<section class="panel prog s1" id="prog" ' + (live ? 'data-live="1"' : "hidden") + '><div class="prog-h">' + SPIN + '<span id="pt">正在签到…</span></div><div class="pbar"><i id="pbar"></i></div><div class="pc" id="pc"></div><ul class="pl" id="pl"></ul></section>';
 
   // 总览
   const chips = r ? '<div class="chips">' + (r.exp ? '<span class="heat">' + svgi(IC.bolt, 13) + "经验 +" + r.exp + "</span>" : "") +
@@ -640,12 +690,12 @@ function renderPage() {
   const toastTxt = r ? "签到完成 · 成功 " + r.ok + " · 已签 " + r.already + (r.fail ? " · 失败 " + r.fail : "") + (r.unknown ? " · 未知 " + r.unknown : "") + (partialList ? " · 列表不完整" : "") : "完成";
 
   const dock = '<div class="bdock"><div class="bdock-in"><a class="btn btn-ghost" href="/">刷新</a>' +
-    (loggedIn ? '<a class="btn btn-primary swap" id="run" href="/run"><span class="lbl">立即签到</span><span class="lbl lbl-alt">' + SPIN + "签到中… 约需 1 分钟</span></a>" : '<a class="btn btn-primary" href="/login">扫码登录</a>') + "</div></div>";
+    (loggedIn ? '<a class="btn btn-primary swap" id="run" href="/run"><span class="lbl">立即签到</span><span class="lbl lbl-alt">' + SPIN + "签到中…</span></a>" : '<a class="btn btn-primary" href="/login">扫码登录</a>') + "</div></div>";
 
   return shellOpen("微博超话签到") + '<main class="shell">' +
     headHtml("超话签到", dateStr + (web && web.nick ? " · " + esc(web.nick) : ""), '<a class="btn btn-icon" href="/settings" aria-label="设置">' + svgi(IC.gear) + "</a>") +
-    hero + status + week + list + '<div class="foot">数据仅保存在本机 Loon 中' + diag + "</div></main>" + BLUR_HTML + dock +
-    '<div class="toast" id="toast" role="status">' + esc(toastTxt) + "</div><script>" + PAGE_JS + "</script></body></html>";
+    progBox + hero + status + week + list + '<div class="foot">数据仅保存在本机 Loon 中' + diag + "</div></main>" + BLUR_HTML + dock +
+    '<div class="toast" id="toast" role="status">' + esc(toastTxt) + "</div><script>" + PAGE_JS + "</script><script>" + PROG_JS + "</script></body></html>";
 }
 
 function loginPage(qr) {
@@ -725,7 +775,13 @@ function serve() {
   const q = $request.url.split("?")[1] || "";
   const qp = (k) => { const m = new RegExp("(?:^|&)" + k + "=([^&]*)").exec(q); try { return m ? decodeURIComponent(m[1]) : ""; } catch (e) { return ""; } };
   const fail = (m) => html('<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body style="font:16px -apple-system,sans-serif;padding:24px"><p>' + esc(m) + '</p><p><a href="/login">重试</a> · <a href="/">返回</a></p></body>');
-  if (path === "/run") run("manual").catch((e) => log("run error " + e)).then(() => go("#done"));
+  if (path === "/run/go") run("manual").catch((e) => log("run error " + e)).then((r) => json({ ok: true, r: r === "busy" ? "busy" : "" }));
+  else if (path === "/run/progress") {
+    const pg = readJ(PROG_KEY);
+    if (pg && pg.phase !== "done" && Date.now() - pg.upd > 120000) pg.phase = "done"; // 脚本中途被杀：别让页面一直转
+    json(pg || { phase: "" });
+  }
+  else if (path === "/run") run("manual").catch((e) => log("run error " + e)).then(() => go("#done"));
   else if (path === "/login") loginStart().then(html).catch((e) => fail(String((e && e.message) || e)));
   else if (path === "/login/check") loginCheck().then(json).catch((e) => json({ s: "fail", msg: String((e && e.message) || e) }));
   else if (path === "/settings") html(renderSettings());
