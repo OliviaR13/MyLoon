@@ -287,6 +287,9 @@ async function run(trigger, opt) {
     rec.total = rec.ok + rec.already + rec.fail + rec.unknown + rec.skipped;
     rec.ms = Date.now() - rec.at;
     st.run = rec; st.running = 0;
+    if (!rec.expired && gotResponse && rec.total && !rec.fail && !rec.unknown && !rec.skipped && rec.listState !== "partial" && rec.listState !== "visited") { // 手动 / 补签也算：今天全部签完了，之后的定时检查直接跳过
+      const d0 = today(); st.auto = st.auto && st.auto.day === d0 ? Object.assign(st.auto, { done: true }) : { day: d0, tries: 0, done: true, last: 0 };
+    }
     if (!rec.expired && gotResponse && rec.total) { // 近两周的每日结果，状态页画「近 7 天」
       const d = today(), prev = st.hist[d] || { signed: 0 };
       st.hist[d] = { signed: Math.max(prev.signed, rec.ok + rec.already), fail: rec.fail + rec.unknown, total: rec.total };
@@ -324,6 +327,7 @@ async function auto(src) {
   const now = new Date(), mins = now.getHours() * 60 + now.getMinutes();
   const st = readState();
   const a = st.auto && st.auto.day === day ? st.auto : { day, tries: 0, done: false, last: 0 };
+  if (a.done) return; // 今天已经签完：什么都不做（不写状态、不打日志、不访问微博）
   const open = src === "open"; // 打开微博时的补签：微博会频繁请求，不满足条件就什么都不做、也不写状态
   if (open && (a.done || mins < SCHED || a.tries >= 6 || (a.last && Date.now() - a.last < 10 * 60000) || !readJ(WEB_KEY))) return;
   if (open) st.open = { at: Date.now() }; else st.tick = { at: Date.now() };
@@ -624,7 +628,7 @@ function renderPage() {
 
   const diag = '<details><summary>诊断信息</summary><p>' + (r && r.netFail ? "⚠️ 本次没有收到微博服务器的任何响应（网络或代理问题，不是登录问题）<br>" : "") +
     "登录方式：" + (web ? "网页（Cookie）" : "无，请扫码登录") +
-    "<br>Loon 定时检查：" + (st.tick ? ago(st.tick.at) : "从未触发") + "<br>打开微博补签检查：" + (st.open ? ago(st.open.at) : "从未触发") + "</p></details>";
+    "<br>Loon 定时检查：" + (st.auto && st.auto.day === today() && st.auto.done ? "今日已签完，之后的检查直接跳过" : st.tick ? ago(st.tick.at) : "从未触发") + "<br>打开微博补签检查：" + (st.open ? ago(st.open.at) : "从未触发") + "</p></details>";
   const toastTxt = r ? "签到完成 · 成功 " + r.ok + " · 已签 " + r.already + (r.fail ? " · 失败 " + r.fail : "") + (r.unknown ? " · 未知 " + r.unknown : "") + (partialList ? " · 列表不完整" : "") : "完成";
 
   const dock = '<div class="bdock"><div class="bdock-in"><a class="btn btn-ghost" href="/">刷新</a>' +
