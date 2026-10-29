@@ -1,6 +1,6 @@
 // 微博超话签到 for Loon（v2：按新版微博 App 抓包重写）
 // 同一个脚本，按触发方式分工：
-//   http-request（api.weibo.cn）  打开微博时保存登录状态；进入超话页时记录该超话
+//   http-request（api.weibo.cn）  打开微博时（后台查未读数的请求）触发补签；不再保存任何 App 登录信息
 //   http-request（状态页域名）     visual 状态页：http://weibo-checkin.loon/
 //   cron / generic               执行签到、推送汇总 / 推送当前状态
 // 所有登录信息只保存在本机的 Loon 持久化存储里，不会出现在仓库或日志中。
@@ -47,50 +47,7 @@ const keyOf = (p) => p.split("=")[0];
 const lowerKeys = (h) => { const o = {}; for (const k of Object.keys(h || {})) o[k.toLowerCase()] = h[k]; return o; };
 const label = (id) => "超话 …" + id.slice(-6);
 
-function learn(st, id) {
-  if (!id || st.topics[id]) return false;
-  st.topics[id] = { at: Date.now() };
-  const ids = Object.keys(st.topics);
-  if (ids.length > 300) delete st.topics[ids[0]];
-  return true;
-}
 
-// ---------- 获取登录状态 / 记录超话 ----------
-function capture() {
-  const url = $request.url;
-  const hd = lowerKeys($request.headers);
-  const st = readState();
-  let dirty = false;
-
-  // 进入超话页（请求体里带超话 id）或点击签到时，记录该超话
-  const body = typeof $request.body === "string" ? $request.body : "";
-  const m = (/fid=(100808[0-9a-f]{10,})_-_feed/i.exec(body)) ||
-    (/page_?id(?:=|%3D)(100808[0-9a-f]{10,})/i.exec(url));
-  if (m) dirty = learn(st, m[1]) || dirty;
-
-  // 只记录当前账号：当前账号的请求带 authorization 头
-  const pairs = pairsOf(url);
-  const gsid = (pairs.find((p) => /^gsid=/i.test(p)) || "").slice(5);
-  const hasS = pairs.some((p) => /^s=/i.test(p));
-  if (hd.authorization && gsid && hasS) {
-    const old = readJ(AUTH_KEY);
-    const same = old && old.gsid === gsid;
-    if (!(same && Date.now() - old.at < 60000)) {
-      const headers = {};
-      for (const k of KEEP_HD) if (hd[k]) headers[k] = hd[k];
-      writeJ(AUTH_KEY, {
-        at: Date.now(), gsid, headers,
-        pairs: pairs.filter((p) => KEEP_QS.indexOf(keyOf(p).toLowerCase()) !== -1),
-      });
-      const wasBad = !old || !same || st.login.state === "expired";
-      st.login = { state: "ok", verified: st.login.verified || 0 };
-      dirty = true;
-      if (wasBad && !readJ(WEB_KEY)) push("登录状态已获取", "之后会按定时任务自动签到，点击查看状态页");
-      log("已保存登录状态");
-    }
-  }
-  if (dirty) writeJ(STATE_KEY, st);
-}
 
 // ---------- 网络 ----------
 let gotResponse = false; // 本次是否收到过服务器的任何响应（用来判断登录状态是否真的验证过）
@@ -141,23 +98,6 @@ function judge(status, body) {
   return { r: "unknown", msg: "响应无法识别（没有成功或失败标志）" };
 }
 
-async function checkin(auth, id) {
-  const req = "http://i.chaohua.weibo.com/mobile/shproxy/active_checkin?in_page=1&lfid=232478_-_mine_topic&moment=&moment_date=&pageid=" +
-    id + "&scene_id=page_header_checkin&sg_tab_config=2&sg_widget_state=0";
-  const url = "https://api.weibo.cn/2/page/button?" + auth.pairs.join("&") +
-    "&request_url=" + encodeURIComponent(req) +
-    "&fid=" + id + "_-_feed&lfid=232478_-_mine_topic&luicode=10001387&uicode=10000011&featurecode=10000001&moduleID=pagecard&autoTranslate=0";
-  for (let i = 0; i < 2; i++) {
-    try {
-      const { status, body } = await get(url, auth.headers);
-      log(label(id) + " → HTTP " + status);
-      return judge(status, body);
-    } catch (e) {
-      if (i === 1) return { r: "fail", msg: String(e.message || e) };
-      await sleep(2000);
-    }
-  }
-}
 
 // ---------- 网页版：扫码登录 + 网页接口（取超话列表、签到） ----------
 const jsonp = (t) => {
@@ -289,12 +229,12 @@ async function loginCheck() {
 
 // ---------- 执行签到 ----------
 async function run(trigger, opt) {
-  const auth = readJ(AUTH_KEY), web = readJ(WEB_KEY);
+  const web = readJ(WEB_KEY);
   const st = readState();
-  if (!auth && !web) {
+  if (!web) {
     st.login = { state: "none" };
     writeJ(STATE_KEY, st);
-    if (!(opt && opt.silentExpired)) push("还没有登录", "打开状态页扫码登录（推荐），或打开一次微博 App");
+    if (!(opt && opt.silentExpired)) push("还没有登录", "打开状态页 http://weibo-checkin.loon/ 扫码登录");
     return null;
   }
   if (st.running && Date.now() - st.running < 300000) { log("上一次还在运行，跳过"); return "busy"; }
@@ -304,11 +244,11 @@ async function run(trigger, opt) {
   const prog = () => { P.upd = Date.now(); writeJ(PROG_KEY, P); };
   prog();
 
-  const rec = { at: Date.now(), trigger, route: web ? "web" : "app", items: [], ok: 0, already: 0, fail: 0, skipped: 0, muted: 0, unknown: 0, exp: 0, expired: false, listNote: "", listCount: 0, listErr: false, listState: "" };
+  const rec = { at: Date.now(), trigger, route: "web", items: [], ok: 0, already: 0, fail: 0, skipped: 0, muted: 0, unknown: 0, exp: 0, expired: false, listNote: "", listCount: 0, listErr: false, listState: "" };
   try {
     let listed = [], listFull = false;
     try {
-      const r = web ? await fetchListWeb(web) : { topics: [], src: "none", complete: false, note: "需要先扫码登录网页版才能读取关注的超话" };
+      const r = await fetchListWeb(web);
       listed = r.topics; rec.listNote = r.note; rec.listCount = listed.length; rec.listSrc = r.src;
       listFull = !!r.complete; rec.listErr = !r.complete && !!r.note;
     } catch (e) {
@@ -332,7 +272,7 @@ async function run(trigger, opt) {
       if (t.done || st.signed.ids[t.id]) { rec.already++; rec.items.push({ id: t.id, name: t.name, st: "already", msg: "今日已签" }); st.signed.ids[t.id] = 1; P.n++; P.items.push({ n: t.name, s: "already" }); prog(); continue; }
       if (Date.now() - start > DEADLINE_MS) { rec.skipped++; continue; }
       P.cur = t.name; prog();
-      const res = web ? await checkinWeb(web, t.id) : await checkin(auth, t.id);
+      const res = await checkinWeb(web, t.id);
       if (res.r === "expired") { rec.expired = true; break; }
       if (res.r === "ok") { rec.ok++; rec.exp += res.exp || 0; st.signed.ids[t.id] = 1; }
       else if (res.r === "already") { rec.already++; st.signed.ids[t.id] = 1; }
@@ -358,7 +298,7 @@ async function run(trigger, opt) {
     writeJ(STATE_KEY, st);
   }
 
-  if (rec.expired) { if (!(opt && opt.silentExpired)) push("登录已失效", web ? "网页登录已过期，请打开状态页重新扫码" : "请重新打开微博 App 刷新登录状态"); return rec; }
+  if (rec.expired) { if (!(opt && opt.silentExpired)) push("登录已失效", "网页登录已过期，请打开状态页重新扫码"); return rec; }
   if (!rec.total && rec.muted) { push("没有需要签到的超话", "已在设置里跳过 " + rec.muted + " 个超话"); return rec; }
   if (!rec.total) { push("没有可签到的超话", web ? (rec.listNote || "网页登录读不到关注的超话") : "请先在状态页扫码登录网页版，才能读取关注的超话"); return rec; }
   if (rec.netFail) { if (!(opt && opt.silentNet)) push("网络请求全部失败", "没有收到微博服务器的任何响应，详情见状态页"); return rec; }
@@ -385,7 +325,7 @@ async function auto(src) {
   const st = readState();
   const a = st.auto && st.auto.day === day ? st.auto : { day, tries: 0, done: false, last: 0 };
   const open = src === "open"; // 打开微博时的补签：微博会频繁请求，不满足条件就什么都不做、也不写状态
-  if (open && (a.done || mins < SCHED || a.tries >= 6 || (a.last && Date.now() - a.last < 10 * 60000) || !(readJ(WEB_KEY) || readJ(AUTH_KEY)))) return;
+  if (open && (a.done || mins < SCHED || a.tries >= 6 || (a.last && Date.now() - a.last < 10 * 60000) || !readJ(WEB_KEY))) return;
   if (open) st.open = { at: Date.now() }; else st.tick = { at: Date.now() };
   st.auto = a;
   writeJ(STATE_KEY, st);
@@ -421,17 +361,12 @@ function ago(t) {
   if (s < 86400) return Math.floor(s / 3600) + " 小时前";
   return Math.floor(s / 86400) + " 天前";
 }
-function loginView(auth, st) {
+function loginView(st) {
   const web = readJ(WEB_KEY);
-  if (web) {
-    const who = web.nick ? web.nick + " · " : "";
-    if (st.login.state === "expired" && st.login.route === "web") return { cls: "warn", t: "疑似失效", d: "网页登录已过期，请重新扫码" };
-    return { cls: "ok", t: "有效", d: who + "网页登录 · " + ago(web.at) + "登录" + (st.login.verified && st.login.route === "web" ? " · " + ago(st.login.verified) + "验证通过" : "") };
-  }
-  if (!auth) return { cls: "bad", t: "未登录", d: "扫码登录网页版，或打开微博 App" };
-  if (st.login.state === "expired") return { cls: "warn", t: "疑似失效", d: "请重新打开微博 App 刷新" };
-  if (Date.now() - auth.at > 7 * 86400000) return { cls: "warn", t: "较久未刷新", d: "App 登录 · " + ago(auth.at) + "获取，建议打开一次微博" };
-  return { cls: "ok", t: "有效", d: "App 登录 · " + ago(auth.at) + "获取" + (st.login.verified ? " · " + ago(st.login.verified) + "验证通过" : "") };
+  if (!web) return { cls: "bad", t: "未登录", d: "请扫码登录微博网页版" };
+  const who = web.nick ? web.nick + " · " : "";
+  if (st.login.state === "expired") return { cls: "warn", t: "疑似失效", d: "网页登录已过期，请重新扫码" };
+  return { cls: "ok", t: "有效", d: who + "网页登录 · " + ago(web.at) + "登录" + (st.login.verified ? " · " + ago(st.login.verified) + "验证通过" : "") };
 }
 const friendly = (m) => {
   m = String(m || "");
@@ -605,7 +540,7 @@ if(box.getAttribute('data-live')){if(rb)rb.setAttribute('data-done','');box.hidd
 })();`;
 
 function renderPage() {
-  const auth = readJ(AUTH_KEY), web = readJ(WEB_KEY), st = readState(), lv = loginView(auth, st), r = st.run;
+  const web = readJ(WEB_KEY), st = readState(), lv = loginView(st), r = st.run;
   const now = new Date(), mins = now.getHours() * 60 + now.getMinutes();
   const dateStr = now.getMonth() + 1 + "月" + now.getDate() + "日 周" + "日一二三四五六"[now.getDay()];
   const ymd = (t) => { const d = new Date(t); return d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2); };
@@ -614,7 +549,7 @@ function renderPage() {
   const signed = r ? r.ok + r.already : 0;
   const C = 2 * Math.PI * 40, len = C * (r && r.total ? Math.min(1, signed / r.total) : 0);
   const nVisited = Object.keys(st.topics).length;
-  const loggedIn = !!(web || auth) && st.login.state !== "expired";
+  const loggedIn = !!web && st.login.state !== "expired";
   const ls = r && r.listState, partialList = ls === "partial" || ls === "visited"; // 关注列表不完整时，别让「已签」看起来像全部完成
 
   const pg = readJ(PROG_KEY), live = !!(pg && pg.phase !== "done" && Date.now() - pg.upd < 120000); // 正在签到（含定时任务）：打开页面直接显示进度
@@ -655,10 +590,10 @@ function renderPage() {
     if (ls === "none") return "没有读到超话" + note;
     return "关注列表 " + r.listCount + " 个" + (r.visited ? " · 进入过 " + r.visited + " 个" : "") + note; // 旧版本留下的记录
   })();
-  const srcCls = ls === "full" ? "ok" : ls ? "warn" : web ? "ok" : "", srcTxt = ls === "full" ? "完整" : ls === "partial" ? "部分" : ls === "visited" ? "仅记录" : ls === "none" ? "无" : web ? "网页" : "App";
-  const loginRight = web || auth ? '<span class="chip ' + (lv.cls === "bad" ? "bad" : lv.cls) + '">' + lv.t + "</span>" : '<a class="btn btn-primary" href="/login">扫码登录</a>';
+  const srcCls = ls === "full" ? "ok" : ls ? "warn" : web ? "ok" : "", srcTxt = ls === "full" ? "完整" : ls === "partial" ? "部分" : ls === "visited" ? "仅记录" : ls === "none" ? "无" : "网页";
+  const loginRight = web ? '<span class="chip ' + (lv.cls === "bad" ? "bad" : lv.cls) + '">' + lv.t + "</span>" : '<a class="btn btn-primary" href="/login">扫码登录</a>';
   const status = '<section class="panel s2">' +
-    rowHtml(loggedIn ? "ok" : lv.cls, "user", web ? "微博网页登录" : auth ? "微博 App 登录" : "微博登录", lv.d, loginRight) +
+    rowHtml(loggedIn ? "ok" : lv.cls, "user", "微博网页登录", lv.d, loginRight) +
     rowHtml(cc === "ok" ? "ok" : cc, "clock", "每天 " + SCHED_TEXT + " 自动签到", cronMeta, '<span class="chip ' + cc + '">' + ct + "</span>") +
     rowHtml(ls && ls !== "full" ? "warn" : r && r.total ? "ok" : "", "list", "关注的超话 · 网页", srcMeta, '<span class="chip ' + srcCls + '">' + srcTxt + "</span>") + "</section>";
 
@@ -688,7 +623,7 @@ function renderPage() {
     (items.length ? '<ul class="list enter s5" id="items">' + rows + "</ul>" + '<div class="panel s5" id="empty" hidden><div class="notice"><h2 id="et"></h2><p id="ep"></p></div></div>' : '<div class="panel s5"><div class="notice"><h2>' + (r ? "这次没有处理任何超话" : "还没有签到记录") + "</h2><p>" + (r ? "请看上面的「关注的超话」一行" : "点下面的「立即签到」试一次") + "</p></div></div>");
 
   const diag = '<details><summary>诊断信息</summary><p>' + (r && r.netFail ? "⚠️ 本次没有收到微博服务器的任何响应（网络或代理问题，不是登录问题）<br>" : "") +
-    "登录方式：" + (web ? "网页（Cookie）" : auth ? "App" : "无") + (web ? "" : "<br>⚠️ 没有扫码登录：到点自动签到只能靠打开微博时抓到的登录信息，容易过期，建议点「设置」重新扫码") +
+    "登录方式：" + (web ? "网页（Cookie）" : "无，请扫码登录") +
     "<br>Loon 定时检查：" + (st.tick ? ago(st.tick.at) : "从未触发") + "<br>打开微博补签检查：" + (st.open ? ago(st.open.at) : "从未触发") + "</p></details>";
   const toastTxt = r ? "签到完成 · 成功 " + r.ok + " · 已签 " + r.already + (r.fail ? " · 失败 " + r.fail : "") + (r.unknown ? " · 未知 " + r.unknown : "") + (partialList ? " · 列表不完整" : "") : "完成";
 
@@ -738,13 +673,13 @@ const rowHtml = (cls, ico, title, meta, right) => '<div class="row"><span class=
 const confirmBtn = (label, href, okLabel) => '<span class="cfm"><button class="btn btn-danger" type="button" data-go>' + label + '</button><a class="btn btn-danger-fill" href="' + href + '" data-cf>' + okLabel + '</a><button class="btn btn-ghost" type="button" data-cn>取消</button></span>';
 
 function renderSettings() {
-  const auth = readJ(AUTH_KEY), web = readJ(WEB_KEY), st = readState(), prefs = readPrefs(), lv = loginView(auth, st);
-  const has = !!(web || auth);
+  const web = readJ(WEB_KEY), st = readState(), prefs = readPrefs(), lv = loginView(st);
+  const has = !!web;
 
   const acct = '<h2 class="sec s1">账号</h2><section class="panel s1">' +
-    rowHtml(lv.cls, "user", web ? "微博网页登录" : auth ? "微博 App 登录" : "微博登录", lv.d, '<span class="chip ' + lv.cls + '">' + lv.t + "</span>") +
+    rowHtml(lv.cls, "user", "微博网页登录", lv.d, '<span class="chip ' + lv.cls + '">' + lv.t + "</span>") +
     '<div class="act">' + (has ? '<a class="btn" href="/login">重新扫码登录</a>' + confirmBtn("退出登录", "/logout", "确认退出") : '<a class="btn btn-primary" href="/login">扫码登录</a>') + "</div></section>" +
-    (has ? '<p class="note s1">退出登录会同时清除网页登录和 App 登录状态；之后再打开微博 App，脚本会重新记录 App 登录。</p>' : "");
+    (has ? '<p class="note s1">退出登录会清除本机保存的网页登录，之后需要重新扫码才能签到。</p>' : "");
 
   const plan = '<h2 class="sec s2">自动签到</h2><section class="panel s2">' +
     rowHtml("", "clock", "签到时间", "在 Loon 插件设置中修改", '<span class="chip">' + SCHED_TEXT + "</span>") +
@@ -788,7 +723,7 @@ function serve() {
   else if (path === "/login") loginStart().then(html).catch((e) => fail(String((e && e.message) || e)));
   else if (path === "/login/check") loginCheck().then(json).catch((e) => json({ s: "fail", msg: String((e && e.message) || e) }));
   else if (path === "/settings") html(renderSettings());
-  else if (path === "/logout") { // 退出登录：网页 + App 登录状态都清掉，否则会悄悄退回到 App 登录继续签
+  else if (path === "/logout") { // 退出登录：清掉本机保存的网页登录
     del(WEB_KEY); del(AUTH_KEY);
     const st = readState(); st.login = { state: "none" }; st.qr = null; writeJ(STATE_KEY, st);
     go("#out");
@@ -807,13 +742,14 @@ function serve() {
 }
 
 function statusNotify() {
-  const auth = readJ(AUTH_KEY), st = readState(), lv = loginView(auth, st), r = st.run;
+  const st = readState(), lv = loginView(st), r = st.run;
   const sum = r ? "成功 " + r.ok + " · 已签 " + r.already + " · 失败 " + r.fail + (r.unknown ? " · 未知 " + r.unknown : "") + "（" + ago(r.at) + "）" : "还没有签到记录";
   $notification.post(TITLE, "登录：" + lv.t + "｜" + lv.d, sum, { openUrl: PAGE, url: PAGE });
   $done({ title: TITLE, content: "登录：" + lv.t + "\n" + sum, icon: lv.cls === "ok" ? "checkmark.seal.fill" : "exclamationmark.triangle.fill", "icon-color": lv.cls === "ok" ? "#34C759" : "#FF9F0A" });
 }
 
 // ---------- 入口 ----------
+try { if ($persistentStore.read(AUTH_KEY)) del(AUTH_KEY); } catch (e) {} // 旧版保存过的 App 登录信息：不再使用，顺手清掉
 const S = (typeof $script !== "undefined" && $script) || {};
 if (!enabled) {
   if (typeof $request !== "undefined" && $request && $request.url.indexOf(HOST) !== -1) {
@@ -823,7 +759,6 @@ if (!enabled) {
 } else if (typeof $request !== "undefined" && $request) {
   if ($request.url.indexOf(HOST) !== -1) serve();
   else {
-    try { capture(); } catch (e) { log("capture error: " + e); }
     // 打开微博时的补签：只挂在后台轮询接口上（不影响首页加载）；到点后今天还没签完，就在这次请求里把签到做完
     if (arg.TIME != null && /\/2\/remind\/(unread_count|hometab_dot)/i.test($request.url)) auto("open").catch((e) => log("open error " + e)).then(() => $done({}));
     else $done({});
