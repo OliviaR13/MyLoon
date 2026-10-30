@@ -4,6 +4,7 @@
 //   http-request（状态页域名）     visual 状态页：http://weibo-checkin.loon/
 //   cron / generic               执行签到、推送汇总 / 推送当前状态
 // 所有登录信息只保存在本机的 Loon 持久化存储里，不会出现在仓库或日志中。
+// 文件位置：script/weibo/weibo_checkin.js（与 weibo_device.js 同放在 script/weibo/ 下）
 // 参数：CHECKIN 签到总开关，NOTIFY 通知开关，DEBUG 调试日志（日志不输出任何登录信息）
 
 const AUTH_KEY = "MyLoon_WeiboCH_auth";
@@ -381,8 +382,14 @@ const friendly = (m) => {
 const clock = (t) => { const d = new Date(t); return ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2); };
 
 // ---------- 页面样式：与主站一致的设计变量（暖纸色 + 单一强调色、16/10/6 圆角、弹簧缓动、逐层入场） ----------
+// 底部渐进式模糊：8 层逐级变强的 backdrop-filter，各自只露出一条渐变遮罩（由循环生成，避免手写 8 段重复 CSS）
+const BLUR_CSS = [0.7, 1.4, 2.2, 3.2, 4.5, 6, 7.8, 10].map((px, k) => {
+  const mask = "linear-gradient(to top,#000 calc(100% - var(--f) * " + (k + 1) + " / 8),transparent calc(100% - var(--f) * " + k + " / 8))";
+  const f = "blur(" + px + "px)" + (k === 7 ? " saturate(1.5)" : "");
+  return ".bblur i:nth-child(" + (k + 1) + "){-webkit-backdrop-filter:" + f + ";backdrop-filter:" + f + ";-webkit-mask-image:" + mask + ";mask-image:" + mask + "}";
+}).join("\n");
 const PAGE_CSS = `
-:root{--bg:#f6f4ef;--card:#fdfcf9;--hover:#faf8f3;--text:#1d1b17;--muted:#6a655a;--line:#e6e2d8;--chip:#efece4;--accent:#0f7f69;--accent-text:#0a6250;--accent-ink:#f7fbf9;--shadow:40 30 10;
+:root{color-scheme:light dark;--bg:#f6f4ef;--card:#fdfcf9;--hover:#faf8f3;--text:#1d1b17;--muted:#6a655a;--line:#e6e2d8;--chip:#efece4;--accent:#0f7f69;--accent-text:#0a6250;--accent-ink:#f7fbf9;--shadow:40 30 10;
 --glow:color-mix(in srgb,var(--accent) 16%,transparent);--warn:#b45309;--bad:#b42318;--r-lg:16px;--r-md:10px;--r-sm:6px;--spring:cubic-bezier(.34,1.4,.64,1);--ease:cubic-bezier(.2,.8,.2,1);
 --ap-bg:color-mix(in srgb,var(--card) 80%,transparent);--ap-filter:saturate(180%) blur(20px);--ap-line:rgb(0 0 0 / .1);
 --font:"Geist Sans",-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Noto Sans SC","Segoe UI",sans-serif;--mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace}
@@ -390,7 +397,7 @@ const PAGE_CSS = `
 --glow:color-mix(in srgb,var(--accent) 14%,transparent);--warn:#fbbf24;--bad:#f87171;--ap-line:rgb(255 255 255 / .14)}}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
-body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:linear-gradient(var(--bg) 0,transparent 18%,transparent 82%,var(--bg) 100%),radial-gradient(75% 46% at 50% 14%,var(--glow),transparent 72%),radial-gradient(65% 40% at 85% 96%,color-mix(in srgb,var(--glow) 55%,transparent),transparent 70%)}
+body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;animation:intro-glow 1.3s ease-out backwards;background:linear-gradient(var(--bg) 0,transparent 18%,transparent 82%,var(--bg) 100%),radial-gradient(75% 46% at 50% 14%,var(--glow),transparent 72%),radial-gradient(65% 40% at 85% 96%,color-mix(in srgb,var(--glow) 55%,transparent),transparent 70%)}
 body::before{content:"";position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.05;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
 .shell{position:relative;z-index:2;max-width:720px;margin:0 auto;padding:calc(24px + env(safe-area-inset-top)) 16px calc(112px + env(safe-area-inset-bottom))}
 h1,h2,p{margin:0}a{color:var(--accent-text)}button,a{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
@@ -414,7 +421,7 @@ h1,h2,p{margin:0}a{color:var(--accent-text)}button,a{-webkit-touch-callout:none;
 .chip.ok{background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--accent-text);font-weight:600}.chip.warn{background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--warn);font-weight:600}.chip.bad,.chip.fail{background:color-mix(in srgb,var(--bad) 13%,transparent);color:var(--bad);font-weight:600}
 .chip.cap,.chip.already{background:transparent;color:color-mix(in srgb,var(--text) 80%,var(--muted));box-shadow:inset 0 0 0 1px var(--line)}
 .heat{display:inline-flex;align-items:center;gap:4px;height:24px;white-space:nowrap;padding:0 9px 0 7px;border-radius:999px;background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--warn);font-size:12.5px;font-weight:650;line-height:1}
-.hero{display:flex;align-items:center;gap:18px;padding:18px}.ring{position:relative;width:96px;height:96px;flex:none}.ring svg{transform:rotate(-90deg)}.ring .bg{stroke:var(--line)}.ring .fg{stroke:var(--accent);animation:fill 1s var(--ease) .2s backwards}
+.hero{display:flex;align-items:center;gap:18px;padding:18px}.ring{position:relative;width:96px;height:96px;flex:none}.ring svg{transform:rotate(-90deg)}.ring .bg{stroke:var(--line)}.ring .fg{stroke:var(--accent);animation:fill 1s var(--ease) .2s backwards}.ring.warn .fg{stroke:var(--warn)}
 @keyframes fill{from{stroke-dasharray:0 var(--c)}}.ring div{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}.num{display:inline-flex;font-size:25px;font-weight:700;line-height:1;letter-spacing:-.02em}.num.n4{font-size:22px}.num.n5{font-size:19px}.num.n6{font-size:16px}.prog[hidden]{display:none}.prog{padding:16px}.prog-h{display:flex;align-items:center;gap:10px;font-weight:650;font-size:15.5px}.prog-h svg{color:var(--accent);flex:none}.prog.fin .spin{display:none}
 .pbar{height:6px;border-radius:99px;background:var(--chip);overflow:hidden;margin:12px 0 8px}.pbar i{display:block;height:100%;width:0;background:var(--accent);border-radius:inherit;transition:width .5s var(--ease)}
 .pc{color:var(--muted);font-size:12.5px;min-height:1.4em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -449,7 +456,7 @@ h1,h2,p{margin:0}a{color:var(--accent-text)}button,a{-webkit-touch-callout:none;
 .qr{padding:18px;text-align:center}.qr img{width:180px;height:180px;border-radius:var(--r-md);background:#fff;padding:8px;box-shadow:0 0 0 1px var(--line)}.qr .rm{margin-top:10px}
 .wait{display:flex;align-items:center;justify-content:center;gap:10px;margin:6px 0 14px;font-weight:620;color:var(--text)}.wait svg{color:var(--accent)}.wait.done svg,.wait.fail svg{display:none}.wait.done{color:var(--accent-text)}.wait.fail{color:var(--bad)}
 @keyframes intro-up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}@keyframes intro-glow{from{opacity:0}to{opacity:1}}
-body::after{animation:intro-glow 1.3s ease-out backwards}.head-text{animation:intro-up .6s var(--ease) .08s backwards}.head .btn{animation:intro-up .6s var(--ease) .16s backwards}
+.head-text{animation:intro-up .6s var(--ease) .08s backwards}.head .btn{animation:intro-up .6s var(--ease) .16s backwards}
 .s1{animation:intro-up .6s var(--ease) .22s backwards}.s2{animation:intro-up .6s var(--ease) .28s backwards}.s3{animation:intro-up .6s var(--ease) .34s backwards}.s4{animation:intro-up .6s var(--ease) .4s backwards}.s5{animation:intro-up .6s var(--ease) .46s backwards}
 .foot{animation:intro-glow .5s ease-out .6s backwards}.bdock{animation:intro-up .6s var(--ease) .5s backwards}
 .sec{font-size:12.5px;font-weight:650;color:var(--muted);letter-spacing:.02em;margin:22px 4px 8px}
@@ -461,15 +468,14 @@ body::after{animation:intro-glow 1.3s ease-out backwards}.head-text{animation:in
 .sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--card);box-shadow:0 1px 3px rgb(0 0 0 / .25);transition:transform .4s var(--spring)}
 .sw[aria-checked="true"]{background:var(--accent)}.sw[aria-checked="true"]::after{transform:translateX(18px)}.sw:disabled{opacity:.6}
 .item.off .av,.item.off .it{opacity:.5}.item .it{transition:opacity .2s}
+/* 交互细节：键盘焦点、取消双击缩放延迟、悬停反馈（仅支持悬停的设备） */
+a,button,.sw{touch-action:manipulation}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.tab:focus-visible{outline-offset:-2px;border-radius:var(--r-sm)}
+@media (hover:hover){.btn:not(.btn-primary):not(.btn-danger-fill):hover{background:var(--hover)}.btn-primary:hover,.btn-danger-fill:hover{filter:brightness(1.07)}.tab:hover{color:var(--text)}.item:hover{background:var(--hover)}}
+/* 从「立即签到」「定时刷新」回到状态页时不再重播入场动画（数字滚动和圆环仍会动） */
+.skip body::after,.skip .head-text,.skip .head .btn,.skip .s1,.skip .s2,.skip .s3,.skip .s4,.skip .s5,.skip .foot,.skip .bdock{animation:none}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.spin circle{stroke-dasharray:60,150!important}}
-`.replace("/*BLUR*/", `.bblur i:nth-child(1){-webkit-backdrop-filter:blur(0.7px);backdrop-filter:blur(0.7px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 1 / 8),transparent 100%);mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 1 / 8),transparent 100%)}
-.bblur i:nth-child(2){-webkit-backdrop-filter:blur(1.4px);backdrop-filter:blur(1.4px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 2 / 8),transparent calc(100% - var(--f) * 1 / 8));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 2 / 8),transparent calc(100% - var(--f) * 1 / 8))}
-.bblur i:nth-child(3){-webkit-backdrop-filter:blur(2.2px);backdrop-filter:blur(2.2px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 3 / 8),transparent calc(100% - var(--f) * 2 / 8));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 3 / 8),transparent calc(100% - var(--f) * 2 / 8))}
-.bblur i:nth-child(4){-webkit-backdrop-filter:blur(3.2px);backdrop-filter:blur(3.2px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 4 / 8),transparent calc(100% - var(--f) * 3 / 8));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 4 / 8),transparent calc(100% - var(--f) * 3 / 8))}
-.bblur i:nth-child(5){-webkit-backdrop-filter:blur(4.5px);backdrop-filter:blur(4.5px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 5 / 8),transparent calc(100% - var(--f) * 4 / 8));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 5 / 8),transparent calc(100% - var(--f) * 4 / 8))}
-.bblur i:nth-child(6){-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 6 / 8),transparent calc(100% - var(--f) * 5 / 8));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 6 / 8),transparent calc(100% - var(--f) * 5 / 8))}
-.bblur i:nth-child(7){-webkit-backdrop-filter:blur(7.8px);backdrop-filter:blur(7.8px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 7 / 8),transparent calc(100% - var(--f) * 6 / 8));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 7 / 8),transparent calc(100% - var(--f) * 6 / 8))}
-.bblur i:nth-child(8){-webkit-backdrop-filter:blur(10px) saturate(1.5);backdrop-filter:blur(10px) saturate(1.5);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 8 / 8),transparent calc(100% - var(--f) * 7 / 8));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 8 / 8),transparent calc(100% - var(--f) * 7 / 8))}`);
+`.replace("/*BLUR*/", BLUR_CSS);
 
 const svgi = (d, z) => '<svg width="' + (z || 18) + '" height="' + (z || 18) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + "</svg>";
 const IC = {
@@ -483,30 +489,107 @@ const IC = {
 };
 const SPIN = '<svg class="spin" viewBox="0 0 50 50" width="18" height="18" aria-hidden="true"><circle cx="25" cy="25" r="20" fill="none" stroke-width="4.5" stroke-linecap="round"/></svg>';
 const BLUR_HTML = '<div class="bblur" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>';
-const headHtml = (title, sub, right) => '<header class="head"><div class="head-text"><h1>' + title + "</h1><p>" + sub + "</p></div>" + (right || "") + "</header>";
-const shellOpen = (title) => '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><meta name="theme-color" content="#f6f4ef" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#12110f" media="(prefers-color-scheme: dark)"><title>' + title + "</title><style>" + PAGE_CSS + "</style></head><body>";
+const headHtml = (title, sub, right) => '<header class="head"><div class="head-text"><h1>' + title + "</h1>" + (sub ? "<p>" + sub + "</p>" : "") + "</div>" + (right || "") + "</header>";
+const shellOpen = (title, page) => '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><meta name="theme-color" content="#f6f4ef" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#12110f" media="(prefers-color-scheme: dark)"><title>' + title + "</title><script>if(/^#(done|r|cleared)$/.test(location.hash))document.documentElement.className='skip'</script><style>" + PAGE_CSS + '</style></head><body data-page="' + (page || "") + '">';
 
-const PAGE_JS = "(function(){" +
-  "var ns=document.querySelectorAll('.num');for(var n=0;n<ns.length;n++){(function(el){var s=el.getAttribute('data-n');el.setAttribute('aria-label',s);el.textContent='';" +
-  "for(var i=0;i<s.length;i++){var c=s.charAt(i),w=document.createElement('span');if(c>='0'&&c<='9'){w.className='dg';var t=document.createElement('i');for(var d=0;d<10;d++){var b=document.createElement('b');b.textContent=d;t.appendChild(b)}" +
-  "t.style.transitionDelay=(i*70+250)+'ms';w.appendChild(t);(function(t,c){requestAnimationFrame(function(){requestAnimationFrame(function(){t.style.transform='translateY(-'+(c*10)+'%)'})})})(t,+c)}else{w.textContent=c}el.appendChild(w)}})(ns[n])}" +
-  "var tabs=document.getElementById('tabs'),ind=document.getElementById('ind'),cur=null;" +
-  "function place(btn,anim){if(!tabs||!ind)return;var tr=tabs.getBoundingClientRect(),br=btn.getBoundingClientRect();if(!anim||!cur){ind.className='tab-ind no-anim'}else{ind.className='tab-ind';ind.setAttribute('data-dir',btn.offsetLeft>cur.offsetLeft?'fwd':'back')}ind.style.left=(br.left-tr.left+tabs.scrollLeft)+'px';ind.style.right=(tr.right-br.right-tabs.scrollLeft)+'px';cur=btn}" +
-  "var EM={all:['还没有超话记录','点下面的「立即签到」试一次'],fail:['没有失败的超话','这次签到一切顺利'],unknown:['没有状态未知的超话','每个超话的结果都已确认'],ok:['这次没有新签到成功的超话','已经签过的会显示在「已签」里'],already:['还没有已签的超话','签到完成后会显示在这里']};" +
-  "function filt(f){var ls=document.querySelectorAll('#items .item'),k=0;for(var i=0;i<ls.length;i++){var on=f==='all'||ls[i].getAttribute('data-st')===f;ls[i].hidden=!on;if(on){ls[i].style.setProperty('--i',k++);ls[i].style.animation='none';void ls[i].offsetWidth;ls[i].style.animation=''}}" +
-  "var ul=document.getElementById('items'),em=document.getElementById('empty');if(ul)ul.hidden=!k;if(em){em.hidden=!!k;if(!k){var t=EM[f]||EM.all;document.getElementById('et').textContent=t[0];document.getElementById('ep').textContent=t[1]}}}" +
-  "if(tabs){var bs=tabs.querySelectorAll('.tab');for(var j=0;j<bs.length;j++)bs[j].onclick=function(){for(var q=0;q<bs.length;q++)bs[q].setAttribute('aria-pressed',bs[q]===this?'true':'false');place(this,true);filt(this.getAttribute('data-f'))};" +
-  "var first=tabs.querySelector('.tab');if(first)requestAnimationFrame(function(){place(first,false)})}" +
-  "var rb=document.getElementById('run');if(rb)rb.onclick=function(e){if(rb.hasAttribute('data-done')){e.preventDefault();return}rb.setAttribute('data-done','')};" +
-  "addEventListener('pageshow',function(e){if(e.persisted){location.reload();return}if(rb)rb.removeAttribute('data-done')});" +
-  "var rz;addEventListener('resize',function(){clearTimeout(rz);rz=setTimeout(function(){var on=tabs&&tabs.querySelector('.tab[aria-pressed=\\'true\\']');if(on)place(on,false)},120)});" +
-  "var tz=document.getElementById('toast'),tt;function toast(t){if(!tz)return;tz.textContent=t;tz.className='toast show';clearTimeout(tt);tt=setTimeout(function(){tz.className='toast show leaving'},2400)}" +
-  "var hs=location.hash,msg={'#login':'登录成功','#out':'已退出登录','#cleared':'已清除签到记录'};if(tz&&(hs==='#done'||msg[hs])){if(msg[hs])tz.textContent=msg[hs];tz.className='toast show';history.replaceState(null,'',location.pathname);tt=setTimeout(function(){tz.className='toast show leaving'},2800)}" +
-  "var cf=document.querySelectorAll('.cfm');for(var a=0;a<cf.length;a++)(function(b){var tm,go=b.querySelector('[data-go]'),cn=b.querySelector('[data-cn]');function rs(){b.removeAttribute('data-ask');clearTimeout(tm)}if(go)go.onclick=function(){b.setAttribute('data-ask','');clearTimeout(tm);tm=setTimeout(rs,4000)};if(cn)cn.onclick=rs})(cf[a]);" +
-  "var sws=document.querySelectorAll('.sw');for(var q=0;q<sws.length;q++)sws[q].onclick=function(){var el=this,on=el.getAttribute('aria-checked')==='true',row=el.closest('.item'),rm=row&&row.querySelector('.rm');el.setAttribute('aria-checked',on?'false':'true');el.disabled=true;" +
-  "fetch('/prefs/skip?id='+encodeURIComponent(el.getAttribute('data-id'))+'&on='+(on?1:0)).then(function(r){return r.json()}).then(function(j){if(!j.ok)throw 0;el.disabled=false;if(row)row.classList.toggle('off',on);if(rm)rm.textContent=on?'已跳过':'参与自动签到'})" +
-  ".catch(function(){el.setAttribute('aria-checked',on?'true':'false');el.disabled=false;toast('保存失败，请重试')})};" +
-  "})();";
+// 简单提示页（出错 / 功能已关闭）：沿用同一套样式，而不是一段裸文字
+const msgPage = (title, msg, links) => shellOpen(title) + '<main class="shell">' + headHtml(title, "") + '<section class="panel s1"><div class="notice"><p>' + esc(msg) + "</p></div></section>" + (links ? '<div class="foot s2">' + links + "</div>" : "") + "</main></body></html>";
+
+const PAGE_JS = `(function(){
+var $=function(i){return document.getElementById(i)};
+
+// 数字滚动：每一位数字是一条 0-9 的竖条，入场时依次滚到目标位置
+function spin(t,c){requestAnimationFrame(function(){requestAnimationFrame(function(){t.style.transform="translateY(-"+c*10+"%)"})})}
+function roll(el){
+  var s=el.getAttribute("data-n");el.setAttribute("role","img");el.setAttribute("aria-label",s);el.textContent="";
+  for(var i=0;i<s.length;i++){
+    var c=s.charAt(i),w=document.createElement("span");
+    if(c>="0"&&c<="9"){
+      var t=document.createElement("i");w.className="dg";
+      for(var d=0;d<10;d++){var b=document.createElement("b");b.textContent=d;t.appendChild(b)}
+      t.style.transitionDelay=(i*70+250)+"ms";w.appendChild(t);spin(t,+c)
+    }else w.textContent=c;
+    el.appendChild(w)
+  }
+}
+var ns=document.querySelectorAll(".num");for(var n=0;n<ns.length;n++)roll(ns[n]);
+
+// 页签：滑动指示条 + 按状态筛选超话
+var tabs=$("tabs"),ind=$("ind"),cur=null;
+function place(btn,anim){
+  if(!tabs||!ind)return;
+  var tr=tabs.getBoundingClientRect(),br=btn.getBoundingClientRect();
+  if(!anim||!cur)ind.className="tab-ind no-anim";
+  else{ind.className="tab-ind";ind.setAttribute("data-dir",btn.offsetLeft>cur.offsetLeft?"fwd":"back")}
+  ind.style.left=(br.left-tr.left+tabs.scrollLeft)+"px";
+  ind.style.right=(tr.right-br.right-tabs.scrollLeft)+"px";
+  cur=btn
+}
+var EM={all:["还没有超话记录","点下面的「立即签到」试一次"],fail:["没有失败的超话","这次签到一切顺利"],unknown:["没有状态未知的超话","每个超话的结果都已确认"],ok:["这次没有新签到成功的超话","已经签过的会显示在「已签」里"],already:["还没有已签的超话","签到完成后会显示在这里"]};
+function filt(f){
+  var ls=document.querySelectorAll("#items .item"),k=0;
+  for(var i=0;i<ls.length;i++){
+    var on=f==="all"||ls[i].getAttribute("data-st")===f;ls[i].hidden=!on;
+    if(on){ls[i].style.setProperty("--i",k++);ls[i].style.animation="none";void ls[i].offsetWidth;ls[i].style.animation=""}
+  }
+  var ul=$("items"),em=$("empty");if(ul)ul.hidden=!k;
+  if(em){em.hidden=!!k;if(!k){var t=EM[f]||EM.all;$("et").textContent=t[0];$("ep").textContent=t[1]}}
+}
+if(tabs){
+  var bs=tabs.querySelectorAll(".tab");
+  for(var j=0;j<bs.length;j++)bs[j].onclick=function(){
+    for(var q=0;q<bs.length;q++)bs[q].setAttribute("aria-pressed",bs[q]===this?"true":"false");
+    place(this,true);filt(this.getAttribute("data-f"));
+    if(this.scrollIntoView)this.scrollIntoView({inline:"nearest",block:"nearest",behavior:"smooth"})
+  };
+  var first=tabs.querySelector(".tab");if(first)requestAnimationFrame(function(){place(first,false)})
+}
+var rz;addEventListener("resize",function(){clearTimeout(rz);rz=setTimeout(function(){var on=tabs&&tabs.querySelector('.tab[aria-pressed="true"]');if(on)place(on,false)},120)});
+
+// 页面恢复（返回键 / 缓存）：重新载入，避免显示旧结果；正在签到时保持「签到中」按钮
+addEventListener("pageshow",function(e){
+  if(e.persisted){location.reload();return}
+  var rb=$("run"),pg=$("prog");if(rb&&pg&&pg.hidden)rb.removeAttribute("data-done")
+});
+
+// 回到状态页（从微博 / 其他应用切回来）且超过 1 分钟：静默刷新一次，让定时签到的结果及时显示
+var born=Date.now();
+if(document.body.getAttribute("data-page")==="home")document.addEventListener("visibilitychange",function(){
+  if(document.hidden||Date.now()-born<60000)return;
+  var pg=$("prog");if(pg&&!pg.hidden)return;
+  location.replace("/?r="+Date.now()+"#r")
+});
+
+// 提示条：从其他页面跳回时按 # 后缀显示一次
+var tz=$("toast"),tt;
+function toast(t){if(!tz)return;tz.textContent=t;tz.className="toast show";clearTimeout(tt);tt=setTimeout(function(){tz.className="toast show leaving"},2400)}
+var hs=location.hash,MSG={"#login":"登录成功","#out":"已退出登录","#cleared":"已清除签到记录"};
+if(tz&&(hs==="#done"||MSG[hs])){
+  if(MSG[hs])tz.textContent=MSG[hs];
+  tz.className="toast show";history.replaceState(null,"",location.pathname);
+  tt=setTimeout(function(){tz.className="toast show leaving"},2800)
+}else if(hs==="#r")history.replaceState(null,"",location.pathname);
+
+// 危险操作二次确认：第一次点击变成「确认 / 取消」，4 秒不操作自动还原
+var cf=document.querySelectorAll(".cfm");
+for(var a=0;a<cf.length;a++)(function(b){
+  var tm,go=b.querySelector("[data-go]"),cn=b.querySelector("[data-cn]");
+  function rs(){b.removeAttribute("data-ask");clearTimeout(tm)}
+  if(go)go.onclick=function(){b.setAttribute("data-ask","");clearTimeout(tm);tm=setTimeout(rs,4000)};
+  if(cn)cn.onclick=rs
+})(cf[a]);
+
+// 设置页：每个超话「参与签到」开关，保存失败时自动还原
+var sws=document.querySelectorAll(".sw");
+for(var m=0;m<sws.length;m++)sws[m].onclick=function(){
+  var el=this,on=el.getAttribute("aria-checked")==="true",row=el.closest(".item"),rm=row&&row.querySelector(".rm");
+  el.setAttribute("aria-checked",on?"false":"true");el.disabled=true;
+  fetch("/prefs/skip?id="+encodeURIComponent(el.getAttribute("data-id"))+"&on="+(on?1:0)).then(function(r){return r.json()}).then(function(j){
+    if(!j.ok)throw 0;el.disabled=false;
+    if(row)row.classList.toggle("off",on);if(rm)rm.textContent=on?"已跳过":"参与自动签到"
+  }).catch(function(){el.setAttribute("aria-checked",on?"true":"false");el.disabled=false;toast("保存失败，请重试")})
+};
+})();`;
 
 // 签到进度：点「立即签到」后页面不跳转，而是请求 /run/go（脚本在后台签到），同时每秒轮询 /run/progress 显示进度
 const PROG_JS = `(function(){
@@ -555,17 +638,18 @@ function renderPage() {
   const nVisited = Object.keys(st.topics).length;
   const loggedIn = !!web && st.login.state !== "expired";
   const ls = r && r.listState, partialList = ls === "partial" || ls === "visited"; // 关注列表不完整时，别让「已签」看起来像全部完成
+  const ringWarn = !!(r && (r.fail || r.unknown || partialList)); // 有失败 / 未知 / 列表不完整时圆环用警示色
 
   const pg = readJ(PROG_KEY), live = !!(pg && pg.phase !== "done" && Date.now() - pg.upd < 120000); // 正在签到（含定时任务）：打开页面直接显示进度
-  const progBox = '<section class="panel prog s1" id="prog" ' + (live ? 'data-live="1"' : "hidden") + '><div class="prog-h">' + SPIN + '<span id="pt">正在签到…</span></div><div class="pbar"><i id="pbar"></i></div><div class="pc" id="pc"></div><ul class="pl" id="pl"></ul></section>';
+  const progBox = '<section class="panel prog s1" id="prog" ' + (live ? 'data-live="1"' : "hidden") + '><div class="prog-h">' + SPIN + '<span id="pt" aria-live="polite">正在签到…</span></div><div class="pbar"><i id="pbar"></i></div><div class="pc" id="pc"></div><ul class="pl" id="pl"></ul></section>';
 
   // 总览
   const chips = r ? '<div class="chips">' + (r.exp ? '<span class="heat">' + svgi(IC.bolt, 13) + "经验 +" + r.exp + "</span>" : "") +
     '<span class="chip">' + clock(r.at) + " · " + (r.trigger === "cron" ? "定时" : r.trigger === "open" ? "补签" : "手动") + '</span><span class="chip">用时 ' + Math.max(1, Math.round(r.ms / 1000)) + " 秒</span>" +
     (r.fail ? '<span class="chip fail">失败 ' + r.fail + "</span>" : "") + (r.unknown ? '<span class="chip warn">状态未知 ' + r.unknown + "</span>" : "") + (partialList ? '<span class="chip warn">' + (ls === "visited" ? "仅访问记录" : "部分列表") + "</span>" : "") + (r.skipped ? '<span class="chip">未处理 ' + r.skipped + "</span>" : "") + (r.muted ? '<span class="chip">已跳过 ' + r.muted + "</span>" : "") + "</div>" : "";
   const numTxt = r ? signed + "/" + r.total : "—"; // 位数越多字号越小，避免压到圆环上
-  const hero = '<section class="panel hero s1' + (stale ? " stale" : "") + '"><div class="ring"><svg width="96" height="96" viewBox="0 0 96 96"><circle class="bg" cx="48" cy="48" r="40" fill="none" stroke="#e6e2d8" stroke-width="8"/>' +
-    '<circle class="fg" cx="48" cy="48" r="40" fill="none" stroke="#0f7f69" stroke-width="8" stroke-linecap="round" stroke-dasharray="' + len.toFixed(1) + " " + C.toFixed(1) + '" stroke-opacity="' + (len > 0.5 ? 1 : 0) + '" style="--c:' + C.toFixed(1) + '"/></svg>' +
+  const hero = '<section class="panel hero s1' + (stale ? " stale" : "") + '"><div class="ring' + (ringWarn ? " warn" : "") + '"><svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true"><circle class="bg" cx="48" cy="48" r="40" fill="none" stroke-width="8"/>' +
+    '<circle class="fg" cx="48" cy="48" r="40" fill="none" stroke-width="8" stroke-linecap="round" stroke-dasharray="' + len.toFixed(1) + " " + C.toFixed(1) + '" stroke-opacity="' + (len > 0.5 ? 1 : 0) + '" style="--c:' + C.toFixed(1) + '"/></svg>' +
     '<div><span class="num' + (numTxt.length >= 6 ? " n6" : numTxt.length === 5 ? " n5" : numTxt.length === 4 ? " n4" : "") + '" data-n="' + numTxt + '">' + numTxt + "</span><small>" + (stale ? staleDay + " 的结果" : partialList ? "部分列表" : "今日已签") + "</small></div></div>" +
     '<div class="side"><div class="rt">' + (stale ? "上次的超话签到" : "今天的超话签到") + '</div><span class="chip ' + lv.cls + '">' + (/^未/.test(lv.t) ? lv.t : "登录" + lv.t) + "</span>" + chips + "</div></section>";
 
@@ -634,7 +718,7 @@ function renderPage() {
   const dock = '<div class="bdock"><div class="bdock-in"><a class="btn btn-ghost" href="/">刷新</a>' +
     (loggedIn ? '<a class="btn btn-primary swap" id="run" href="/run"><span class="lbl">立即签到</span><span class="lbl lbl-alt">' + SPIN + "签到中…</span></a>" : '<a class="btn btn-primary" href="/login">扫码登录</a>') + "</div></div>";
 
-  return shellOpen("微博超话签到") + '<main class="shell">' +
+  return shellOpen("微博超话签到", "home") + '<main class="shell">' +
     headHtml("超话签到", dateStr + (web && web.nick ? " · " + esc(web.nick) : ""), '<a class="btn btn-icon" href="/settings" aria-label="设置">' + svgi(IC.gear) + "</a>") +
     progBox + hero + status + week + list + '<div class="foot">数据仅保存在本机 Loon 中' + diag + "</div></main>" + BLUR_HTML + dock +
     '<div class="toast" id="toast" role="status">' + esc(toastTxt) + "</div><script>" + PAGE_JS + "</script><script>" + PROG_JS + "</script></body></html>";
@@ -667,7 +751,7 @@ function loginPage(qr) {
     '<section class="panel s1">' + step("s1", 1, "在微博中打开确认页", "点下面的按钮，会跳到微博 App") + step("s2", 2, "点「确认登录」", "在微博里确认这次登录") + step("s3", 3, "自动完成", "回到这里，页面会自动跳回状态页") + "</section>" +
     '<a class="btn btn-primary btn-lg s2" href="' + esc(app) + '">在微博中打开确认</a>' +
     (img ? '<section class="panel qr s3" style="margin-top:14px"><img src="' + esc(img) + '" alt="二维码" referrerpolicy="no-referrer"><div class="rm">或用另一台设备的微博扫一扫</div></section>' : "") +
-    '<div class="wait s4" id="w" style="margin-top:14px">' + SPIN + '<span id="m">等待确认…</span></div>' +
+    '<div class="wait s4" id="w" aria-live="polite" style="margin-top:14px">' + SPIN + '<span id="m">等待确认…</span></div>' +
     '<a id="re" class="btn btn-lg" style="display:none" href="/login">重新获取二维码</a>' +
     '<div class="foot"><a href="/">返回状态页</a></div></main><script>' + js + "</script></body></html>";
 }
@@ -716,7 +800,7 @@ function serve() {
   const go = (h, p) => $done({ response: { status: 302, headers: Object.assign({ Location: PAGE + (p || "") + (h || "") }, H), body: "" } });
   const q = $request.url.split("?")[1] || "";
   const qp = (k) => { const m = new RegExp("(?:^|&)" + k + "=([^&]*)").exec(q); try { return m ? decodeURIComponent(m[1]) : ""; } catch (e) { return ""; } };
-  const fail = (m) => html('<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body style="font:16px -apple-system,sans-serif;padding:24px"><p>' + esc(m) + '</p><p><a href="/login">重试</a> · <a href="/">返回</a></p></body>');
+  const fail = (m) => html(msgPage("出错了", m, '<a href="/login">重试</a> · <a href="/">返回</a>'));
   if (path === "/run/go") run("manual").catch((e) => log("run error " + e)).then((r) => json({ ok: true, r: r === "busy" ? "busy" : "" }));
   else if (path === "/run/progress") {
     const pg = readJ(PROG_KEY);
@@ -757,7 +841,7 @@ try { if ($persistentStore.read(AUTH_KEY)) del(AUTH_KEY); } catch (e) {} // 旧�
 const S = (typeof $script !== "undefined" && $script) || {};
 if (!enabled) {
   if (typeof $request !== "undefined" && $request && $request.url.indexOf(HOST) !== -1) {
-    $done({ response: { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" }, body: '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><p style="font:16px -apple-system,sans-serif;padding:24px">超话签到已在插件设置中关闭。</p>' } });
+    $done({ response: { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" }, body: msgPage("超话签到已关闭", "超话签到已在插件设置中关闭。在插件设置里重新打开「超话签到」开关后即可使用。") } });
   } else if (typeof $request !== "undefined" && $request) $done({});
   else $done();
 } else if (typeof $request !== "undefined" && $request) {
