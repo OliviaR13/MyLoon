@@ -1,28 +1,35 @@
-#!name = Blued 直连
-#!desc = Blued 及其内置 SDK（风控设备指纹、百度定位、个推推送等）相关域名统一直连，使各请求的出口 IP 保持一致。用于排查登录失效和收不到推送的问题。
+#!name = Blued 推送修复
+#!desc = 让 Blued 的接口、长连接、个推推送通道和苹果推送(APNs)全部直连，避免被广告拦截、HTTPDNS 拦截或兜底代理影响，解决连上 Loon 后收不到消息通知的问题。请将本插件放在 Block_HTTPDNS、BlockAdvertisers 等拦截类插件之前（建议 pin=true）。
+#!tag = 推送修复
+#!author = OliviaR13
+#!version = 2.0.0
+#!date = 2026-10-31
 #!icon = https://raw.githubusercontent.com/OliviaR13/MyLoon/main/icon/blued.png
-#!tag = 登录修复
-#!author = @OliviaR13
 #!homepage = https://www.github.com/OliviaR13
-#!date = 2026-10-07
-#!version = 1.1.0
 
 [Rule]
-# === 1. Blued 自有域名（接口、图片、静态资源、支付、直播） ===
+# === 1. 苹果推送 (APNs) ===
+# 推送通知由系统连接 APNs 下发，不能被代理或拦截
+DOMAIN-SUFFIX,push.apple.com,DIRECT
+IP-CIDR,17.0.0.0/8,DIRECT,no-resolve
+
+# === 2. Blued 自有域名（接口、图片、长连接） ===
+# 抓包确认接口为 irisgw.cn；KEYWORD 用来兜住未知的 blued 相关子域
 DOMAIN-SUFFIX,irisgw.cn,DIRECT
 DOMAIN-SUFFIX,blued.cn,DIRECT
 DOMAIN-SUFFIX,blued.com,DIRECT
 DOMAIN-SUFFIX,bldimg.cn,DIRECT
 DOMAIN-SUFFIX,bldimg.com,DIRECT
+DOMAIN-KEYWORD,blued,DIRECT
 
-# === 2. 推送 ===
+# === 3. 个推推送 SDK ===
+# 域名为个推常见域名，若抓包发现其他被拦截的推送域名，在这里补一行即可
 DOMAIN-SUFFIX,gepush.com,DIRECT
+DOMAIN-SUFFIX,getui.com,DIRECT
+DOMAIN-SUFFIX,getui.net,DIRECT
+DOMAIN-SUFFIX,igexin.com,DIRECT
 
-# === 3. 内置 SDK：设备指纹 / 定位 / 登录分享 / 音视频授权 / 安全码 ===
-# 抓包确认这些请求与 Blued 接口在同一时刻发出，出口 IP 需与上面一致。
+# === 4. 内置 SDK（风控设备指纹、百度定位） ===
 DOMAIN-SUFFIX,fengkongcloud.com,DIRECT
 DOMAIN-SUFFIX,map.baidu.com,DIRECT
 DOMAIN,sofire.baidu.com,DIRECT
-DOMAIN,cgi.connect.qq.com,DIRECT
-DOMAIN-SUFFIX,trtcube-license.cn,DIRECT
-DOMAIN-SUFFIX,youzanyun.com,DIRECT
