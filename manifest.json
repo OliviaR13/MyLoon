@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-10-30T09:58:22.421235+00:00",
+  "generatedAt": "2026-10-31T13:52:03.539762+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -107,23 +107,23 @@
     },
     {
       "id": "blued",
-      "name": "Blued 直连",
+      "name": "Blued 推送修复",
       "file": "plugin/blued.plugin",
-      "version": "1.1.0",
-      "author": "@OliviaR13",
-      "category": "登录修复",
+      "version": "2.0.0",
+      "author": "OliviaR13",
+      "category": "推送修复",
       "tags": [
-        "登录修复"
+        "推送修复"
       ],
       "mitm": false,
       "script": false,
       "args": false,
       "rule": true,
       "proxy": false,
-      "date": "2026-10-07",
+      "date": "2026-10-31",
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/icon/blued.png",
-      "description": "Blued 及其内置 SDK（风控设备指纹、百度定位、个推推送等）相关域名统一直连，使各请求的出口 IP 保持一致。用于排查登录失效和收不到推送的问题。"
+      "description": "让 Blued 的接口、长连接、个推推送通道和苹果推送(APNs)全部直连，避免被广告拦截、HTTPDNS 拦截或兜底代理影响，解决连上 Loon 后收不到消息通知的问题。请将本插件放在 Block_HTTPDNS、BlockAdvertisers 等拦截类插件之前（建议 pin=true）。"
     },
     {
       "id": "douyin_ip",
