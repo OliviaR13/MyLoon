@@ -537,8 +537,7 @@ a,button,.sw{touch-action:manipulation}
 .skip .head-text,.skip .head .btn,.skip .s1,.skip .s2,.skip .s3,.skip .s4,.skip .s5,.skip .foot{animation:none}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.spin circle{stroke-dasharray:60,150!important}}
 /* ---- 控制台（总览 / 超话 / 记录 / 设置） ---- */
-html::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:30;pointer-events:none}
-.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;margin:0 -16px 16px;padding:8px 16px;background:var(--bg)}
+.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;margin:0 -16px 16px;padding:8px 16px}
 .seg{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:2px;padding:3px;border-radius:12px;background:var(--chip);box-shadow:inset 0 0 0 1px var(--line)}
 .seg button{font:inherit;font-size:13.5px;font-weight:600;color:var(--muted);background:none;border:0;border-radius:9px;padding:8px 4px;cursor:pointer;white-space:nowrap;transition:color .2s}
 .seg button{position:relative;z-index:1}.seg button[aria-selected="true"]{color:var(--text)}
@@ -611,6 +610,33 @@ html::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area
 @media (hover:hover){.pop-item:hover{background:var(--chip)}.pop-btn:hover{border-color:var(--muted)}}
 @media (hover:none){.pop-item:active{background:var(--chip)}}
 @media (prefers-reduced-motion:reduce){.pop-menu,.pop-menu .pop-inner>*{transition:none}}
+
+/* 上下渐进模糊（和主站吸顶栏一样：8 层毛玻璃，越靠近边缘越糊）：顶部只在滚动、导航吸顶后出现，底部一直铺在屏幕下沿 */
+.nav{--nf:44px;--nl:96px;background:none}
+.navs{display:block;height:0}
+.nav::before,.nav-blur{content:"";position:absolute;z-index:-1;left:0;right:0;top:calc(-1 * (env(safe-area-inset-top,0px) + var(--nl)));bottom:calc(-1 * var(--nf));pointer-events:none;visibility:hidden;opacity:0;transition:opacity .25s,visibility 0s .25s}
+.nav::before{background:linear-gradient(to bottom,color-mix(in srgb,var(--bg) 72%,transparent) 0,color-mix(in srgb,var(--bg) 64%,transparent) calc(100% - var(--nf)),color-mix(in srgb,var(--bg) 40%,transparent) calc(100% - var(--nf) * .65),color-mix(in srgb,var(--bg) 14%,transparent) calc(100% - var(--nf) * .3),transparent 100%)}
+.nav[data-stuck]::before,.nav[data-stuck] .nav-blur{visibility:visible;opacity:1;transition:opacity .1s linear}
+.nav-blur i{position:absolute;inset:0}
+.nav-blur i:nth-child(1){-webkit-backdrop-filter:blur(0.7px);backdrop-filter:blur(0.7px);-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - var(--nf) * 1 / 8),transparent 100%);mask-image:linear-gradient(to bottom,#000 calc(100% - var(--nf) * 1 / 8),transparent 100%)}
+.nav-blur i:nth-child(2){-webkit-backdrop-filter:blur(1.4px);backdrop-filter:blur(1.4px);-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - var(--nf) * 2 / 8),transparent calc(100% - var(--nf) * 1 / 8));mask-image:linear-gradient(to bottom,#000 calc(100% - var(--nf) * 2 / 8),transparent calc(100% - var(--nf) * 1 / 8))}
+.nav-blur i:nth-child(3){-webkit-backdrop-filter:blur(2.2px);backdrop-filter:blur(2.2px);-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - var(--nf) * 3 / 8),transparent calc(100% - var(--nf) * 2 / 8));mask-image:linear-gradient(to bottom,#000 calc(100% - var(--nf) * 3 / 8),transparent calc(100% - var(--nf) * 2 / 8))}
+.nav-blur i:nth-child(4){-webkit-backdrop-filter:blur(3.2px);backdrop-filter:blur(3.2px);-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - var(--nf) * 4 / 8),transparent calc(100% - var(--nf) * 3 / 8));mask-image:linear-gradient(to bottom,#000 calc(100% - var(--nf) * 4 / 8),transparent calc(100% - var(--nf) * 3 / 8))}
+.nav-blur i:nth-child(5){-webkit-backdrop-filter:blur(4.5px);backdrop-filter:blur(4.5px);-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - var(--nf) * 5 / 8),transparent calc(100% - var(--nf) * 4 / 8));mask-image:linear-gradient(to bottom,#000 calc(100% - var(--nf) * 5 / 8),transparent calc(100% - var(--nf) * 4 / 8))}
+.nav-blur i:nth-child(6){-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - var(--nf) * 6 / 8),transparent calc(100% - var(--nf) * 5 / 8));mask-image:linear-gradient(to bottom,#000 calc(100% - var(--nf) * 6 / 8),transparent calc(100% - var(--nf) * 5 / 8))}
+.nav-blur i:nth-child(7){-webkit-backdrop-filter:blur(7.8px);backdrop-filter:blur(7.8px);-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - var(--nf) * 7 / 8),transparent calc(100% - var(--nf) * 6 / 8));mask-image:linear-gradient(to bottom,#000 calc(100% - var(--nf) * 7 / 8),transparent calc(100% - var(--nf) * 6 / 8))}
+.nav-blur i:nth-child(8){-webkit-backdrop-filter:blur(10px) saturate(1.5);backdrop-filter:blur(10px) saturate(1.5);-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - var(--nf) * 8 / 8),transparent calc(100% - var(--nf) * 7 / 8));mask-image:linear-gradient(to bottom,#000 calc(100% - var(--nf) * 8 / 8),transparent calc(100% - var(--nf) * 7 / 8))}
+.bblur{--f:104px;position:fixed;left:0;right:0;bottom:0;height:calc(var(--f) + env(safe-area-inset-bottom,0px));z-index:5;pointer-events:none}
+.bblur::before{content:"";position:absolute;inset:0;background:linear-gradient(to top,color-mix(in srgb,var(--bg) 78%,transparent) 0,color-mix(in srgb,var(--bg) 60%,transparent) 55%,color-mix(in srgb,var(--bg) 22%,transparent) 80%,transparent 100%)}
+.bblur i{position:absolute;inset:0}
+.bblur i:nth-child(1){-webkit-backdrop-filter:blur(0.7px);backdrop-filter:blur(0.7px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 1 / 8),transparent 100%);mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 1 / 8),transparent 100%)}
+.bblur i:nth-child(2){-webkit-backdrop-filter:blur(1.4px);backdrop-filter:blur(1.4px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 2 / 8),transparent calc(100% - var(--f) * 1 / 8));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 2 / 8),transparent calc(100% - var(--f) * 1 / 8))}
+.bblur i:nth-child(3){-webkit-backdrop-filter:blur(2.2px);backdrop-filter:blur(2.2px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 3 / 8),transparent calc(100% - var(--f) * 2 / 8));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 3 / 8),transparent calc(100% - var(--f) * 2 / 8))}
+.bblur i:nth-child(4){-webkit-backdrop-filter:blur(3.2px);backdrop-filter:blur(3.2px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 4 / 8),transparent calc(100% - var(--f) * 3 / 8));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 4 / 8),transparent calc(100% - var(--f) * 3 / 8))}
+.bblur i:nth-child(5){-webkit-backdrop-filter:blur(4.5px);backdrop-filter:blur(4.5px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 5 / 8),transparent calc(100% - var(--f) * 4 / 8));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 5 / 8),transparent calc(100% - var(--f) * 4 / 8))}
+.bblur i:nth-child(6){-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 6 / 8),transparent calc(100% - var(--f) * 5 / 8));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 6 / 8),transparent calc(100% - var(--f) * 5 / 8))}
+.bblur i:nth-child(7){-webkit-backdrop-filter:blur(7.8px);backdrop-filter:blur(7.8px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 7 / 8),transparent calc(100% - var(--f) * 6 / 8));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 7 / 8),transparent calc(100% - var(--f) * 6 / 8))}
+.bblur i:nth-child(8){-webkit-backdrop-filter:blur(10px) saturate(1.5);backdrop-filter:blur(10px) saturate(1.5);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 8 / 8),transparent calc(100% - var(--f) * 7 / 8));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 8 / 8),transparent calc(100% - var(--f) * 7 / 8))}
 `;
 
 const svgi = (d, z) => '<svg width="' + (z || 18) + '" height="' + (z || 18) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + "</svg>";
@@ -861,6 +887,10 @@ document.addEventListener("visibilitychange",function(){
   var ae=document.activeElement;if(ae&&ae.tagName==="INPUT")return;
   location.reload()
 });
+// 导航吸顶后才显示顶部模糊（用一个零高度的哨兵判断，滚动时只在 rAF 里量一次）
+var nv=document.querySelector(".nav"),nsn=$("navs"),tk=0;
+function stuck(){tk=0;if(!nv||!nsn)return;var t=parseFloat(getComputedStyle(nv).top)||0;if(nsn.getBoundingClientRect().top<=t+0.5)nv.setAttribute("data-stuck","");else nv.removeAttribute("data-stuck")}
+addEventListener("scroll",function(){if(!tk)tk=requestAnimationFrame(stuck)},{passive:true});stuck();
 show(curV(),false);
 var si2=$("segi");if(si2)requestAnimationFrame(function(){requestAnimationFrame(function(){si2.className="seg-i on"})});
 })();`;
@@ -1120,8 +1150,8 @@ function renderConsole() {
   const seg = (v, t, on) => '<button type="button" data-v="' + v + '" aria-selected="' + (on ? "true" : "false") + '">' + t + "</button>";
   return shellOpen("微博超话签到", "home") + '<main class="shell">' +
     headHtml("超话签到", dateStr, '<button class="btn btn-icon" type="button" id="rl2" aria-label="刷新" onclick="location.reload()">' + svgi(IC.refresh) + "</button>") +
-    '<nav class="nav s1"><div class="seg" id="seg" role="tablist"><i class="seg-i" id="segi"></i>' + seg("overview", "总览", true) + seg("topics", "超话") + seg("history", "记录") + seg("settings", "设置") + "</div></nav>" +
-    overview + topicsView + historyView + settingsView + '<div class="foot">数据仅保存在本机 Loon 中' + diag + "</div></main>" +
+    '<i class="navs" id="navs" aria-hidden="true"></i><nav class="nav s1"><div class="nav-blur" aria-hidden="true">' + "<i></i>".repeat(8) + '</div><div class="seg" id="seg" role="tablist"><i class="seg-i" id="segi"></i>' + seg("overview", "总览", true) + seg("topics", "超话") + seg("history", "记录") + seg("settings", "设置") + "</div></nav>" +
+    overview + topicsView + historyView + settingsView + '<div class="foot">数据仅保存在本机 Loon 中' + diag + '</div></main><div class="bblur" aria-hidden="true">' + "<i></i>".repeat(8) + "</div>" +
     '<div class="toast" id="toast" role="status">' + esc(toastTxt) + "</div><script>" + PAGE_JS + "</script><script>" + PROG_JS + "</script></body></html>";
 }
 
