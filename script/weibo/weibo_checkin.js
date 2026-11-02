@@ -512,8 +512,6 @@ h1,h2,p{margin:0}a{color:var(--accent-text)}button,a{-webkit-touch-callout:none;
 .it{min-width:0}.it .rt{font-size:15.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .notice{padding:28px 18px;text-align:center;color:var(--muted)}.notice h2{color:var(--text);font-size:16px;margin-bottom:4px}
 .foot{text-align:center;color:var(--muted);font-size:12.5px;margin-top:28px}.foot details{margin-top:10px}.foot summary{cursor:pointer;list-style:none}.foot summary::-webkit-details-marker{display:none}.foot summary:after{content:" ›"}.foot details[open] summary:after{content:" ⌄"}.foot details p{margin-top:8px;line-height:1.7;word-break:break-all}
-.toast{position:fixed;left:0;right:0;margin:0 auto;width:max-content;max-width:calc(100vw - 32px);text-align:center;text-wrap:balance;overflow-wrap:anywhere;top:calc(10px + env(safe-area-inset-top));z-index:10;background:var(--text);color:var(--bg);font-size:13.5px;line-height:1.4;padding:9px 18px;border-radius:20px;box-shadow:0 8px 24px rgb(var(--shadow) / .22);opacity:0;visibility:hidden;transform:scale(.9);filter:blur(6px);pointer-events:none;transition:opacity .2s,visibility .2s,transform .5s var(--spring),filter .3s}
-.toast.show{opacity:1;visibility:visible;transform:none;filter:none}.toast.show.leaving{opacity:0;transform:translateY(-4px);transition:opacity .25s,transform .3s}
 .qr{padding:18px;text-align:center}.qr img{width:180px;height:180px;border-radius:var(--r-md);background:#fff;padding:8px;box-shadow:0 0 0 1px var(--line)}.qr .rm{margin-top:10px}
 .wait{display:flex;align-items:center;justify-content:center;gap:10px;margin:6px 0 14px;font-weight:620;color:var(--text)}.wait svg{color:var(--accent)}.wait.done svg,.wait.fail svg{display:none}.wait.done{color:var(--accent-text)}.wait.fail{color:var(--bad)}
 @keyframes intro-up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}@keyframes intro-glow{from{opacity:0}to{opacity:1}}
@@ -525,9 +523,6 @@ h1,h2,p{margin:0}a{color:var(--accent-text)}button,a{-webkit-touch-callout:none;
 .act{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:14px 16px}.row+.act{border-top:1px solid var(--line)}
 .btn-danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 35%,var(--line))}.btn-danger-fill{background:var(--bad);border-color:transparent;color:#fff}
 .cfm{display:contents}.cfm [data-cf],.cfm [data-cn]{display:none}.cfm[data-ask] [data-go]{display:none}.cfm[data-ask] [data-cf],.cfm[data-ask] [data-cn]{display:inline-flex;animation:intro-up .25s var(--ease) both}
-.sw{position:relative;flex:none;width:46px;height:28px;border:0;padding:0;border-radius:999px;background:var(--chip);box-shadow:inset 0 0 0 1px var(--line);cursor:pointer;transition:background-color .25s var(--ease)}
-.sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--card);box-shadow:0 1px 3px rgb(0 0 0 / .25);transition:transform .4s var(--spring)}
-.sw[aria-checked="true"]{background:var(--accent)}.sw[aria-checked="true"]::after{transform:translateX(18px)}.sw:disabled{opacity:.6}
 .item.off .av,.item.off .it{opacity:.5}.item .it{transition:opacity .2s}
 /* 交互细节：键盘焦点、取消双击缩放延迟、悬停反馈（仅支持悬停的设备） */
 a,button,.sw{touch-action:manipulation}
@@ -542,8 +537,76 @@ a,button,.sw{touch-action:manipulation}
 .seg button{font:inherit;font-size:13.5px;font-weight:600;color:var(--muted);background:none;border:0;border-radius:9px;padding:8px 4px;cursor:pointer;white-space:nowrap;transition:color .2s}
 .seg button{position:relative;z-index:1}.seg button[aria-selected="true"]{color:var(--text)}
 .seg-i{position:absolute;top:3px;bottom:3px;left:3px;width:calc((100% - 12px) / 4);border-radius:9px;background:var(--card);box-shadow:0 1px 3px rgb(0 0 0 / .14);transform:translateX(calc(var(--i,0) * (100% + 2px)));pointer-events:none}.seg-i.on{transition:transform .45s var(--spring)}
-.sw:active::after{width:27px}.sw[aria-checked="true"]:active::after{transform:translateX(13px)}
-@media (prefers-reduced-motion:reduce){.seg-i.on,.sw::after{transition:none}}
+@media (prefers-reduced-motion:reduce){.seg-i.on{transition:none}}
+
+/* ════ 四个移植自 Bencho 的组件（MIT，bencho.dev/licence）：液态开关 / 通知堆叠 / 灵动岛 / 浮标签输入框 ════
+   Bencho 的设计变量对应到本页：--fill-on / --ink → --text，--fill-slab / --card → --card，--signal → --accent，
+   --ink-3 / --ink-4 → --muted，--font-ui → 继承页面字体；状态色用本页的 --accent / --warn / --bad。 */
+
+/* ── 液态开关 ── 一个水滴在轨道里；开 = 绿色轨道，关 = 浅色轨道。水滴的位置、拉伸全由脚本写进 transform，所以这里不给 transform 加过渡 */
+.sw{position:relative;flex:none;width:58px;height:32px;padding:0;border:0;border-radius:999px;background:var(--chip);box-shadow:inset 0 0 0 1px var(--line);cursor:pointer;touch-action:pan-y;-webkit-tap-highlight-color:transparent;transition:background-color .42s ease,box-shadow .42s ease}
+.sw[aria-checked="true"]{background:var(--accent);box-shadow:none}.sw:disabled{opacity:.6}
+.lt{position:absolute;left:0;top:50%;width:24px;height:24px;margin-top:-12px;border-radius:999px;background:var(--card);box-shadow:0 1px 3px rgb(0 0 0 / .25);pointer-events:none;will-change:transform}
+
+/* ── 通知堆叠 ── 三条：最新的在最前，前两条缩小一档叠在后面；点一下展开成列表 */
+.tst{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));width:min(320px,calc(100vw - 32px));height:0;transform:translateX(-50%);z-index:40;pointer-events:none;color:var(--text);
+  --tst-mute:color-mix(in srgb,var(--text) 52%,var(--card));--tst-wash:color-mix(in srgb,var(--text) 7%,var(--card))}
+.tst-toast{position:absolute;left:0;bottom:0;width:100%;height:60px;box-sizing:border-box;display:flex;align-items:center;gap:12px;padding:0 10px 0 16px;border-radius:20px;background:var(--card);box-shadow:0 0 0 1px var(--line),0 10px 28px rgb(var(--shadow) / .16);
+  transform-origin:50% 100%;pointer-events:none;cursor:pointer;will-change:transform;transition:transform .5s cubic-bezier(.3,1.12,.5,1),opacity .22s ease,background-color .22s ease,box-shadow .22s ease}
+.tst-toast[data-front="1"],.tst[data-open] .tst-toast{pointer-events:auto}
+.tst:not([data-open]) .tst-toast[data-front="0"]{background:var(--tst-wash);box-shadow:0 0 0 1px color-mix(in srgb,var(--text) 6%,transparent)}
+.tst-toast>*{transition:opacity .22s ease}.tst:not([data-open]) .tst-toast[data-front="0"]>*{opacity:0}
+.tst-icon{flex:none;display:grid;place-items:center}
+.tst-toast[data-kind="success"] .tst-icon{color:var(--accent)}.tst-toast[data-kind="error"] .tst-icon{color:var(--bad)}.tst-toast[data-kind="warning"] .tst-icon{color:var(--warn)}.tst-toast[data-kind="info"] .tst-icon{color:var(--tst-mute)}
+.tst-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.tst-text b{font-size:14px;font-weight:600;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.01em}
+.tst-text span{font-size:12.5px;line-height:16px;color:var(--tst-mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tst-x{flex:none;width:28px;height:28px;display:grid;place-items:center;border:0;border-radius:999px;background:none;color:var(--tst-mute);cursor:pointer;transition:background-color .16s ease,color .16s ease}
+.tst-x:active{background:var(--tst-wash);color:var(--text)}
+@media (hover:hover){.tst-x:hover{background:var(--tst-wash);color:var(--text)}}
+.tst-x:focus-visible{outline:none;box-shadow:0 0 0 2px var(--accent)}
+
+/* ── 灵动岛 ── 黑色胶囊：点一下展开成完整的签到进度，再点收回。尺寸、圆角一起走一条弹簧曲线（作为一个整体长大，不是方块追着圆角跑）；
+   里面的内容不跟着变形：紧凑行和展开卡片是两套布局，带一点模糊和缩放交叉淡入，中间有一瞬间只有黑色的形状在动。 */
+.prog{padding:0}
+.dyn{--dw:min(300px,calc(100vw - 32px));display:flex;justify-content:center;margin-bottom:12px;user-select:none;-webkit-user-select:none}
+.dyn-pill{position:relative;display:block;width:150px;height:36px;padding:0;border:0;border-radius:18px;background:#000;color:#fff;overflow:hidden;cursor:pointer;text-align:left;-webkit-tap-highlight-color:transparent;
+  transition:width .4s cubic-bezier(.32,.72,0,1),height .4s cubic-bezier(.32,.72,0,1),border-radius .4s cubic-bezier(.32,.72,0,1),transform .35s var(--spring)}
+.dyn-pill[data-open="true"]{width:var(--dw);height:118px;border-radius:38px;transition:width .55s cubic-bezier(.3,1.25,.5,1),height .55s cubic-bezier(.3,1.25,.5,1),border-radius .55s cubic-bezier(.3,1.25,.5,1),transform .35s var(--spring)}
+.dyn-pill:active{transform:scale(.97)}
+@media (prefers-color-scheme:dark){.dyn-pill{box-shadow:0 0 0 1px rgb(255 255 255 / .14)}}
+.dyn-compact,.dyn-open{position:absolute;top:0;bottom:0;display:flex;transition:opacity .22s ease .06s,transform .22s ease .06s,filter .22s ease .06s}
+.dyn-compact{left:0;right:0;align-items:center;justify-content:space-between;gap:12px;padding:0 14px}
+.dyn-open{left:50%;width:var(--dw);margin-left:calc(var(--dw) / -2);flex-direction:column;justify-content:space-between;padding:14px 20px 14px}
+.dyn-pill[data-open="true"] .dyn-compact,.dyn-pill:not([data-open="true"]) .dyn-open{opacity:0;transform:scale(.92);filter:blur(6px);pointer-events:none;transition-delay:0s}
+.dyn-dot{flex:none;width:8px;height:8px;border-radius:50%;background:#30d158;animation:dyn-pulse 1.2s ease-in-out infinite}
+.prog.fin .dyn-dot{animation:none}
+.dyn-num{font-size:13px;font-weight:500;font-variant-numeric:tabular-nums;color:#64d2ff}
+.dyn-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.dyn-label{font-size:12px;color:rgb(255 255 255 / .55)}.dyn-pct{font-size:13px;font-variant-numeric:tabular-nums;color:#64d2ff}
+.dyn-name{display:block;font-size:17px;font-weight:500;letter-spacing:-.01em;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dyn-rail{display:block;height:5px;border-radius:3px;background:rgb(255 255 255 / .22);overflow:hidden}.dyn-rail>span{display:block;height:100%;width:0;border-radius:inherit;background:#64d2ff;transition:width .5s var(--ease)}
+.dyn-cnt{font-size:12px;color:rgb(255 255 255 / .55)}.dyn-cnt b{font-weight:600;font-size:14px;color:#fff;margin-right:3px;font-variant-numeric:tabular-nums}
+.pl:empty{display:none}.pl.panel{padding:0 16px}.pl.panel li:first-child{border-top:0}
+@keyframes dyn-pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.dyn-pill,.dyn-pill[data-open="true"],.dyn-compact,.dyn-open{transition:none}.dyn-dot{animation:none}}
+
+/* ── 浮标签输入框 ── 标签就是占位符；聚焦时标签升到上边线，线从中间向两边让出缺口，轮廓颜色变深。轮廓一直是完整的，只有缺口在动 */
+.lbi{position:relative;display:block;padding-top:12px;margin-bottom:10px}
+.lbi-box{position:relative;height:48px;border-radius:16px;background:transparent;cursor:text;--lbi-x:20px}
+.lbi-ring{position:absolute;inset:0;overflow:visible;pointer-events:none}
+.lbi-ring path{fill:none;stroke:color-mix(in srgb,var(--text) 32%,var(--card));stroke-width:1;stroke-linecap:butt;transition:stroke .22s ease,stroke-width .22s ease}
+.lbi[data-focus="true"] .lbi-ring path{stroke:var(--accent);stroke-width:1.5}
+.lbi-gap{stroke-dasharray:1 2;stroke-dashoffset:0;transition:stroke .22s ease,stroke-width .22s ease,stroke-dashoffset .42s cubic-bezier(.22,1,.36,1)}
+.lbi[data-up="true"] .lbi-gap{stroke-dashoffset:-1}
+.lbi-label{position:absolute;left:var(--lbi-x);top:50%;font-size:16px;line-height:1;letter-spacing:-.01em;white-space:pre;color:var(--muted);transform-origin:left center;transform:translateY(-50%);transition:transform .42s cubic-bezier(.22,1,.36,1),color .22s ease;cursor:text;-webkit-user-select:none;user-select:none}
+.lbi[data-up="true"] .lbi-label{transform:translateY(-50%) translateY(-24px) scale(.78)}
+.lbi[data-focus="true"] .lbi-label{color:var(--accent-text)}
+.lbi-label span{display:inline-block}
+.lbi[data-focus="true"] .lbi-label span{animation:lbi-hop .46s cubic-bezier(.3,.7,.3,1) both;animation-delay:calc(var(--i) * 24ms)}
+.lbi-field{position:absolute;inset:0;width:100%;height:100%;padding:0 var(--lbi-x);border:0;border-radius:inherit;background:transparent;font:inherit;font-size:16px;letter-spacing:-.01em;color:var(--text);outline:none;-webkit-appearance:none;appearance:none}
+@keyframes lbi-hop{0%{transform:translateY(0)}38%{transform:translateY(-3px)}100%{transform:translateY(0)}}
+@media (prefers-reduced-motion:reduce){.lbi-ring path,.lbi-gap,.lbi-label{transition-duration:.16s}.lbi[data-focus="true"] .lbi-label span{animation:none}}
 .view[hidden]{display:none}.view{animation:intro-up .4s var(--ease) both}
 .acc{display:flex;align-items:center;gap:12px;padding:16px}
 .avc{width:44px;height:44px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:700;font-size:17px;background:var(--chip);color:var(--muted);box-shadow:0 0 0 1px var(--line)}
@@ -561,8 +624,6 @@ a,button,.sw{touch-action:manipulation}
 .pstat{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin:2px 0 10px;text-align:center}.pstat b{display:block;font-size:18px;font-weight:700}.pstat span{font-size:11px;color:var(--muted)}
 .pq{color:var(--muted);font-size:12px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .last{padding:16px}.last .top{display:flex;justify-content:space-between;align-items:center;gap:10px}.last .rm{margin-top:4px}
-.srch{margin-bottom:10px}.srch input,input[type="time"]{font:inherit;font-size:16px;color:var(--text);background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;outline:none;min-width:0}
-.srch input{width:100%}.srch input:focus,input[type="time"]:focus{border-color:var(--accent)}
 .fchips{display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;margin:0 -16px 10px;padding:0 16px}.fchips::-webkit-scrollbar{display:none}
 .fc{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:999px;padding:6px 12px;white-space:nowrap;cursor:pointer;flex:none;display:inline-flex;gap:6px;align-items:center}
 .fc i{font-style:normal;font-family:var(--mono);font-size:11px;opacity:.75}.fc[aria-pressed="true"]{background:var(--text);color:var(--bg);border-color:transparent}
@@ -668,15 +729,53 @@ function roll(el){
 }
 var ns=Q(".num");for(var n=0;n<ns.length;n++)roll(ns[n]);
 
-// 提示条：从其他操作跳回时按 ?m= 显示一次
-var tz=$("toast"),tt;
-function toast(t){if(!tz)return;tz.textContent=t;tz.className="toast show";clearTimeout(tt);tt=setTimeout(function(){tz.className="toast show leaving"},2400)}
+// ── 通知堆叠（移植自 Bencho「Toast stack」，MIT）──
+// 最多三条：最新的在最前，前面两条缩小一档、露出一道边叠在后面；点一下展开成列表，点别处收回。
+// 每条的位置只由「它是第几条 + 是否展开」算出来：展开、收起、离开、新来一条都是同一个动作，所以只用一条过渡曲线。
+var TH=60,TG=10,TPK=12,TMAX=3,tst=$("tst"),tstack=[],topen=false;
+var TP={success:'<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',error:'<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/>',warning:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/>',info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>'};
+function svgs(p,n){return '<svg viewBox="0 0 24 24" width="'+n+'" height="'+n+'" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+p+'</svg>'}
+function tkind(t){return /失败|连不上|过期|出错|错误|没有读到/.test(t)?"error":/部分|不完整|没有变化/.test(t)?"warning":/已|成功|完成/.test(t)?"success":"info"}
+function tlay(){
+  for(var k=0;k<tstack.length;k++){
+    var e=tstack[k].el,d=Math.min(k,TMAX-1),y=topen?-k*(TH+TG):-d*TPK,sc=topen?1:1-d*.05;
+    e.style.transform="translate3d(0,"+y+"px,0) scale("+sc+")";e.style.zIndex=TMAX-k;
+    e.setAttribute("data-front",k===0?"1":"0");e.setAttribute("aria-hidden",!topen&&k>0?"true":"false")
+  }
+}
+function tarm(t,ms){clearTimeout(t.tm);t.tm=setTimeout(function(){tdrop(t)},ms)}
+function topenSet(o){
+  topen=o;if(o)tst.setAttribute("data-open","");else tst.removeAttribute("data-open");
+  for(var i=0;i<tstack.length;i++){if(o)clearTimeout(tstack[i].tm);else tarm(tstack[i],2200)}
+  tlay()
+}
+function tdrop(t){
+  var i=tstack.indexOf(t);if(i<0)return;
+  tstack.splice(i,1);clearTimeout(t.tm);
+  t.el.style.opacity="0";t.el.style.transform+=" translateX(60px)";t.el.style.pointerEvents="none";
+  setTimeout(function(){if(t.el.parentNode)t.el.parentNode.removeChild(t.el)},260);
+  if(topen&&tstack.length<2)topenSet(false);else tlay()
+}
+function toast(title,kind,body){
+  if(!tst)return;kind=kind||tkind(title);
+  var e=document.createElement("div");e.className="tst-toast";e.setAttribute("data-kind",kind);
+  e.style.opacity="0";e.style.transform="translate3d(0,24px,0)"; // 从前面那条的下方升起
+  e.innerHTML='<span class="tst-icon">'+svgs(TP[kind],18)+'</span><span class="tst-text"><b></b><span></span></span><button type="button" class="tst-x" aria-label="关闭">'+svgs('<path d="M18 6 6 18M6 6l12 12"/>',16)+'</button>';
+  e.querySelector("b").textContent=title;
+  var sp=e.querySelector(".tst-text span");if(body)sp.textContent=body;else sp.parentNode.removeChild(sp);
+  var t={el:e,tm:0};tst.appendChild(e);void e.offsetWidth;
+  tstack.unshift(t);while(tstack.length>TMAX)tdrop(tstack[tstack.length-1]);
+  e.style.opacity="1";tlay();if(!topen)tarm(t,kind==="error"?5200:3200);
+  e.querySelector(".tst-x").onclick=function(ev){ev.stopPropagation();tdrop(t)};
+  e.onclick=function(){if(tstack.length>1||topen)topenSet(!topen)}
+}
+document.addEventListener("click",function(ev){if(topen&&tst&&!tst.contains(ev.target))topenSet(false)});
 var MSG={login:"登录成功",out:"已退出登录",cleared:"已清理历史记录",cfg:"已重置模块配置"};
 var mm=/[?&]m=([A-Za-z]+)/.exec(location.search);
 if(mm){
-  var mk=mm[1];
-  if(tz&&MSG[mk])tz.textContent=MSG[mk];
-  if(tz&&(mk==="done"||MSG[mk])){tz.className="toast show";tt=setTimeout(function(){tz.className="toast show leaving"},2800)}
+  var mk=mm[1],dn=tst?tst.getAttribute("data-done")||"":"";
+  if(mk==="done"&&dn){var di=dn.indexOf(" · ");toast(di>0?dn.slice(0,di):dn,/失败|未确认|不完整/.test(dn)?"warning":"success",di>0?dn.slice(di+3):"")}
+  else if(MSG[mk])toast(MSG[mk],"success");
   history.replaceState(null,"",location.pathname+location.hash)
 }
 
@@ -689,6 +788,7 @@ function show(v,top){
   var sg=$("seg");if(sg)sg.style.setProperty("--i",VS.indexOf(v));
   if(top)window.scrollTo(0,0);
   if(v==="history")drawH();
+  if(v==="topics"&&typeof lbiFit==="function")requestAnimationFrame(lbiFit);
   if(typeof stuck==="function")requestAnimationFrame(stuck)
 }
 function go(v){history.replaceState(null,"","#"+v);show(v,true)}
@@ -720,11 +820,11 @@ function setRow(row,en){
 }
 for(var ri=0;ri<rows.length;ri++)(function(row){
   var sw=row.querySelector(".sw");
-  sw.onclick=function(){
+  sw.addEventListener("liq",function(){
     var en=sw.getAttribute("aria-checked")==="true";
     setRow(row,!en);cntT();applyT();
     post("/prefs/skip?id="+encodeURIComponent(sw.getAttribute("data-id"))+"&on="+(en?1:0)).then(function(j){if(!j.ok)throw 0}).catch(function(){setRow(row,en);cntT();applyT();toast("保存失败，请重试")})
-  }
+  })
 })(rows[ri]);
 var fcs=Q(".fc[data-f]");
 for(var fi=0;fi<fcs.length;fi++)fcs[fi].onclick=function(){
@@ -815,11 +915,11 @@ for(var hi=0;hi<hfs.length;hi++)hfs[hi].onclick=function(){
 
 // ---------- 设置 ----------
 var ss=Q(".sw[data-k]");
-for(var ki=0;ki<ss.length;ki++)ss[ki].onclick=function(){
+for(var ki=0;ki<ss.length;ki++)ss[ki].addEventListener("liq",function(){
   var el2=this,on=el2.getAttribute("aria-checked")==="true";
   el2.setAttribute("aria-checked",on?"false":"true");el2.disabled=true;
   post("/prefs/set?k="+el2.getAttribute("data-k")+"&v="+(on?0:1)).then(function(j){if(!j.ok)throw 0;el2.disabled=false}).catch(function(){el2.setAttribute("aria-checked",on?"true":"false");el2.disabled=false;toast("保存失败，请重试")})
-};
+});
 function saveTime(v){post("/prefs/time?v="+encodeURIComponent(v)).then(function(j){toast(j.ok?"签到时间已保存":"保存失败，请检查时间格式");if(j.ok)setTimeout(function(){location.reload()},600)}).catch(function(){toast("连不上脚本，请确认 Loon 已开启")})}
 var tp=$("tpop");
 if(tp){
@@ -856,6 +956,95 @@ if(tp){
 }
 var rl=$("rl");if(rl)rl.onclick=function(){location.reload()};
 
+
+// ── 液态开关（移植自 Bencho「Liquid toggle」，MIT，bencho.dev/licence）──
+// 一个水滴：手指拖着走，松手后由弹簧落到两端；拖得越快越被拉长（面积不变：scaleY = 1/scaleX）。
+// 原版没有第二个「拖尾」水滴，也不用 goo 滤镜 —— 一个圆没有什么可融合的，滤镜只会把边缘糊掉；这里同样是一个普通圆。
+// 比原版（92×46，水滴 36）小一圈、比例不变：水滴四周留的空隙，两端和上下相等。
+// 位置是一个数，手指和弹簧都往里写；抓住它时弹簧不干预，松手后从当前位置接着落。一次没动过的按下 = 点击，照样切换。
+var LQW=58,LQH=32,LQT=24,LQP=(LQH-LQT)/2,LQO=LQW-LQT-LQP,LQM=(LQP+LQO)/2,LQSTILL=!!(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches);
+function liquify(sw){
+  var th=document.createElement("span");th.className="lt";sw.appendChild(th);
+  var isOn=function(){return sw.getAttribute("aria-checked")==="true"};
+  var x=isOn()?LQO:LQP,v=0,ev=0,held=false,raf=0,last=0,grip=null;
+  var fire=function(){sw.dispatchEvent(new Event("liq"))};
+  function paint(){var k=1+Math.min(.4,Math.abs(ev)/600)*.36;th.style.transform="translate3d("+x.toFixed(2)+"px,0,0) scale("+k.toFixed(3)+","+(1/k).toFixed(3)+")"}
+  function frame(t){
+    raf=0;var dt=Math.min(.034,Math.max(.001,(t-last)/1000));last=t;
+    var target=isOn()?LQO:LQP;
+    if(!held){
+      if(LQSTILL){x=target;v=0}
+      else{ // 弹簧：刚度 170、阻尼 21.5、质量 0.9 —— 到站时只带一点点回弹，不是「甩过去」
+        var n=Math.ceil(dt/.008),h=dt/n;
+        for(var i=0;i<n;i++){v+=(-170*(x-target)-21.5*v)/.9*h;x+=v*h}
+        if(x<1){x=1;if(v<0)v=0}else if(x>LQW-LQT-1){x=LQW-LQT-1;if(v>0)v=0} // 回弹最多顶到轨道边缘，水滴不会冲出轨道
+        if(Math.abs(x-target)<.02&&Math.abs(v)<.5){x=target;v=0}
+      }
+    }else v*=.8;
+    ev+=(v-ev)*.35;if(!held&&v===0&&Math.abs(ev)<.5)ev=0;
+    paint();
+    if(held||v!==0||ev!==0||x!==target)raf=requestAnimationFrame(frame)
+  }
+  function go(){if(!raf){last=performance.now();raf=requestAnimationFrame(frame)}}
+  sw.addEventListener("pointerdown",function(e){
+    if(sw.disabled||(e.pointerType==="mouse"&&e.button!==0))return;
+    // 偏移量等第一次移动时才取：按在轨道任何位置都不会让水滴瞬移
+    grip={id:e.pointerId,grab:null,moved:false,t:0};held=true;
+    try{sw.setPointerCapture(e.pointerId)}catch(_){}
+    go()
+  });
+  sw.addEventListener("pointermove",function(e){
+    var g=grip;if(!g||g.id!==e.pointerId)return;
+    var at=e.clientX-sw.getBoundingClientRect().left;
+    if(g.grab===null)g.grab=at-x;
+    var nx=Math.min(LQO,Math.max(LQP,at-g.grab)),now=performance.now();
+    if(Math.abs(nx-x)>.4)g.moved=true;
+    if(g.t)v=Math.max(-2000,Math.min(2000,(nx-x)/Math.max(.008,(now-g.t)/1000)));
+    g.t=now;x=nx;
+    if(g.moved&&(nx>LQM)!==isOn())fire(); // 过了中线就切换，轨道在手指下面回应
+    go()
+  });
+  function end(e){
+    var g=grip;if(!g)return;grip=null;
+    try{sw.releasePointerCapture(e.pointerId)}catch(_){}
+    held=false;
+    if(!g.moved&&e.type==="pointerup")fire();
+    go()
+  }
+  sw.addEventListener("pointerup",end);sw.addEventListener("pointercancel",end);
+  sw.addEventListener("click",function(e){if(e.detail===0)fire()}); // 键盘（空格 / 回车）仍是普通开关
+  new MutationObserver(go).observe(sw,{attributes:true,attributeFilter:["aria-checked"]}); // 别处改了状态（批量、保存失败回滚）也会落过去
+  paint()
+}
+var lqs=Q(".sw");for(var qi2=0;qi2<lqs.length;qi2++)liquify(lqs[qi2]);
+
+// ── 浮标签输入框（移植自 Bencho「Label input」，MIT）──
+// 标签就是占位符；聚焦时标签升到上边线并逐字跳一下，轮廓变色，上边线从中间向两边让出缺口。
+// 缺口 = 标签自己的宽度（量出来的），而且开在上边线的直线段上，圆角越大标签越靠里。轮廓宽度随容器变，所以用 ResizeObserver 重画。
+var lb=$("lbi");
+if(lb){
+  var lbox=$("lbib"),lring=$("lbir"),llab=$("lbil"),lin=$("q"),LHT=48,LRD=16,LSC=.78,LNW=.75,lw=0;
+  var ltx=llab.textContent;llab.textContent="";
+  for(var ci=0;ci<ltx.length;ci++){var lsp=document.createElement("span");lsp.style.setProperty("--i",ci);lsp.textContent=ltx.charAt(ci);llab.appendChild(lsp)}
+  function lbiState(){
+    var f=document.activeElement===lin,fl=lin.value.length>0;
+    lb.setAttribute("data-focus",f?"true":"false");lb.setAttribute("data-up",f||fl?"true":"false");lb.setAttribute("data-filled",fl?"true":"false")
+  }
+  function lbiFit(){
+    var W=lbox.offsetWidth;if(!W)return;
+    if(!lw)lw=llab.offsetWidth;
+    var r=LRD,lx=Math.max(14,r+4),x0=Math.max(r*.6,lx-5),x1=lx+lw*LSC+5,a=r-LNW,R=W-LNW,B=LHT-LNW,mid=W/2,nm=(x0+x1)/2;
+    var right="M"+x1+","+LNW+" L"+(W-r)+","+LNW+" A"+a+","+a+" 0 0 1 "+R+","+r+" L"+R+","+(LHT-r)+" A"+a+","+a+" 0 0 1 "+(W-r)+","+B+" L"+mid+","+B;
+    var left="M"+x0+","+LNW+" L"+r+","+LNW+" A"+a+","+a+" 0 0 0 "+LNW+","+r+" L"+LNW+","+(LHT-r)+" A"+a+","+a+" 0 0 0 "+r+","+B+" L"+mid+","+B;
+    lring.setAttribute("width",W);lring.setAttribute("height",LHT);lring.setAttribute("viewBox","0 0 "+W+" "+LHT);
+    lring.innerHTML='<path d="'+right+'"/><path d="'+left+'"/><path class="lbi-gap" pathLength="1" d="M'+nm+","+LNW+" L"+x0+","+LNW+'"/><path class="lbi-gap" pathLength="1" d="M'+nm+","+LNW+" L"+x1+","+LNW+'"/>';
+    lbox.style.setProperty("--lbi-x",lx+"px")
+  }
+  lin.addEventListener("focus",lbiState);lin.addEventListener("blur",lbiState);lin.addEventListener("input",lbiState);
+  if(window.ResizeObserver)new ResizeObserver(lbiFit).observe(lbox);else addEventListener("resize",lbiFit);
+  lbiFit()
+}
+
 // 危险操作二次确认：第一次点击变成「确认 / 取消」，4 秒不操作自动还原
 var cf=Q(".cfm");
 for(var a=0;a<cf.length;a++)(function(b){
@@ -891,22 +1080,22 @@ var si2=$("segi");if(si2)requestAnimationFrame(function(){requestAnimationFrame(
 const PROG_JS = `(function(){
 var $=function(i){return document.getElementById(i)};
 var rb=$('run'),box=$('prog');if(!box)return;
-var bar=$('pbar'),tt=$('pt'),cur=$('pc'),qq=$('pq'),ul=$('pl');
+var pill=$('dynp'),ul=$('pl');
 var t0=0,shown=0,tm,fails=0,gone=0,seen=0,fin=0,LB={ok:'成功',already:'已签',fail:'失败',unknown:'未确认'};
 function setc(k,v){var e=$('c-'+k);if(e)e.textContent=v}
+// 灵动岛（移植自 Bencho「Dynamic island」，MIT）：点一下在紧凑胶囊和完整进度之间切换
+function setOpen(o){pill.setAttribute('data-open',o?'true':'false');pill.setAttribute('aria-expanded',o?'true':'false');pill.setAttribute('aria-label',o?'收起签到进度':'展开签到进度')}
+pill.onclick=function(){setOpen(pill.getAttribute('data-open')!=='true')};
 function paint(p){
-  var tot=p.total||0,n=p.n||0,it=p.items||[],c={ok:0,already:0,fail:0,unknown:0};
+  var tot=p.total||0,n=p.n||0,it=p.items||[],c={ok:0,already:0,fail:0,unknown:0},done=p.phase==='done';
   for(var i=0;i<it.length;i++)if(c[it[i].s]!=null)c[it[i].s]++;
   box.hidden=false;
-  bar.style.width=(p.phase==='done'?100:tot?Math.max(4,n/tot*100):6)+'%';
+  $('dr').style.width=(done?100:tot?Math.max(3,n/tot*100):4)+'%';
+  $('db').textContent=(done?100:tot?Math.round(n/tot*100):0)+'%';
   setc('ok',c.ok);setc('already',c.already);setc('fail',c.fail);setc('unknown',c.unknown);setc('skip',p.muted||0);
-  var q=(p.q||[]).slice(n+(p.cur?1:0));
-  if(p.phase==='list'){tt.textContent='正在读取关注的超话…';cur.textContent='';qq.textContent=''}
-  else if(p.phase==='done'){tt.textContent='签到完成 · 共处理 '+n+' 个';cur.textContent='';qq.textContent='';box.className='panel prog fin'}
-  else{
-    tt.textContent='正在签到 · '+n+'/'+tot;cur.textContent=p.cur?'正在处理：'+p.cur:'';
-    qq.textContent=q.length?'等待中：'+q.slice(0,3).join('、')+(q.length>3?' 等 '+q.length+' 个':''):''
-  }
+  if(p.phase==='list'){$('dn').textContent='读取中';$('dl').textContent='超话签到';$('dc').textContent='正在读取关注的超话…'}
+  else if(done){$('dn').textContent='完成';$('dl').textContent='签到完成';$('dc').textContent='共处理 '+n+' 个超话';box.className='prog fin'}
+  else{$('dn').textContent=n+'/'+tot;$('dl').textContent='正在签到 · '+n+'/'+tot;$('dc').textContent=p.cur||'准备下一个…'}
   for(;shown<it.length;shown++){
     var li=document.createElement('li'),a=document.createElement('span'),b=document.createElement('span');
     a.textContent=it[shown].n;b.className='chip '+it[shown].s;b.textContent=LB[it[shown].s]||'';
@@ -924,7 +1113,7 @@ function poll(){
 }
 function start(e){
   if(e)e.preventDefault();if(!rb||rb.hasAttribute('data-done'))return;
-  rb.setAttribute('data-done','');t0=Date.now();shown=0;seen=0;gone=0;ul.innerHTML='';box.className='panel prog';
+  rb.setAttribute('data-done','');t0=Date.now();shown=0;seen=0;gone=0;ul.innerHTML='';box.className='prog';setOpen(true);
   paint({phase:'list'});window.scrollTo({top:0,behavior:'smooth'});
   fetch('/run/go').then(function(r){return r.json()}).then(function(){gone=1}).catch(function(){gone=1});
   tm=setTimeout(poll,700)
@@ -1069,9 +1258,11 @@ function renderConsole() {
   // ===== 总览 =====
   const acct = '<section class="panel s1"><div class="acc"><div class="avc ' + (loggedIn ? "ok" : lv.cls === "warn" ? "warn" : "") + '">' + esc(Array.from(nick || "?")[0]) + '</div><div><div class="rt">' + esc(nick || "未登录") + '</div><div class="rm">' + esc(lv.d) + '</div></div><span class="chip ' + lv.cls + '">' + lv.t + "</span></div>" +
     '<div class="kv"><div><small>最后一次签到</small><b>' + (r ? fmtDT(r.at) : "—") + '</b></div><div><small>下次计划签到</small><b>' + esc(nextPlan(st, prefs)) + "</b></div></div></section>";
-  const prog = '<section class="panel prog s1" id="prog" ' + (live ? 'data-live="1"' : "hidden") + '><div class="prog-h">' + SPIN + '<span id="pt" aria-live="polite">正在签到…</span></div><div class="pbar"><i id="pbar"></i></div>' +
-    '<div class="pstat"><div><b id="c-ok">0</b><span>成功</span></div><div><b id="c-already">0</b><span>已签</span></div><div><b id="c-fail">0</b><span>失败</span></div><div><b id="c-unknown">0</b><span>未确认</span></div><div><b id="c-skip">0</b><span>跳过</span></div></div>' +
-    '<div class="pc" id="pc"></div><div class="pq" id="pq"></div><ul class="pl" id="pl"></ul></section>';
+  const prog = '<section class="prog s1" id="prog" ' + (live ? 'data-live="1"' : "hidden") + '><div class="dyn"><button class="dyn-pill" id="dynp" type="button" data-open="true" aria-expanded="true" aria-label="收起签到进度">' +
+    '<span class="dyn-compact"><i class="dyn-dot"></i><span class="dyn-num" id="dn">读取中</span></span>' +
+    '<span class="dyn-open"><span class="dyn-row"><span class="dyn-label" id="dl" aria-live="polite">超话签到</span><span class="dyn-pct" id="db">0%</span></span><span class="dyn-name" id="dc">正在读取关注的超话…</span><span class="dyn-rail"><span id="dr"></span></span>' +
+    '<span class="dyn-row dyn-cnt"><span><b id="c-ok">0</b>成功</span><span><b id="c-already">0</b>已签</span><span><b id="c-fail">0</b>失败</span><span><b id="c-unknown">0</b>未确认</span><span><b id="c-skip">0</b>跳过</span></span></span></button></div>' +
+    '<ul class="pl panel" id="pl"></ul></section>';
   const runBtn = loggedIn ?
     '<a class="btn btn-primary btn-run swap" id="run" href="/run"><span class="lbl">立即签到</span><span class="lbl lbl-alt">' + SPIN + "签到中…</span></a>" :
     '<a class="btn btn-primary btn-run" href="/login">扫码登录</a>';
@@ -1103,7 +1294,7 @@ function renderConsole() {
   }).join("");
   const fcb = (f, t, on) => '<button class="fc" type="button" data-f="' + f + '" aria-pressed="' + (on ? "true" : "false") + '">' + t + " <i>0</i></button>";
   const topicsView = '<div class="view" id="v-topics" hidden><section class="panel s1"><div class="lsrow"><div><div class="rt">' + (lsT[0] === "—" ? "" : '<span class="chip ' + (ls === "full" ? "ok" : "warn") + '" style="margin-right:6px;font-family:var(--mono)">' + lsT[0] + "</span>") + lsT[1] + '</div><div class="rm">' + lsT[2] + (tl.at ? " · " + ago(tl.at) + "获取" : "") + '</div></div><button class="btn btn-sm" type="button" data-refresh' + (loggedIn ? "" : " disabled") + ">刷新列表</button></div></section>" +
-    (tRows ? '<div class="srch s2"><input id="q" type="search" placeholder="搜索超话" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"></div>' +
+    (tRows ? '<div class="lbi s2" id="lbi" data-up="false" data-focus="false"><div class="lbi-box" id="lbib"><svg class="lbi-ring" id="lbir" aria-hidden="true"></svg><label class="lbi-label" id="lbil" for="q">搜索超话</label><input id="q" class="lbi-field" type="text" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></div></div>' +
       '<div class="fchips s2">' + fcb("all", "全部", true) + fcb("pending", "待签到") + fcb("ok", "成功") + fcb("already", "已签到") + fcb("fail", "失败") + fcb("unknown", "未确认") + fcb("skip", "已跳过") + "</div>" +
       '<div class="bulk s2"><span id="ten"></span><div><button class="btn btn-sm" type="button" id="ball">全选</button><button class="btn btn-sm" type="button" id="bnone">取消全选</button></div></div>' +
       '<ul class="list s3" id="tl">' + tRows + '</ul><div class="panel" id="tempty" hidden><div class="notice"><h2>没有符合的超话</h2><p>换个关键词或筛选条件试试</p></div></div>' +
@@ -1144,7 +1335,7 @@ function renderConsole() {
     headHtml("超话签到", dateStr, '<button class="btn btn-icon" type="button" id="rl2" aria-label="刷新" onclick="location.reload()">' + svgi(IC.refresh) + "</button>") +
     '<i class="navs" id="navs" aria-hidden="true"></i><nav class="nav s1"><div class="nav-blur" aria-hidden="true">' + "<i></i>".repeat(3) + '</div><div class="seg" id="seg" role="tablist"><i class="seg-i" id="segi"></i>' + seg("overview", "总览", true) + seg("topics", "超话") + seg("history", "记录") + seg("settings", "设置") + "</div></nav>" +
     overview + topicsView + historyView + settingsView + '<div class="foot">数据仅保存在本机 Loon 中' + diag + '</div></main><div class="bblur" aria-hidden="true">' + "<i></i>".repeat(3) + "</div>" +
-    '<div class="toast" id="toast" role="status">' + esc(toastTxt) + "</div><script>" + PAGE_JS + "</script><script>" + PROG_JS + "</script></body></html>";
+    '<div class="tst" id="tst" role="region" aria-label="通知" data-done="' + esc(toastTxt) + '"></div><script>' + PAGE_JS + "</script><script>" + PROG_JS + "</script></body></html>";
 }
 
 // ---------- 路由 ----------
