@@ -536,7 +536,7 @@ a,button,.sw{touch-action:manipulation}
 .seg{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:2px;padding:3px;border-radius:12px;background:var(--chip);box-shadow:inset 0 0 0 1px var(--line)}
 .seg button{font:inherit;font-size:13.5px;font-weight:600;color:var(--muted);background:none;border:0;border-radius:9px;padding:8px 4px;cursor:pointer;white-space:nowrap;transition:color .2s}
 .seg button{position:relative;z-index:1}.seg button[aria-selected="true"]{color:var(--text)}
-.seg-i{position:absolute;top:3px;bottom:3px;left:3px;width:calc((100% - 12px) / 4);border-radius:9px;background:var(--card);box-shadow:0 1px 3px rgb(0 0 0 / .14);transform:translateX(calc(var(--i,0) * (100% + 2px)));pointer-events:none}.seg-i.on{transition:transform .45s var(--spring)}
+.seg-i{position:absolute;top:3px;bottom:3px;left:3px;width:calc((100% - 12px) / 4);border-radius:9px;background:var(--card);box-shadow:0 1px 3px rgb(0 0 0 / .14);transform:translateX(calc(var(--i,0) * (100% + 2px)));pointer-events:none}.seg-i.on{transition:transform .45s cubic-bezier(.22,1,.36,1)} /* 不能用带回弹的弹簧曲线：跨三格移动时回弹的距离按比例放大，会冲出分段控件的边 */
 @media (prefers-reduced-motion:reduce){.seg-i.on{transition:none}}
 
 /* ════ 四个移植自 Bencho 的组件（MIT，bencho.dev/licence）：液态开关 / 通知堆叠 / 灵动岛 / 浮标签输入框 ════
