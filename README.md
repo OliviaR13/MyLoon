@@ -2,13 +2,11 @@
 
 <div align="center">
 
-<img src="icon/myloon.png" alt="MyLoon" width="112" height="112">
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0f7f69,100:3b6cf0&height=200&section=header&text=MyLoon&fontSize=64&fontColor=ffffff&fontAlignY=38&animation=fadeIn" alt="MyLoon" width="100%">
 
-# MyLoon
+<img src="icon/myloon.png" alt="MyLoon" width="96" height="96">
 
-**[Loon](https://www.nsloon.com/) 插件合集 · 在线安装平台**
-
-规则分流 · 属地控制 · 登录修复，一键唤起 Loon 安装
+<a href="https://www.nsloon.com/"><img src="https://readme-typing-svg.demolab.com/?lines=Loon+%E6%8F%92%E4%BB%B6%E5%90%88%E9%9B%86+%C2%B7+%E5%9C%A8%E7%BA%BF%E5%AE%89%E8%A3%85%E5%B9%B3%E5%8F%B0;%E8%A7%84%E5%88%99%E5%88%86%E6%B5%81+%C2%B7+%E5%B1%9E%E5%9C%B0%E6%8E%A7%E5%88%B6+%C2%B7+%E7%99%BB%E5%BD%95%E4%BF%AE%E5%A4%8D;%E4%B8%80%E9%94%AE%E5%94%A4%E8%B5%B7+Loon+%E5%AE%89%E8%A3%85&font=Noto+Sans+SC&size=20&duration=3200&pause=900&color=0F7F69&center=true&vCenter=true&width=520&height=50" alt="Loon 插件合集 · 在线安装平台"></a>
 
 [![License](https://img.shields.io/badge/License-All_Rights_Reserved-8a8a85?style=flat-square)](LICENSE)
 [![Last commit](https://img.shields.io/github/last-commit/OliviaR13/MyLoon?style=flat-square&logo=github)](https://github.com/OliviaR13/MyLoon/commits/main)
@@ -207,6 +205,7 @@ https://raw.githubusercontent.com/OliviaR13/MyLoon/main/plugin/<文件名>.plugi
 | [Cloudflare Pages](https://developers.cloudflare.com/pages/)、[Turnstile](https://developers.cloudflare.com/turnstile/) | 托管、接口与人机验证 |
 | [Shields.io](https://shields.io/) | 顶部徽章 |
 | [othneildrew/Best-README-Template](https://github.com/othneildrew/Best-README-Template)、[mrchief/awesome-readme](https://github.com/mrchief/awesome-readme) | README 排版参考 |
+| [kyechan99/capsule-render](https://github.com/kyechan99/capsule-render)、[DenverCoder1/readme-typing-svg](https://github.com/DenverCoder1/readme-typing-svg) | 顶部 / 底部波浪横幅、打字动画 |
 
 ## 许可
 
@@ -217,5 +216,7 @@ https://raw.githubusercontent.com/OliviaR13/MyLoon/main/plugin/<文件名>.plugi
 <div align="center">
 
 [↑ 回到顶部](#top)
+
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0f7f69,100:3b6cf0&height=110&section=footer&reversal=true" alt="" width="100%">
 
 </div>
