@@ -149,6 +149,7 @@ https://raw.githubusercontent.com/OliviaR13/MyLoon/main/plugin/<文件名>.plugi
 1. Cloudflare 控制台 → Storage & Databases → D1 → 创建一个数据库（名称随意）。
 2. Pages 项目 → Settings → Bindings → Add → D1 database，变量名填 `MLB_DB`，选刚创建的数据库。
 3. 重新部署一次。表会在第一次访问时自动创建。
+4. 推荐：在 Pages 项目 → Settings → Variables and Secrets 里新增一个 Secret：`INSTALL_HASH_SECRET`，填一段随机字符串，用作去重哈希的盐。不设时沿用 `TURNSTILE_SECRET`（再退一步是 `SESSION_SECRET`）；三个都没有时不记录统计，不会退回固定默认值。
 
 </details>
 
@@ -162,6 +163,7 @@ https://raw.githubusercontent.com/OliviaR13/MyLoon/main/plugin/<文件名>.plugi
 | [`script/`](script/) | 插件所用脚本 |
 | [`box/`](box/) | Loon Box 前端（原生 HTML / CSS / ES Modules） |
 | [`functions/`](functions/) | Cloudflare Pages Functions：清单接口、GitHub OAuth、云端同步、人机验证、安装统计 |
+| [`tests/`](tests/) | 云端同步合并逻辑的测试（`node --test tests/sync.test.mjs`） |
 | [`db/`](db/) | 安装统计的 D1 表结构（函数会自动建表，仅供参考） |
 | [`icon/`](icon/) | 图标资源 |
 | [`manifest.json`](manifest.json) | 插件清单，由 Actions 自动生成，请勿手动编辑 |

@@ -1,8 +1,10 @@
 // GET /api/me：当前登录用户和云端数据；PUT /api/me：保存收藏和设置
 // 需要 KV 绑定：MLB_KV（Pages 项目 → Settings → Bindings）
 import { getSession, json, sameOrigin } from "../_lib/auth.js";
+import { mergeFavMeta, mergeSettings } from "../_lib/sync-merge.js";
 
 const MAX_BODY = 64 * 1024;
+const MAX_FAVS = 400; // 收藏记录（含已取消）的条数上限
 const TOMBSTONE_TTL = 90 * 24 * 3600 * 1000; // 「已取消」记录保留 90 天
 
 // 只保留已知字段，限制数量和长度
@@ -11,7 +13,7 @@ function clean(d) {
   const favMeta = {};
   const fm = d?.favMeta;
   if (fm && typeof fm === "object" && !Array.isArray(fm)) {
-    for (const [id, v] of Object.entries(fm).slice(0, 400)) {
+    for (const [id, v] of Object.entries(fm).slice(0, MAX_FAVS)) {
       if (id.length > 0 && id.length <= 80 && Array.isArray(v) && Number.isFinite(v[0]) && (v[1] === 0 || v[1] === 1)) {
         if (v[1] === 0 && Date.now() - v[0] > TOMBSTONE_TTL) continue; // 太旧的取消记录不再保存
         favMeta[id] = [Math.floor(v[0]), v[1]];
@@ -58,14 +60,24 @@ export async function onRequestPut({ request, env }) {
   let body;
   try { body = JSON.parse(text); } catch { return json({ error: "bad_json" }, 400); }
   const data = clean(body);
-  // 客户端可能只带其中一组设置（另一组关闭了同步）：没带的部分保留云端原有的，不被覆盖。
-  // 没带 settings 时（总开关关闭不会发请求，这里只是兜底）整份保留。
+  // 和云端已有的数据按条目合并（较新者胜），而不是整份覆盖：
+  // 两台设备先后提交时，旧快照盖不掉另一台刚做的收藏或设置。
+  // 客户端可能只带其中一组设置（另一组关闭了同步）：没带的那组保留云端原值。
+  // KV 没有原子的「比较后写入」，读和写之间极短的窗口里两个请求仍可能交错；
+  // 客户端每次同步都会先合并再推送，下一次同步会把漏掉的改动补回来。
   const prev = await env.MLB_KV.get(`u:${user.id}`, "json");
-  data.settings = { ...(prev?.settings || {}), ...data.settings };
-  const prevAt = Number(prev?.settingsAt) || 0;
-  data.lookAt = data.lookAt ?? Number(prev?.lookAt ?? prevAt) ?? 0;
-  data.cardsAt = data.cardsAt ?? Number(prev?.cardsAt ?? prevAt) ?? 0;
-  data.panelAt = data.panelAt ?? (Number(prev?.panelAt) || 0);
+  // 带了 favMeta 才合并；没带（旧客户端）仍按它提交的 favorites 整份替换，这样旧客户端才能取消收藏
+  if (Object.keys(data.favMeta).length) {
+    const prevMeta = { ...(prev?.favMeta || {}) };
+    for (const id of prev?.favorites || []) if (!prevMeta[id]) prevMeta[id] = [0, 1];
+    data.favMeta = mergeFavMeta(prevMeta, data.favMeta, Date.now(), TOMBSTONE_TTL, MAX_FAVS);
+    data.favorites = Object.keys(data.favMeta).filter((id) => data.favMeta[id][1] === 1);
+  }
+  const m = mergeSettings(prev, data);
+  data.settings = m.settings;
+  data.lookAt = m.lookAt;
+  data.cardsAt = m.cardsAt;
+  data.panelAt = m.panelAt;
   data.settingsAt = Math.max(data.settingsAt, data.lookAt || 0, data.cardsAt || 0);
   await env.MLB_KV.put(`u:${user.id}`, JSON.stringify(data));
   return json({ ok: true, updatedAt: data.updatedAt });

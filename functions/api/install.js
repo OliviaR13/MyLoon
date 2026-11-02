@@ -2,6 +2,8 @@
 // - 只接受清单里存在的插件 id
 // - 同一个 IP 同一天对同一个插件只计一次（存加盐哈希，不存 IP）
 // - 需要 D1 绑定 MLB_DB；没绑定时返回 501，前端会忽略
+// - 哈希的盐取 INSTALL_HASH_SECRET（推荐单独设置），没设就沿用 TURNSTILE_SECRET / SESSION_SECRET；
+//   三个都没有时不记录（501），不再退回写死的默认值
 import manifest from "../../manifest.json";
 import { json, sameOrigin } from "../_lib/auth.js";
 import { ensureSchema, today } from "../_lib/stats-db.js";
@@ -15,6 +17,8 @@ export async function onRequestPost({ request, env }) {
   if (!request.headers.get("Origin") || !sameOrigin(request)) return json({ error: "forbidden" }, 403);
   const DB = env.MLB_DB;
   if (!DB) return json({ error: "stats_not_configured" }, 501);
+  // 没有任何密钥时，IP 哈希等于裸哈希（IPv4 地址空间很小，能被枚举还原），宁可不记也不用固定默认值
+  if (!(env.INSTALL_HASH_SECRET || env.TURNSTILE_SECRET || env.SESSION_SECRET)) return json({ error: "stats_not_configured" }, 501);
 
   let id;
   try { ({ id } = await request.json()); } catch { return json({ error: "bad_json" }, 400); }
@@ -22,7 +26,7 @@ export async function onRequestPost({ request, env }) {
 
   const day = today();
   const ip = request.headers.get("CF-Connecting-IP") || "";
-  const salt = env.TURNSTILE_SECRET || env.SESSION_SECRET || "mlb";
+  const salt = env.INSTALL_HASH_SECRET || env.TURNSTILE_SECRET || env.SESSION_SECRET;
   const h = hex(await crypto.subtle.digest("SHA-256", enc.encode(`${salt}|${ip}|${id}|${day}`)));
 
   try {
