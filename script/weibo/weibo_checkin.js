@@ -539,9 +539,12 @@ a,button,.sw{touch-action:manipulation}
 /* ---- 控制台（总览 / 超话 / 记录 / 设置） ---- */
 html::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:30;pointer-events:none}
 .nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;margin:0 -16px 16px;padding:8px 16px;background:var(--bg)}
-.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;padding:3px;border-radius:12px;background:var(--chip);box-shadow:inset 0 0 0 1px var(--line)}
-.seg button{font:inherit;font-size:13.5px;font-weight:600;color:var(--muted);background:none;border:0;border-radius:9px;padding:8px 4px;cursor:pointer;white-space:nowrap;transition:background-color .2s,color .2s,box-shadow .2s}
-.seg button[aria-selected="true"]{background:var(--card);color:var(--text);box-shadow:0 1px 3px rgb(0 0 0 / .14)}
+.seg{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:2px;padding:3px;border-radius:12px;background:var(--chip);box-shadow:inset 0 0 0 1px var(--line)}
+.seg button{font:inherit;font-size:13.5px;font-weight:600;color:var(--muted);background:none;border:0;border-radius:9px;padding:8px 4px;cursor:pointer;white-space:nowrap;transition:color .2s}
+.seg button{position:relative;z-index:1}.seg button[aria-selected="true"]{color:var(--text)}
+.seg-i{position:absolute;top:3px;bottom:3px;left:3px;width:calc((100% - 12px) / 4);border-radius:9px;background:var(--card);box-shadow:0 1px 3px rgb(0 0 0 / .14);transform:translateX(calc(var(--i,0) * (100% + 2px)));pointer-events:none}.seg-i.on{transition:transform .45s var(--spring)}
+.sw:active::after{width:27px}.sw[aria-checked="true"]:active::after{transform:translateX(13px)}
+@media (prefers-reduced-motion:reduce){.seg-i.on,.sw::after{transition:none}}
 .view[hidden]{display:none}.view{animation:intro-up .4s var(--ease) both}
 .acc{display:flex;align-items:center;gap:12px;padding:16px}
 .avc{width:44px;height:44px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:700;font-size:17px;background:var(--chip);color:var(--muted);box-shadow:0 0 0 1px var(--line)}
@@ -640,6 +643,7 @@ function curV(){var h=location.hash.replace("#","");return VS.indexOf(h)>=0?h:"o
 function show(v,top){
   for(var i=0;i<VS.length;i++){var el=$("v-"+VS[i]);if(el)el.hidden=VS[i]!==v}
   for(var j=0;j<seg.length;j++)seg[j].setAttribute("aria-selected",seg[j].getAttribute("data-v")===v?"true":"false");
+  var sg=$("seg");if(sg)sg.style.setProperty("--i",VS.indexOf(v));
   if(top)window.scrollTo(0,0);
   if(v==="history")drawH()
 }
@@ -801,6 +805,7 @@ document.addEventListener("visibilitychange",function(){
   location.reload()
 });
 show(curV(),false);
+var si2=$("segi");if(si2)requestAnimationFrame(function(){requestAnimationFrame(function(){si2.className="seg-i on"})});
 })();`;
 
 // 签到进度：点「立即签到」后页面不跳转，而是请求 /run/go（脚本在后台签到），同时每秒轮询 /run/progress 显示进度
@@ -1058,7 +1063,7 @@ function renderConsole() {
   const seg = (v, t, on) => '<button type="button" data-v="' + v + '" aria-selected="' + (on ? "true" : "false") + '">' + t + "</button>";
   return shellOpen("微博超话签到", "home") + '<main class="shell">' +
     headHtml("超话签到", dateStr, '<button class="btn btn-icon" type="button" id="rl2" aria-label="刷新" onclick="location.reload()">' + svgi(IC.refresh) + "</button>") +
-    '<nav class="nav s1"><div class="seg" id="seg" role="tablist">' + seg("overview", "总览", true) + seg("topics", "超话") + seg("history", "记录") + seg("settings", "设置") + "</div></nav>" +
+    '<nav class="nav s1"><div class="seg" id="seg" role="tablist"><i class="seg-i" id="segi"></i>' + seg("overview", "总览", true) + seg("topics", "超话") + seg("history", "记录") + seg("settings", "设置") + "</div></nav>" +
     overview + topicsView + historyView + settingsView + '<div class="foot">数据仅保存在本机 Loon 中' + diag + "</div></main>" +
     '<div class="toast" id="toast" role="status">' + esc(toastTxt) + "</div><script>" + PAGE_JS + "</script><script>" + PROG_JS + "</script></body></html>";
 }
