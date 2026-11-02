@@ -91,7 +91,7 @@ button,a,.tab,.tile,.row-btn,.chip-filter,.star{-webkit-touch-callout:none;-webk
 /* 页头的「刷新」「设置」：玻璃（只有材质，没有 backdrop 折射——它们下面是页面底色，没有可折射的内容） */
 .head .btn{background:var(--ap-bg);border-color:var(--ap-line);-webkit-backdrop-filter:var(--ap-filter);backdrop-filter:var(--ap-filter)}
 @media (hover:hover){.head .btn-ghost:hover:not(:disabled){background:color-mix(in srgb,var(--card) 72%,transparent)}}
-.btn-icon{display:grid;place-items:center;width:40px;height:40px;padding:0;flex:none}
+.btn-icon{display:grid;place-items:center;width:40px;height:40px;padding:0;flex:none;border-radius:50%}
 
 /* 按钮自己当确认（借自 Bencho Notify）：两段文字叠在同一格，按钮大小不变；确认态时旧文字向上滑走、新文字从下面滑进来，按钮填色 */
 .btn.swap{display:inline-grid;grid-template-areas:"s";align-items:center;justify-items:center;overflow:hidden}
