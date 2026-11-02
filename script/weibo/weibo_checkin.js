@@ -572,8 +572,10 @@ a,button,.sw{touch-action:manipulation}
 .dyn{--dw:min(300px,calc(100vw - 32px));display:flex;justify-content:center;margin-bottom:12px;user-select:none;-webkit-user-select:none}
 .dyn-pill{position:relative;display:block;width:150px;height:36px;padding:0;border:0;border-radius:18px;background:#000;color:#fff;overflow:hidden;cursor:pointer;text-align:left;-webkit-tap-highlight-color:transparent;
   transition:width .4s cubic-bezier(.32,.72,0,1),height .4s cubic-bezier(.32,.72,0,1),border-radius .4s cubic-bezier(.32,.72,0,1),transform .35s var(--spring)}
-.dyn-pill[data-open="true"]{width:var(--dw);height:118px;border-radius:38px;transition:width .55s cubic-bezier(.3,1.25,.5,1),height .55s cubic-bezier(.3,1.25,.5,1),border-radius .55s cubic-bezier(.3,1.25,.5,1),transform .35s var(--spring)}
+.dyn-pill[data-open="true"]{width:var(--dw);height:118px;border-radius:30px;transition:width .55s cubic-bezier(.3,1.25,.5,1),height .55s cubic-bezier(.3,1.25,.5,1),border-radius .55s cubic-bezier(.3,1.25,.5,1),transform .35s var(--spring)}
 .dyn-pill:active{transform:scale(.97)}
+/* 展开后的圆角对照 iOS 灵动岛：圆角约为高度的 1/4（原来是 1/3，偏圆）；支持 corner-shape 的浏览器再换成连续曲率 */
+@supports (corner-shape:squircle){.dyn-pill[data-open="true"]{corner-shape:squircle;border-radius:36px}}
 @media (prefers-color-scheme:dark){.dyn-pill{box-shadow:0 0 0 1px rgb(255 255 255 / .14)}}
 .dyn-compact,.dyn-open{position:absolute;top:0;bottom:0;display:flex;transition:opacity .22s ease .06s,transform .22s ease .06s,filter .22s ease .06s}
 .dyn-compact{left:0;right:0;align-items:center;justify-content:space-between;gap:12px;padding:0 14px}
