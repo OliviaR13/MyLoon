@@ -584,6 +584,33 @@ html::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area
 .srow .rt{font-size:15px}
 .diagbox{margin-top:18px}
 @media (max-width:360px){.stat .num{font-size:26px}.seg button{font-size:13px}}
+
+/* 弹出卡片：与主站「排序」菜单同一套 —— 一个按钮展开成卡片，不是两个元素 */
+.panel.ov{overflow:visible}.srow.pop-open{position:relative;z-index:6}
+.pop{position:relative;flex:none;height:40px}
+.pop-btn{height:100%;display:flex;align-items:center;gap:6px;padding:0 12px 0 14px;font:inherit;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--text);background:var(--card);border:1px solid var(--line);border-radius:20px;cursor:pointer;position:relative;z-index:2;transition:border-color .1s .3s,background-color .1s .3s,transform .35s var(--spring)}
+.pop-btn:active{transform:scale(.94)}
+.pop-btn svg{width:16px;height:16px;flex:none;color:var(--muted);fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.pop-btn>*{transition:opacity .16s .16s}
+.pop[data-open="true"] .pop-btn{background:transparent;border-color:transparent;pointer-events:none;transition:border-color 0s,background-color 0s,transform .35s var(--spring)}
+.pop[data-open="true"] .pop-btn>*{opacity:0;transition:opacity .1s}
+.pop-menu{position:absolute;right:0;top:0;z-index:1;overflow:hidden;width:var(--bw,100px);height:var(--bh,40px);background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:0 0 0 rgb(var(--shadow) / 0);opacity:0;visibility:hidden;pointer-events:none;transition:width .36s cubic-bezier(.32,.72,0,1),height .36s cubic-bezier(.32,.72,0,1),border-radius .36s cubic-bezier(.32,.72,0,1),box-shadow .3s,opacity 0s .36s,visibility 0s .36s}
+.pop-menu[data-open="true"]{width:var(--mw);height:var(--mh);box-shadow:0 14px 36px rgb(var(--shadow) / .22);opacity:1;visibility:visible;pointer-events:auto;transition:width .48s cubic-bezier(.22,1,.36,1),height .48s cubic-bezier(.22,1,.36,1),border-radius .48s cubic-bezier(.22,1,.36,1),box-shadow .3s,opacity 0s,visibility 0s}
+.pop-inner{position:absolute;top:0;right:0;width:max-content;min-width:232px;padding:6px}
+.pop-menu .pop-inner>*{opacity:0;transform:translateY(-6px);transition:opacity .14s calc((var(--n) - 1 - var(--i)) * 14ms),transform .2s var(--ease) calc((var(--n) - 1 - var(--i)) * 14ms),background-color .15s}
+.pop-menu[data-open="true"] .pop-inner>*{--d:calc(90ms + var(--i) * 34ms);opacity:1;transform:none;transition:opacity .24s var(--d),transform .42s var(--ease) var(--d),background-color .15s}
+.pop-title{display:flex;align-items:center;justify-content:space-between;min-height:36px;padding:0 10px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer}
+.pop-title svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.pop-cols{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.pop-hd{padding:2px 10px 4px;font-size:11.5px;font-weight:600;color:var(--muted)}
+.pop-list{position:relative;max-height:176px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none}.pop-list::-webkit-scrollbar{display:none}
+.pop-item{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;padding:10px;font:inherit;font-size:14.5px;font-variant-numeric:tabular-nums;color:var(--text);background:none;border:0;border-radius:var(--r-md);text-align:left;cursor:pointer;transition:background-color .15s}
+.pop-item[aria-checked="true"]{color:var(--accent-text);font-weight:600;background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.pop-item.pop-save{color:var(--accent-text);font-weight:650;justify-content:center}
+.pop-sep{height:1px;margin:6px 4px;background:var(--line)}
+@media (hover:hover){.pop-item:hover{background:var(--chip)}.pop-btn:hover{border-color:var(--muted)}}
+@media (hover:none){.pop-item:active{background:var(--chip)}}
+@media (prefers-reduced-motion:reduce){.pop-menu,.pop-menu .pop-inner>*{transition:none}}
 `;
 
 const svgi = (d, z) => '<svg width="' + (z || 18) + '" height="' + (z || 18) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + "</svg>";
@@ -777,9 +804,39 @@ for(var ki=0;ki<ss.length;ki++)ss[ki].onclick=function(){
   post("/prefs/set?k="+el2.getAttribute("data-k")+"&v="+(on?0:1)).then(function(j){if(!j.ok)throw 0;el2.disabled=false}).catch(function(){el2.setAttribute("aria-checked",on?"true":"false");el2.disabled=false;toast("保存失败，请重试")})
 };
 function saveTime(v){post("/prefs/time?v="+encodeURIComponent(v)).then(function(j){toast(j.ok?"签到时间已保存":"保存失败，请检查时间格式");if(j.ok)setTimeout(function(){location.reload()},600)}).catch(function(){toast("连不上脚本，请确认 Loon 已开启")})}
-var tb=$("tmb"),tr=$("tmr");
-if(tb)tb.onclick=function(){var v=$("tm").value;if(!v){toast("请先选择时间");return}saveTime(v)};
-if(tr)tr.onclick=function(){saveTime("")};
+var tp=$("tpop");
+if(tp){
+  var tb=$("tbtn"),tmn=$("tmenu"),tin=$("tinner"),trow=$("trow"),cv=tp.getAttribute("data-v").split(":"),H=+cv[0],M=+cv[1],def=tp.getAttribute("data-def"),cust=tp.getAttribute("data-custom")==="1";
+  var p2=function(n){return("0"+n).slice(-2)};
+  var ttl=el("div","pop-title");ttl.innerHTML='<span></span><svg viewBox="0 0 24 24"><path d="M6 14l6-6 6 6"/></svg>';
+  var tsp=ttl.firstChild,cols=el("div","pop-cols"),lists=[];
+  function lab(){tsp.textContent="签到时间 · "+p2(H)+":"+p2(M)}
+  function mark(){for(var k=0;k<2;k++){var v=k?M:H,l=lists[k];for(var i=0;i<l.children.length;i++)l.children[i].setAttribute("aria-checked",i===v?"true":"false")}}
+  function center(){for(var k=0;k<2;k++){var l=lists[k],it=l.children[k?M:H];if(it)l.scrollTop=it.offsetTop-l.clientHeight/2+it.offsetHeight/2}}
+  [["时",24],["分",60]].forEach(function(d){
+    var c=el("div"),l=el("div","pop-list");c.appendChild(el("div","pop-hd",d[0]));
+    for(var i=0;i<d[1];i++){var b=el("button","pop-item",p2(i));b.type="button";b.setAttribute("role","radio");b.setAttribute("data-n",i);l.appendChild(b)}
+    c.appendChild(l);cols.appendChild(c);lists.push(l)
+  });
+  cols.onclick=function(e){var b=e.target.closest(".pop-item");if(!b)return;if(b.parentNode===lists[0])H=+b.getAttribute("data-n");else M=+b.getAttribute("data-n");mark();lab()};
+  var sv=el("button","pop-item pop-save","保存");sv.type="button";
+  tin.appendChild(ttl);tin.appendChild(cols);tin.appendChild(el("div","pop-sep"));tin.appendChild(sv);
+  if(cust){var rs=el("button","pop-item","恢复默认（"+def+"）");rs.type="button";rs.onclick=function(){saveTime("")};tin.appendChild(rs)}
+  for(var q=0;q<tin.children.length;q++){tin.children[q].style.setProperty("--i",q);tin.children[q].style.setProperty("--n",tin.children.length)}
+  mark();lab();
+  function measure(){var s=tmn.style;s.setProperty("--bw",tb.offsetWidth+"px");s.setProperty("--bh",tb.offsetHeight+"px");s.setProperty("--mw",tin.offsetWidth+2+"px");s.setProperty("--mh",tin.offsetHeight+2+"px")}
+  function isOpen(){return tmn.getAttribute("data-open")==="true"}
+  function setOpen(o){
+    if(o){measure();tmn.style.transition="none";void tmn.offsetWidth;tmn.style.transition="";center()}
+    var v=o?"true":"false";tmn.setAttribute("data-open",v);tp.setAttribute("data-open",v);tb.setAttribute("aria-expanded",v);trow.classList.toggle("pop-open",o);
+    if(o)setTimeout(function(){center();tmn.scrollIntoView({block:"nearest",behavior:"smooth"})},60)
+  }
+  tb.onclick=function(){setOpen(!isOpen())};
+  ttl.onclick=function(){setOpen(false);tb.focus()};
+  sv.onclick=function(){var v=p2(H)+":"+p2(M);setOpen(false);if(v===tp.getAttribute("data-v")){toast("时间没有变化");return}saveTime(v)};
+  document.addEventListener("click",function(e){if(isOpen()&&!tp.contains(e.target))setOpen(false)});
+  document.addEventListener("keydown",function(e){if(e.key==="Escape"&&isOpen()){setOpen(false);tb.focus()}})
+}
 var rl=$("rl");if(rl)rl.onclick=function(){location.reload()};
 
 // 危险操作二次确认：第一次点击变成「确认 / 取消」，4 秒不操作自动还原
@@ -1044,8 +1101,8 @@ function renderConsole() {
     '<div class="act">' + (web ? '<a class="btn" href="/login">重新扫码登录</a>' + confirmBtn("退出登录", "/logout?t=" + tk, "确认退出") : '<a class="btn btn-primary" href="/login">扫码登录</a>') + "</div></section>" +
     (web ? '<p class="note s1">退出登录会清除本机保存的网页登录，之后需要重新扫码才能签到。</p>' : "");
   const lastTrig = tick || st.open ? (tick ? "定时检查 " + ago(tick.at) : "") + (tick && st.open ? " · " : "") + (st.open ? "打开微博补签 " + ago(st.open.at) : "") : "还没有触发过";
-  const autoSet = '<h2 class="sec s2">自动签到</h2><section class="panel s2">' + swRow("自动签到", "到点后自动签到；关闭后只能手动签到", "auto", prefs.auto) +
-    '<div class="srow"><div><div class="rt">签到时间</div><div class="rm">插件默认 ' + SCHED_DEFAULT_TEXT + (prefs.time ? "，当前已自定义" : "") + '</div></div><input type="time" id="tm" value="' + tm2 + '"><button class="btn btn-sm" type="button" id="tmb">保存</button>' + (prefs.time ? '<button class="btn btn-sm btn-ghost" type="button" id="tmr">默认</button>' : "") + "</div>" +
+  const autoSet = '<h2 class="sec s2">自动签到</h2><section class="panel ov s2">' + swRow("自动签到", "到点后自动签到；关闭后只能手动签到", "auto", prefs.auto) +
+    '<div class="srow" id="trow"><div><div class="rt">签到时间</div><div class="rm">插件默认 ' + SCHED_DEFAULT_TEXT + (prefs.time ? "，当前已自定义" : "") + '</div></div><div class="pop" id="tpop" data-v="' + tm2 + '" data-def="' + SCHED_DEFAULT_TEXT + '" data-custom="' + (prefs.time ? "1" : "0") + '"><button class="pop-btn" type="button" id="tbtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="tmenu"><span id="tval">' + tm2 + '</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button><div class="pop-menu" id="tmenu" role="dialog" aria-label="签到时间"><div class="pop-inner" id="tinner"></div></div></div></div>' +
     infoRow("最近一次触发", lastTrig) + infoRow("最近一次执行结果", r ? fmtDT(r.at) + " · " + rt[1] : "还没有签到记录", r ? '<span class="chip ' + rt[0] + '">' + (rt[0] === "ok" ? "正常" : rt[0] === "bad" ? "失败" : "需留意") + "</span>" : "") + "</section>" +
     '<p class="note s2">Cron 和「打开微博」两种触发共用同一把任务锁，不会重复签到。</p>';
   const topicSet = '<h2 class="sec s3">超话</h2><section class="panel s3">' + swRow("自动获取关注超话", "每次签到前重新读取关注列表；关闭后使用上次保存的列表", "fetch", prefs.fetch) +
