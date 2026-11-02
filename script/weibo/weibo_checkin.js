@@ -566,33 +566,6 @@ a,button,.sw{touch-action:manipulation}
 @media (hover:hover){.tst-x:hover{background:var(--tst-wash);color:var(--text)}}
 .tst-x:focus-visible{outline:none;box-shadow:0 0 0 2px var(--accent)}
 
-/* ── 灵动岛 ── 黑色胶囊：点一下展开成完整的签到进度，再点收回。尺寸、圆角一起走一条弹簧曲线（作为一个整体长大，不是方块追着圆角跑）；
-   里面的内容不跟着变形：紧凑行和展开卡片是两套布局，带一点模糊和缩放交叉淡入，中间有一瞬间只有黑色的形状在动。 */
-.prog{padding:0}
-.dyn{--dw:min(300px,calc(100vw - 32px));display:flex;justify-content:center;margin-bottom:12px;user-select:none;-webkit-user-select:none}
-.dyn-pill{position:relative;display:block;width:150px;height:36px;padding:0;border:0;border-radius:18px;background:#000;color:#fff;overflow:hidden;cursor:pointer;text-align:left;-webkit-tap-highlight-color:transparent;
-  transition:width .4s cubic-bezier(.32,.72,0,1),height .4s cubic-bezier(.32,.72,0,1),border-radius .4s cubic-bezier(.32,.72,0,1),transform .35s var(--spring)}
-.dyn-pill[data-open="true"]{width:var(--dw);height:118px;border-radius:30px;transition:width .55s cubic-bezier(.3,1.25,.5,1),height .55s cubic-bezier(.3,1.25,.5,1),border-radius .55s cubic-bezier(.3,1.25,.5,1),transform .35s var(--spring)}
-.dyn-pill:active{transform:scale(.97)}
-/* 展开后的圆角对照 iOS 灵动岛：圆角约为高度的 1/4（原来是 1/3，偏圆）；支持 corner-shape 的浏览器再换成连续曲率 */
-@supports (corner-shape:squircle){.dyn-pill[data-open="true"]{corner-shape:squircle;border-radius:36px}}
-@media (prefers-color-scheme:dark){.dyn-pill{box-shadow:0 0 0 1px rgb(255 255 255 / .14)}}
-.dyn-compact,.dyn-open{position:absolute;top:0;bottom:0;display:flex;transition:opacity .22s ease .06s,transform .22s ease .06s,filter .22s ease .06s}
-.dyn-compact{left:0;right:0;align-items:center;justify-content:space-between;gap:12px;padding:0 14px}
-.dyn-open{left:50%;width:var(--dw);margin-left:calc(var(--dw) / -2);flex-direction:column;justify-content:space-between;padding:14px 20px 14px}
-.dyn-pill[data-open="true"] .dyn-compact,.dyn-pill:not([data-open="true"]) .dyn-open{opacity:0;transform:scale(.92);filter:blur(6px);pointer-events:none;transition-delay:0s}
-.dyn-dot{flex:none;width:8px;height:8px;border-radius:50%;background:#30d158;animation:dyn-pulse 1.2s ease-in-out infinite}
-.prog.fin .dyn-dot{animation:none}
-.dyn-num{font-size:13px;font-weight:500;font-variant-numeric:tabular-nums;color:#64d2ff}
-.dyn-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.dyn-label{font-size:12px;color:rgb(255 255 255 / .55)}.dyn-pct{font-size:13px;font-variant-numeric:tabular-nums;color:#64d2ff}
-.dyn-name{display:block;font-size:17px;font-weight:500;letter-spacing:-.01em;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dyn-rail{display:block;height:5px;border-radius:3px;background:rgb(255 255 255 / .22);overflow:hidden}.dyn-rail>span{display:block;height:100%;width:0;border-radius:inherit;background:#64d2ff;transition:width .5s var(--ease)}
-.dyn-cnt{font-size:12px;color:rgb(255 255 255 / .55)}.dyn-cnt b{font-weight:600;font-size:14px;color:#fff;margin-right:3px;font-variant-numeric:tabular-nums}
-.pl:empty{display:none}.pl.panel{padding:0 16px}.pl.panel li:first-child{border-top:0}
-@keyframes dyn-pulse{0%,100%{opacity:1}50%{opacity:.35}}
-@media (prefers-reduced-motion:reduce){.dyn-pill,.dyn-pill[data-open="true"],.dyn-compact,.dyn-open{transition:none}.dyn-dot{animation:none}}
-
 /* ── 浮标签输入框 ── 标签就是占位符；聚焦时标签升到上边线，线从中间向两边让出缺口，轮廓颜色变深。轮廓一直是完整的，只有缺口在动 */
 .lbi{position:relative;display:block;padding-top:12px;margin-bottom:10px}
 .lbi-box{position:relative;height:48px;border-radius:16px;background:transparent;cursor:text;--lbi-x:20px}
@@ -1079,25 +1052,26 @@ var si2=$("segi");if(si2)requestAnimationFrame(function(){requestAnimationFrame(
 })();`;
 
 // 签到进度：点「立即签到」后页面不跳转，而是请求 /run/go（脚本在后台签到），同时每秒轮询 /run/progress 显示进度
+// 签到进度：点「立即签到」后页面不跳转，而是请求 /run/go（脚本在后台签到），同时每秒轮询 /run/progress 显示进度
 const PROG_JS = `(function(){
 var $=function(i){return document.getElementById(i)};
 var rb=$('run'),box=$('prog');if(!box)return;
-var pill=$('dynp'),ul=$('pl');
+var bar=$('pbar'),tt=$('pt'),cur=$('pc'),qq=$('pq'),ul=$('pl');
 var t0=0,shown=0,tm,fails=0,gone=0,seen=0,fin=0,LB={ok:'成功',already:'已签',fail:'失败',unknown:'未确认'};
 function setc(k,v){var e=$('c-'+k);if(e)e.textContent=v}
-// 灵动岛（移植自 Bencho「Dynamic island」，MIT）：点一下在紧凑胶囊和完整进度之间切换
-function setOpen(o){pill.setAttribute('data-open',o?'true':'false');pill.setAttribute('aria-expanded',o?'true':'false');pill.setAttribute('aria-label',o?'收起签到进度':'展开签到进度')}
-pill.onclick=function(){setOpen(pill.getAttribute('data-open')!=='true')};
 function paint(p){
-  var tot=p.total||0,n=p.n||0,it=p.items||[],c={ok:0,already:0,fail:0,unknown:0},done=p.phase==='done';
+  var tot=p.total||0,n=p.n||0,it=p.items||[],c={ok:0,already:0,fail:0,unknown:0};
   for(var i=0;i<it.length;i++)if(c[it[i].s]!=null)c[it[i].s]++;
   box.hidden=false;
-  $('dr').style.width=(done?100:tot?Math.max(3,n/tot*100):4)+'%';
-  $('db').textContent=(done?100:tot?Math.round(n/tot*100):0)+'%';
+  bar.style.width=(p.phase==='done'?100:tot?Math.max(4,n/tot*100):6)+'%';
   setc('ok',c.ok);setc('already',c.already);setc('fail',c.fail);setc('unknown',c.unknown);setc('skip',p.muted||0);
-  if(p.phase==='list'){$('dn').textContent='读取中';$('dl').textContent='超话签到';$('dc').textContent='正在读取关注的超话…'}
-  else if(done){$('dn').textContent='完成';$('dl').textContent='签到完成';$('dc').textContent='共处理 '+n+' 个超话';box.className='prog fin'}
-  else{$('dn').textContent=n+'/'+tot;$('dl').textContent='正在签到 · '+n+'/'+tot;$('dc').textContent=p.cur||'准备下一个…'}
+  var q=(p.q||[]).slice(n+(p.cur?1:0));
+  if(p.phase==='list'){tt.textContent='正在读取关注的超话…';cur.textContent='';qq.textContent=''}
+  else if(p.phase==='done'){tt.textContent='签到完成 · 共处理 '+n+' 个';cur.textContent='';qq.textContent='';box.className='panel prog fin'}
+  else{
+    tt.textContent='正在签到 · '+n+'/'+tot;cur.textContent=p.cur?'正在处理：'+p.cur:'';
+    qq.textContent=q.length?'等待中：'+q.slice(0,3).join('、')+(q.length>3?' 等 '+q.length+' 个':''):''
+  }
   for(;shown<it.length;shown++){
     var li=document.createElement('li'),a=document.createElement('span'),b=document.createElement('span');
     a.textContent=it[shown].n;b.className='chip '+it[shown].s;b.textContent=LB[it[shown].s]||'';
@@ -1115,7 +1089,7 @@ function poll(){
 }
 function start(e){
   if(e)e.preventDefault();if(!rb||rb.hasAttribute('data-done'))return;
-  rb.setAttribute('data-done','');t0=Date.now();shown=0;seen=0;gone=0;ul.innerHTML='';box.className='prog';setOpen(true);
+  rb.setAttribute('data-done','');t0=Date.now();shown=0;seen=0;gone=0;ul.innerHTML='';box.className='panel prog';
   paint({phase:'list'});window.scrollTo({top:0,behavior:'smooth'});
   fetch('/run/go').then(function(r){return r.json()}).then(function(){gone=1}).catch(function(){gone=1});
   tm=setTimeout(poll,700)
@@ -1260,11 +1234,9 @@ function renderConsole() {
   // ===== 总览 =====
   const acct = '<section class="panel s1"><div class="acc"><div class="avc ' + (loggedIn ? "ok" : lv.cls === "warn" ? "warn" : "") + '">' + esc(Array.from(nick || "?")[0]) + '</div><div><div class="rt">' + esc(nick || "未登录") + '</div><div class="rm">' + esc(lv.d) + '</div></div><span class="chip ' + lv.cls + '">' + lv.t + "</span></div>" +
     '<div class="kv"><div><small>最后一次签到</small><b>' + (r ? fmtDT(r.at) : "—") + '</b></div><div><small>下次计划签到</small><b>' + esc(nextPlan(st, prefs)) + "</b></div></div></section>";
-  const prog = '<section class="prog s1" id="prog" ' + (live ? 'data-live="1"' : "hidden") + '><div class="dyn"><button class="dyn-pill" id="dynp" type="button" data-open="true" aria-expanded="true" aria-label="收起签到进度">' +
-    '<span class="dyn-compact"><i class="dyn-dot"></i><span class="dyn-num" id="dn">读取中</span></span>' +
-    '<span class="dyn-open"><span class="dyn-row"><span class="dyn-label" id="dl" aria-live="polite">超话签到</span><span class="dyn-pct" id="db">0%</span></span><span class="dyn-name" id="dc">正在读取关注的超话…</span><span class="dyn-rail"><span id="dr"></span></span>' +
-    '<span class="dyn-row dyn-cnt"><span><b id="c-ok">0</b>成功</span><span><b id="c-already">0</b>已签</span><span><b id="c-fail">0</b>失败</span><span><b id="c-unknown">0</b>未确认</span><span><b id="c-skip">0</b>跳过</span></span></span></button></div>' +
-    '<ul class="pl panel" id="pl"></ul></section>';
+  const prog = '<section class="panel prog s1" id="prog" ' + (live ? 'data-live="1"' : "hidden") + '><div class="prog-h">' + SPIN + '<span id="pt" aria-live="polite">正在签到…</span></div><div class="pbar"><i id="pbar"></i></div>' +
+    '<div class="pstat"><div><b id="c-ok">0</b><span>成功</span></div><div><b id="c-already">0</b><span>已签</span></div><div><b id="c-fail">0</b><span>失败</span></div><div><b id="c-unknown">0</b><span>未确认</span></div><div><b id="c-skip">0</b><span>跳过</span></div></div>' +
+    '<div class="pc" id="pc"></div><div class="pq" id="pq"></div><ul class="pl" id="pl"></ul></section>';
   const runBtn = loggedIn ?
     '<a class="btn btn-primary btn-run swap" id="run" href="/run"><span class="lbl">立即签到</span><span class="lbl lbl-alt">' + SPIN + "签到中…</span></a>" :
     '<a class="btn btn-primary btn-run" href="/login">扫码登录</a>';
