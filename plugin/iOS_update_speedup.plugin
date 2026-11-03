@@ -1,27 +1,30 @@
 #!name = iOS 更新加速
-#!desc = iOS/iPadOS 系统更新相关域名直连，走 Apple 本地 CDN 提升下载速度。建议将本插件放在配置文件中其他分流规则之前；如 DNS 解析不理想，可在 Loon 中将 DNS 设为 223.5.5.5 或 119.29.29.29。
+#!desc = iOS/iPadOS 系统更新下载加速：将 Apple 更新下载域名的 DNS 交给阿里 DNS（223.5.5.5）解析，拿到国内就近 CDN 节点，并强制直连。需要 Loon 3.5.0 及以上；建议放在其他分流规则之前，下载更新时不要同时走代理。
 #!tag = 加速
 #!author = OliviaR13
-#!version = 1.0.0
+#!version = 1.1.0
 #!date = 2026-11-04
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Apple.png
+#!loon_version = 3.5.0
+
+[General]
+# 更新下载相关域名改由阿里 DNS 解析，获取国内 CDN 节点
+hijack-dns = updates.cdn-apple.com:53,updates-http.cdn-apple.com:53,updates.g.aaplimg.com:53,updates.cdn-apple.com.akadns.net:53,appldnld.apple.com:53 -> 223.5.5.5
 
 [Rule]
-# 更新目录与资源查询
+# 更新下载 CDN 强制直连
+DOMAIN,updates.cdn-apple.com,DIRECT
+DOMAIN,updates-http.cdn-apple.com,DIRECT
+DOMAIN,updates.g.aaplimg.com,DIRECT
+DOMAIN,updates.cdn-apple.com.akadns.net,DIRECT
+DOMAIN,appldnld.apple.com,DIRECT
+DOMAIN,appldnld.apple.com.edgesuite.net,DIRECT
+DOMAIN-SUFFIX,cdn-apple.com,DIRECT
+DOMAIN-SUFFIX,aaplimg.com,DIRECT
+
+# 更新目录与签名校验
 DOMAIN,mesu.apple.com,DIRECT
 DOMAIN,gdmf.apple.com,DIRECT
 DOMAIN,gg.apple.com,DIRECT
 DOMAIN,gs.apple.com,DIRECT
-
-# 更新包下载 CDN
-DOMAIN,updates.cdn-apple.com,DIRECT
-DOMAIN,updates-http.cdn-apple.com,DIRECT
-DOMAIN,appldnld.apple.com,DIRECT
-DOMAIN,appldnld.apple.com.edgesuite.net,DIRECT
-DOMAIN-SUFFIX,cdn-apple.com,DIRECT
-DOMAIN-SUFFIX,apple.com.edgekey.net,DIRECT
-DOMAIN-SUFFIX,aaplimg.com,DIRECT
-
-[General]
-skip-proxy = mesu.apple.com, updates.cdn-apple.com, updates-http.cdn-apple.com, appldnld.apple.com, gdmf.apple.com
