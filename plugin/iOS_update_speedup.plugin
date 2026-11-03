@@ -1,0 +1,27 @@
+#!name = iOS 更新加速
+#!desc = iOS/iPadOS 系统更新相关域名直连，走 Apple 本地 CDN 提升下载速度。建议将本插件放在配置文件中其他分流规则之前；如 DNS 解析不理想，可在 Loon 中将 DNS 设为 223.5.5.5 或 119.29.29.29。
+#!tag = 加速
+#!author = OliviaR13
+#!version = 1.0.0
+#!date = 2026-11-04
+#!homepage = https://www.github.com/OliviaR13
+#!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Apple.png
+
+[Rule]
+# 更新目录与资源查询
+DOMAIN,mesu.apple.com,DIRECT
+DOMAIN,gdmf.apple.com,DIRECT
+DOMAIN,gg.apple.com,DIRECT
+DOMAIN,gs.apple.com,DIRECT
+
+# 更新包下载 CDN
+DOMAIN,updates.cdn-apple.com,DIRECT
+DOMAIN,updates-http.cdn-apple.com,DIRECT
+DOMAIN,appldnld.apple.com,DIRECT
+DOMAIN,appldnld.apple.com.edgesuite.net,DIRECT
+DOMAIN-SUFFIX,cdn-apple.com,DIRECT
+DOMAIN-SUFFIX,apple.com.edgekey.net,DIRECT
+DOMAIN-SUFFIX,aaplimg.com,DIRECT
+
+[General]
+skip-proxy = mesu.apple.com, updates.cdn-apple.com, updates-http.cdn-apple.com, appldnld.apple.com, gdmf.apple.com
