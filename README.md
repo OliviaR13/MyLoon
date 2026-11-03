@@ -136,7 +136,7 @@ https://raw.githubusercontent.com/OliviaR13/MyLoon/main/plugin/<文件名>.plugi
 - 点「安装」时，会给该插件的安装次数加一（只存插件 ID、日期和累计次数）。为了同一个人一天内不重复计数，会把 IP 与插件 ID 加盐哈希后临时保存，次日清理；不保存 IP 本身，也不与账号关联。
 - 未登录时，收藏与偏好仅保存在本机浏览器。
 - 登录仅通过 GitHub 授权读取公开资料（用户名、头像），不保存访问令牌；登录状态为 30 天有效的签名 Cookie。
-- 登录后，收藏与已开启同步的偏好按账号 ID 存于 Cloudflare KV，用于多设备同步。
+- 登录后，收藏与已开启同步的偏好按账号 ID 存于 Cloudflare D1（没绑定 D1 时退回 KV），用于多设备同步。
 - 人机验证由 Cloudflare Turnstile 提供。
 
 ## 安装统计
@@ -153,6 +153,8 @@ https://raw.githubusercontent.com/OliviaR13/MyLoon/main/plugin/<文件名>.plugi
 
 </details>
 
+同一个 D1 也用来存多设备同步的数据（收藏、设置）。多台设备同时提交时，每条收藏、每组设置各自按时间戳「较新者胜」，不会互相覆盖；没绑 D1 时同步退回 KV，并发时仍可能丢改动，所以推荐绑定。从 KV 升级不用手动操作，每个用户第一次同步时会自动迁移。
+
 没有绑定 `MLB_DB` 时统计整体关闭：卡片不显示次数，排序菜单也不出现这两项，其余功能不受影响。次数统计的是「点了安装」，不代表 Loon 里最终安装成功。
 
 ## 仓库结构
@@ -163,7 +165,7 @@ https://raw.githubusercontent.com/OliviaR13/MyLoon/main/plugin/<文件名>.plugi
 | [`script/`](script/) | 插件所用脚本 |
 | [`box/`](box/) | Loon Box 前端（原生 HTML / CSS / ES Modules） |
 | [`functions/`](functions/) | Cloudflare Pages Functions：清单接口、GitHub OAuth、云端同步、人机验证、安装统计 |
-| [`tests/`](tests/) | 云端同步合并逻辑的测试（`node --test tests/sync.test.mjs`） |
+| [`tests/`](tests/) | 云端同步的测试，含并发场景（`node --test tests/sync.test.mjs tests/sync-d1.test.mjs`） |
 | [`db/`](db/) | 安装统计的 D1 表结构（函数会自动建表，仅供参考） |
 | [`icon/`](icon/) | 图标资源 |
 | [`manifest.json`](manifest.json) | 插件清单，由 Actions 自动生成，请勿手动编辑 |
