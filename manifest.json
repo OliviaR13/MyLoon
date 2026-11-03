@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-11-03T18:43:52.561497+00:00",
+  "generatedAt": "2026-11-03T18:50:32.770429+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -149,7 +149,7 @@
       "id": "iOS_update_speedup",
       "name": "iOS 更新加速",
       "file": "plugin/iOS_update_speedup.plugin",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "OliviaR13",
       "category": "加速",
       "tags": [
@@ -163,7 +163,7 @@
       "date": "2026-11-04",
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Apple.png",
-      "description": "iOS/iPadOS 系统更新相关域名直连，走 Apple 本地 CDN 提升下载速度。建议将本插件放在配置文件中其他分流规则之前；如 DNS 解析不理想，可在 Loon 中将 DNS 设为 223.5.5.5 或 119.29.29.29。"
+      "description": "iOS/iPadOS 系统更新下载加速：将 Apple 更新下载域名的 DNS 交给阿里 DNS（223.5.5.5）解析，拿到国内就近 CDN 节点，并强制直连。需要 Loon 3.5.0 及以上；建议放在其他分流规则之前，下载更新时不要同时走代理。"
     },
     {
       "id": "outlook",
