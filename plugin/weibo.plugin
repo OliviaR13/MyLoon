@@ -23,7 +23,6 @@ DOMAIN, api.weibo.cn,PROXY
 
 [Script]
 request if ${url} ~= /^https?:\/\/api\.weibo\.cn\/2\/(device\/|statuses\/(send|update|repost)|comments\/(create|reply))/i then script("https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo/weibo_device.js", {${ENABLE}, ${MODEL}, ${DEBUG}}) with enable=${ENABLE}, tag="微博机型伪装", timeout=10, requires_body=true
-request if ${url} ~= /^https?:\/\/api\.weibo\.cn\/2\/remind\/(unread_count|hometab_dot)/i then script("https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo/weibo_checkin.js", {${CHECKIN}, ${NOTIFY}, ${DEBUG}, ${TIME}}) with enable=${CHECKIN}, tag="微博超话-打开微博补签", timeout=300
 request if ${url} ~= /^http:\/\/weibo-checkin\.loon\//i then script("https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo/weibo_checkin.js", {${CHECKIN}, ${NOTIFY}, ${DEBUG}, ${TIME}}) with tag="微博超话-状态页", timeout=3000
 cron ${CRON} then script("https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo/weibo_checkin.js", {${CHECKIN}, ${NOTIFY}, ${DEBUG}, ${TIME}}) with tag="微博超话签到", timeout=300
 generic then script("https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/weibo/weibo_checkin.js", {${CHECKIN}, ${NOTIFY}, ${DEBUG}}) with enable=${CHECKIN}, tag="微博超话-立即签到", timeout=300
