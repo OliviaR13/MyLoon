@@ -636,11 +636,7 @@ a,button,.sw{touch-action:manipulation}
 .pop-menu[data-open="true"] .pop-inner>*{--d:calc(90ms + var(--i) * 34ms);opacity:1;transform:none;transition:opacity .24s var(--d),transform .42s var(--ease) var(--d),background-color .15s}
 .pop-title{display:flex;align-items:center;justify-content:space-between;min-height:36px;padding:0 10px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer}
 .pop-title svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.pop-cols{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.pop-hd{padding:2px 10px 4px;font-size:11.5px;font-weight:600;color:var(--muted)}
-.pop-list{position:relative;max-height:176px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none}.pop-list::-webkit-scrollbar{display:none}
 .pop-item{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;padding:10px;font:inherit;font-size:14.5px;font-variant-numeric:tabular-nums;color:var(--text);background:none;border:0;border-radius:var(--r-md);text-align:left;cursor:pointer;transition:background-color .15s}
-.pop-item[aria-checked="true"]{color:var(--accent-text);font-weight:600;background:color-mix(in srgb,var(--accent) 10%,transparent)}
 .pop-item.pop-save{color:var(--accent-text);font-weight:650;justify-content:center}
 .pop-sep{height:1px;margin:6px 4px;background:var(--line)}
 @media (hover:hover){.pop-item:hover{background:var(--chip)}.pop-btn:hover{border-color:var(--muted)}}
@@ -663,6 +659,134 @@ a,button,.sw{touch-action:manipulation}
 .bblur i:nth-child(1){-webkit-backdrop-filter:blur(2.5px);backdrop-filter:blur(2.5px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 1 / 3),transparent 100%);mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 1 / 3),transparent 100%)}
 .bblur i:nth-child(2){-webkit-backdrop-filter:blur(5.5px);backdrop-filter:blur(5.5px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 2 / 3),transparent calc(100% - var(--f) * 1 / 3));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 2 / 3),transparent calc(100% - var(--f) * 1 / 3))}
 .bblur i:nth-child(3){-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);-webkit-mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 3 / 3),transparent calc(100% - var(--f) * 2 / 3));mask-image:linear-gradient(to top,#000 calc(100% - var(--f) * 3 / 3),transparent calc(100% - var(--f) * 2 / 3))}
+/* ══ Time scrubber ═══════════════════════════════════════ */
+/* Bencho 的设计变量在这里就近映射到页面自己的变量，只定义在组件根上，不外泄：
+   --card 本页已有同名变量，原样沿用；
+   --fill-slab 底板 → --chip（比弹层的 --card 深一档，像嵌进去的一块）；
+   --fill-on / --ink 字和刻度的墨色 → --text；--font-ui → --font；
+   --pane-edge 描边 → --line；--signal 焦点环 → --accent。 */
+.tms {
+  --fill-slab: var(--chip);
+  --fill-on: var(--text);
+  --ink: var(--text);
+  --font-ui: var(--font);
+  --pane-edge: var(--line);
+  --signal: var(--accent);
+  width: 300px;
+  padding: 20px 20px 16px;
+  border-radius: var(--tms-r);
+  background: var(--fill-slab, var(--card));
+  color: var(--fill-on, var(--ink));
+  font-family: var(--font-ui);
+  user-select: none;
+  -webkit-user-select: none;}
+
+[data-stroke="on"] .tms { box-shadow: 0 0 0 1px var(--pane-edge); }
+
+.tms-read {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;}
+
+.tms-time {
+  display: inline-flex;
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;}
+
+/* a digit rolls through a window that FADES rather than clips.
+   Each cell is 1.5em for a 1em line, the digit centred in it, so
+   at rest the neighbours sit wholly outside the window; the mask
+   takes the top and bottom quarter-em to nothing, so a digit on
+   the move leaves and arrives through a fade, never an edge. The
+   negative margin keeps the line box at 1em. */
+.tms-col {
+  display: inline-block;
+  height: 1.5em;
+  margin: -0.25em 0;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent);
+  mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent);}
+
+.tms-strip {
+  display: flex;
+  flex-direction: column;
+  transition: transform 220ms cubic-bezier(0.24, 1.34, 0.38, 1);}
+
+.tms-strip > span { height: 1.5em; line-height: 1.5em; }
+
+/* and it smears a little while it rolls */
+.tms-strip[data-flip="a"] { animation: tms-blur-a 260ms ease-out; }
+
+.tms-strip[data-flip="b"] { animation: tms-blur-b 260ms ease-out; }
+
+.tms-colon { padding: 0 0.02em; }
+
+.tms-mer {
+  font-size: 14px;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--fill-on, #17181a) 52%, var(--fill-slab, #ffffff));
+  letter-spacing: -0.01em;}
+
+.tms-ruler {
+  position: relative;
+  height: 58px;
+  margin-top: 16px;
+  cursor: grab;
+  touch-action: pan-y;
+  outline: none;
+  /* the ruler fades out at both ends, like a wheel turning away */
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);}
+
+.tms-ruler:active { cursor: grabbing; }
+
+.tms-ruler:focus-visible { box-shadow: inset 0 0 0 2px var(--signal, #2231dd); border-radius: 10px; }
+
+.tms-track { position: absolute; left: 50%; top: 0; bottom: 0; }
+
+.tms-tick {
+  position: absolute;
+  left: -1px;
+  top: 8px;
+  width: 2px;
+  height: 10px;
+  border-radius: 1px;
+  background: var(--fill-on, var(--ink));
+  transform-origin: 50% 0;}
+
+.tms-tick[data-kind="quarter"] { height: 17px; }
+
+.tms-tick[data-kind="hour"] { height: 25px; }
+
+.tms-hour {
+  position: absolute;
+  left: 0;
+  top: 38px;
+  font-size: 11px;
+  font-weight: 400;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--fill-on, #17181a) 52%, var(--fill-slab, #ffffff));
+  letter-spacing: 0em;}
+
+/* the fixed mark the ruler runs under */
+.tms-mark {
+  position: absolute;
+  left: 50%;
+  top: 2px;
+  width: 3px;
+  height: 32px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: #e5484d;}
+
+@keyframes tms-blur-a { from { filter: blur(2px); } to { filter: blur(0); } }
+
+@keyframes tms-blur-b { from { filter: blur(2px); } to { filter: blur(0); } }
+@media (prefers-reduced-motion:reduce){.tms-strip{transition:none;animation:none!important}}
 `;
 
 const svgi = (d, z) => '<svg width="' + (z || 18) + '" height="' + (z || 18) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + "</svg>";
@@ -896,36 +1020,273 @@ for(var ki=0;ki<ss.length;ki++)ss[ki].addEventListener("liq",function(){
   post("/prefs/set?k="+el2.getAttribute("data-k")+"&v="+(on?0:1)).then(function(j){if(!j.ok)throw 0;el2.disabled=false}).catch(function(){el2.setAttribute("aria-checked",on?"true":"false");el2.disabled=false;toast("保存失败，请重试")})
 });
 function saveTime(v){post("/prefs/time?v="+encodeURIComponent(v)).then(function(j){toast(j.ok?"签到时间已保存":"保存失败，请检查时间格式");if(j.ok)setTimeout(function(){location.reload()},600)}).catch(function(){toast("连不上脚本，请确认 Loon 已开启")})}
+// ── 时间拨盘（移植自 Bencho「Time scrubber」，MIT，bencho.dev/licence）──
+// 原版是 React 组件；这个页面没有 React，所以把同一套逻辑原样改写成原生 JS（数值、弹簧、刻度一个没动，注释照原样保留）。
+// 只有两处不同：弹簧不再单独成文件，直接写在下面；刻度用一个按分钟取整的对象池代替 React 的重渲染。
+/* ══ Time scrubber ════════════════════════════════════════
+   A time over a ruler. Drag the ruler under the centre mark and
+   the time runs with it; fling it and it coasts, then settles on
+   the nearest step.
+
+   ── ONE SPRING FOR THE THROW AND THE SNAP ───────────────
+   On release the landing is decided at once: where the ruler
+   would coast to at the speed it was let go, rounded to the
+   nearest step. Then one spring carries it there, starting with
+   the hand's own velocity — so a flick coasts and a slow
+   release just settles, and there is no seam between "gliding"
+   and "snapping" because they are the same motion.
+
+   ── A DIAL SEEN FROM THE FRONT ──────────────────────────
+   Ticks at the centre stand tall and dark and fall away toward
+   the edges, in height and in ink, which is what makes a flat
+   strip read as the face of a wheel. Only the ticks near the
+   window are drawn at all, so a day of them costs thirty. */
+
+/* ── inlined from lab/spring ──────────────────────── */
+/* ── one spring, for everything that settles ───────────────
+   The maths was already on this bench twice, copied by hand:
+   Humidity's wheel and Brightness's column both accumulate
+   velocity toward a target, damp it, and snap when both the
+   delta and the velocity fall under 0.02. Two copies is a
+   coincidence; five would be a policy, so it comes out here
+   before the elastic blocks are written against it.
+
+   The two shipped copies are deliberately NOT refactored onto
+   this. They work, they are tuned, and rewriting the innards
+   of two live components to prove a point about duplication
+   is how a good afternoon becomes a bad one. This is the one
+   new code uses.
+
+   Frames, not milliseconds. "dt" is expressed in sixtieths of
+   a second and the damping is RAISED to it rather than
+   multiplied by it, so a dropped frame decays the same amount
+   of energy as the two frames it replaced. Multiplying is the
+   version that makes a spring behave differently on a busy
+   page, which is the hardest kind of bug to see.
+
+   The loop parks itself the moment the value has settled.
+   CLAUDE.md is not complimentary about the one permanent
+   requestAnimationFrame already on this bench and there is no
+   case for five more. */
+
+/* Read once, the way the wheel and the pill nav do. A
+   preference, not a live input. */
+var TMS_STILL=!!(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches);
+
+var TMS_W=300;
+/* px per minute along the ruler */
+var TMS_PX=2,TMS_HALF=(TMS_W-36)/2,TMS_DAY=1440;
+
+function tmsClamp(v,a,b){return Math.min(b,Math.max(a,v))}
+function tmsWrap(m){return((m%TMS_DAY)+TMS_DAY)%TMS_DAY}
+
+function tmsLabel(m,h24){
+  var t=tmsWrap(Math.round(m)),h=Math.floor(t/60),mm=("0"+(t%60)).slice(-2);
+  if(h24)return{time:("0"+h).slice(-2)+":"+mm,mer:""};
+  return{time:(h%12||12)+":"+mm,mer:h<12?"AM":"PM"}
+}
+
+/* ── a digit that rolls, through a window that fades ────────
+   A strip of 0–9 slides to the digit, as it did first — but the
+   window it slides through is taller than the line and fades to
+   nothing at its top and bottom instead of clipping. Each digit
+   sits in a cell with room above and below it, so at rest the
+   neighbours are wholly outside the window, and on the move a
+   digit leaves and arrives through the fade rather than being
+   sliced by an edge. It smears a little while it rolls: a short
+   blur restarted on every change, two names taken in turn
+   because re-applying the same one does not replay. */
+function tmsDigit(){
+  var col=el("span","tms-col"),strip=el("span","tms-strip");
+  for(var n=0;n<10;n++)strip.appendChild(el("span","",String(n)));
+  col.appendChild(strip);
+  return{col:col,strip:strip,prev:null,flip:false}
+}
+function tmsSetDigit(d,ch){
+  if(d.prev===ch)return;
+  if(d.prev!==null){d.flip=!d.flip;d.strip.setAttribute("data-flip",d.flip?"a":"b")}
+  d.prev=ch;
+  d.strip.style.transform="translateY("+(-Number(ch)*1.5)+"em)"
+}
+
+function timeScrubber(o){
+  o=o||{};
+  var step=Number(o.step)||15,
+      /* how far a fling carries, 0..100 */
+      momentum=o.momentum==null?50:o.momentum,
+      h24=o.format==="24h",
+      corner=o.corner==null?20:o.corner,
+      /* what it settles on, minutes */
+      start=o.start==null?570:o.start;
+  var p={x:start,v:0,to:start},raf=0,g=null,idle=0,lastStep=Math.floor(start/step);
+
+  var root=el("div","tms");
+  root.style.setProperty("--tms-r",Math.max(0,corner)+"px");
+  var read=el("div","tms-read"),timeEl=el("span","tms-time"),merEl=el("span","tms-mer");
+  read.setAttribute("aria-live","polite");read.appendChild(timeEl);read.appendChild(merEl);
+  var ruler=el("div","tms-ruler"),track=el("div","tms-track"),mark=el("span","tms-mark");
+  ruler.tabIndex=0;ruler.setAttribute("role","slider");ruler.setAttribute("aria-label","签到时间");
+  ruler.setAttribute("aria-valuemin","0");ruler.setAttribute("aria-valuemax",String(TMS_DAY-1));
+  mark.setAttribute("aria-hidden","true");
+  ruler.appendChild(track);ruler.appendChild(mark);
+  root.appendChild(read);root.appendChild(ruler);
+
+  /* ── the digits, and the ticks in the window ───────────── */
+  var digs={},colons={},pat="",tickEls={},hourEls={};
+  function render(){
+    var pos=p.x,lb=tmsLabel(pos,h24),time=lb.time,i,c,node;
+    var np=time.replace(/[0-9]/g,"d");
+    if(np!==pat){
+      pat=np;timeEl.textContent="";
+      for(i=0;i<time.length;i++){
+        c=time.charAt(i);
+        if(c===":")node=colons[i]||(colons[i]=el("span","tms-colon",":"));
+        else{var k=time.length-i;node=(digs[k]||(digs[k]=tmsDigit())).col}
+        timeEl.appendChild(node)
+      }
+    }
+    for(i=0;i<time.length;i++){c=time.charAt(i);if(c!==":")tmsSetDigit(digs[time.length-i],c)}
+    merEl.textContent=lb.mer;merEl.hidden=!lb.mer;
+    read.setAttribute("aria-label",(time+" "+lb.mer).replace(/ $/,""));
+    ruler.setAttribute("aria-valuetext",(time+" "+lb.mer).replace(/ $/,""));
+    ruler.setAttribute("aria-valuenow",String(tmsWrap(Math.round(pos))));
+
+    var span=TMS_HALF/TMS_PX+10,seenT={},seenH={};
+    for(var m=Math.ceil((pos-span)/5)*5;m<=pos+span;m+=5){
+      var x=(m-pos)*TMS_PX,f=tmsClamp(1-Math.pow(Math.abs(x)/TMS_HALF,2),0,1),w=tmsWrap(m);
+      var kind=w%60===0?"hour":w%15===0?"quarter":"five";
+      var t=tickEls[m];
+      if(!t){t=tickEls[m]=el("span","tms-tick");t.setAttribute("data-kind",kind);track.appendChild(t)}
+      t.style.transform="translateX("+x.toFixed(2)+"px) scaleY("+(.55+.45*f).toFixed(3)+")";
+      t.style.opacity=.18+.82*f;seenT[m]=1;
+      if(kind==="hour"){
+        var h=Math.floor(w/60),lab=hourEls[m];
+        if(!lab){lab=hourEls[m]=el("span","tms-hour",h24?("0"+h).slice(-2):(h%12||12)+" "+(h<12?"AM":"PM"));track.appendChild(lab)}
+        lab.style.transform="translateX("+x.toFixed(2)+"px) translateX(-50%)";
+        lab.style.opacity=.15+.85*f;seenH[m]=1
+      }
+    }
+    var key;
+    for(key in tickEls)if(!seenT[key]){track.removeChild(tickEls[key]);delete tickEls[key]}
+    for(key in hourEls)if(!seenH[key]){track.removeChild(hourEls[key]);delete hourEls[key]}
+  }
+
+  /* a tick under the thumb for every step crossed, a firmer one
+     on the hour */
+  function hear(x){
+    var k=Math.floor(x/step);
+    if(k===lastStep)return;
+    lastStep=k;
+    if(o.onStep)o.onStep(k*step)
+  }
+  function set(x){p.x=x;hear(x);render()}
+
+  function run(){
+    if(raf)return;
+    var prev=0;
+    function tick(t){
+      var dt=prev?tmsClamp((t-prev)/16.67,0,2.5):1;
+      prev=t;
+      /* near-critical: glides in and lands with a hint of give,
+         no swing back and no slow creep at the end */
+      p.v+=((p.to-p.x)*.022-p.v*.26)*dt;
+      var x=p.x+p.v*dt;
+      if(Math.abs(p.to-x)<.01&&Math.abs(p.v)<.01){p.v=0;set(p.to);raf=0;return}
+      set(x);
+      raf=requestAnimationFrame(tick)
+    }
+    raf=requestAnimationFrame(tick)
+  }
+
+  /* go to a time, by the spring */
+  function goTo(to,v){
+    p.to=to;
+    p.v=v==null?p.v:v;
+    if(TMS_STILL){p.v=0;set(to);return}
+    run()
+  }
+
+  /* ── the drag ──────────────────────────────────────────── */
+  ruler.addEventListener("pointerdown",function(e){
+    try{ruler.setPointerCapture(e.pointerId)}catch(_){/* a scripted pointer */}
+    cancelAnimationFrame(raf);raf=0;
+    var k=ruler.getBoundingClientRect().width/ruler.offsetWidth||1;
+    g={x:e.clientX,t:performance.now(),v:0,k:k};
+    p.v=0
+  });
+  ruler.addEventListener("pointermove",function(e){
+    if(!g)return;
+    var now=performance.now();
+    /* left is later: the ruler moves under a fixed mark */
+    var dm=-(e.clientX-g.x)/g.k/TMS_PX,dt=Math.max(1,now-g.t)/16.67;
+    g.v=g.v*.5+(dm/dt)*.5;
+    g.x=e.clientX;
+    g.t=now;
+    set(p.x+dm)
+  });
+  function onUp(e){
+    var h=g;g=null;
+    try{ruler.releasePointerCapture(e.pointerId)}catch(_){/* never captured */}
+    if(!h)return;
+    /* a hand that stopped before letting go threw nothing */
+    /* capped, so a flick spins it hours, never days */
+    var v=performance.now()-h.t>80?0:tmsClamp(h.v,-14,14);
+    var carry=6+(tmsClamp(momentum,0,100)/100)*30;
+    var land=Math.round((p.x+v*carry)/step)*step;
+    /* the landing already includes the throw, so the spring starts
+       with only part of the hand's speed — the whole of it on top
+       would carry it well past the step and swing back */
+    goTo(land,v*.6)
+  }
+  ruler.addEventListener("pointerup",onUp);
+  ruler.addEventListener("pointercancel",onUp);
+
+  /* a trackpad's sideways swipe moves it too — only sideways, so
+     scrolling the page past the block is never caught */
+  ruler.addEventListener("wheel",function(e){
+    if(Math.abs(e.deltaX)<=Math.abs(e.deltaY))return;
+    e.preventDefault();
+    cancelAnimationFrame(raf);raf=0;
+    set(p.x+e.deltaX/TMS_PX);
+    clearTimeout(idle);
+    idle=setTimeout(function(){goTo(Math.round(p.x/step)*step,0)},120)
+  },{passive:false});
+
+  ruler.addEventListener("keydown",function(e){
+    var d=e.key==="ArrowRight"?step:e.key==="ArrowLeft"?-step:0;
+    if(!d)return;
+    e.preventDefault();
+    goTo(Math.round(p.to/step)*step+d,0)
+  });
+
+  render();
+  return{
+    el:root,
+    /* where it is headed, as minutes in the day */
+    value:function(){return tmsWrap(Math.round((raf||g?p.to:p.x)/step)*step)}
+  }
+}
+
 var tp=$("tpop");
 if(tp){
-  var tb=$("tbtn"),tmn=$("tmenu"),tin=$("tinner"),trow=$("trow"),cv=tp.getAttribute("data-v").split(":"),H=+cv[0],M=+cv[1],def=tp.getAttribute("data-def"),cust=tp.getAttribute("data-custom")==="1";
-  var p2=function(n){return("0"+n).slice(-2)};
-  var ttl=el("div","pop-title");ttl.innerHTML='<span></span><svg viewBox="0 0 24 24"><path d="M6 14l6-6 6 6"/></svg>';
-  var tsp=ttl.firstChild,cols=el("div","pop-cols"),lists=[];
-  function lab(){tsp.textContent="签到时间 · "+p2(H)+":"+p2(M)}
-  function mark(){for(var k=0;k<2;k++){var v=k?M:H,l=lists[k];for(var i=0;i<l.children.length;i++)l.children[i].setAttribute("aria-checked",i===v?"true":"false")}}
-  function center(){for(var k=0;k<2;k++){var l=lists[k],it=l.children[k?M:H];if(it)l.scrollTop=it.offsetTop-l.clientHeight/2+it.offsetHeight/2}}
-  [["时",24],["分",60]].forEach(function(d){
-    var c=el("div"),l=el("div","pop-list");c.appendChild(el("div","pop-hd",d[0]));
-    for(var i=0;i<d[1];i++){var b=el("button","pop-item",p2(i));b.type="button";b.setAttribute("role","radio");b.setAttribute("data-n",i);l.appendChild(b)}
-    c.appendChild(l);cols.appendChild(c);lists.push(l)
-  });
-  cols.onclick=function(e){var b=e.target.closest(".pop-item");if(!b)return;if(b.parentNode===lists[0])H=+b.getAttribute("data-n");else M=+b.getAttribute("data-n");mark();lab()};
+  var tb=$("tbtn"),tmn=$("tmenu"),tin=$("tinner"),trow=$("trow"),cv=tp.getAttribute("data-v").split(":"),def=tp.getAttribute("data-def"),cust=tp.getAttribute("data-custom")==="1";
+  var ttl=el("div","pop-title");ttl.innerHTML='<span>签到时间</span><svg viewBox="0 0 24 24"><path d="M6 14l6-6 6 6"/></svg>';
+  /* 24 小时制、一分钟一档：签到时间要精确到分（默认 00:01），15 分钟一档落不到 */
+  var scr=timeScrubber({step:1,momentum:50,format:"24h",corner:14,start:(+cv[0])*60+(+cv[1])});
   var sv=el("button","pop-item pop-save","保存");sv.type="button";
-  tin.appendChild(ttl);tin.appendChild(cols);tin.appendChild(el("div","pop-sep"));tin.appendChild(sv);
+  tin.appendChild(ttl);tin.appendChild(scr.el);tin.appendChild(el("div","pop-sep"));tin.appendChild(sv);
   if(cust){var rs=el("button","pop-item","恢复默认（"+def+"）");rs.type="button";rs.onclick=function(){saveTime("")};tin.appendChild(rs)}
   for(var q=0;q<tin.children.length;q++){tin.children[q].style.setProperty("--i",q);tin.children[q].style.setProperty("--n",tin.children.length)}
-  mark();lab();
   function measure(){var s=tmn.style;s.setProperty("--bw",tb.offsetWidth+"px");s.setProperty("--bh",tb.offsetHeight+"px");s.setProperty("--mw",tin.offsetWidth+2+"px");s.setProperty("--mh",tin.offsetHeight+2+"px")}
   function isOpen(){return tmn.getAttribute("data-open")==="true"}
   function setOpen(o){
-    if(o){measure();tmn.style.transition="none";void tmn.offsetWidth;tmn.style.transition="";center()}
+    if(o){measure();tmn.style.transition="none";void tmn.offsetWidth;tmn.style.transition=""}
     var v=o?"true":"false";tmn.setAttribute("data-open",v);tp.setAttribute("data-open",v);tb.setAttribute("aria-expanded",v);trow.classList.toggle("pop-open",o);
-    if(o)setTimeout(function(){center();tmn.scrollIntoView({block:"nearest",behavior:"smooth"})},60)
+    if(o)setTimeout(function(){tmn.scrollIntoView({block:"nearest",behavior:"smooth"})},60)
   }
   tb.onclick=function(){setOpen(!isOpen())};
   ttl.onclick=function(){setOpen(false);tb.focus()};
-  sv.onclick=function(){var v=p2(H)+":"+p2(M);setOpen(false);if(v===tp.getAttribute("data-v")){toast("时间没有变化");return}saveTime(v)};
+  sv.onclick=function(){var v=tmsLabel(scr.value(),true).time;setOpen(false);if(v===tp.getAttribute("data-v")){toast("时间没有变化");return}saveTime(v)};
   document.addEventListener("click",function(e){if(isOpen()&&!tp.contains(e.target))setOpen(false)});
   document.addEventListener("keydown",function(e){if(e.key==="Escape"&&isOpen()){setOpen(false);tb.focus()}})
 }
