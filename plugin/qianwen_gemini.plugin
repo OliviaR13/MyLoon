@@ -1,5 +1,5 @@
 #!name = 千问转 Gemini（Siri）
-#!desc = 把 Siri 发往千问的文本请求改由 Gemini API 回答，并按千问事件流回给 Siri。安装后在插件参数里填写 Gemini API Key；Gemini 域名默认走 PROXY。
+#!desc = 把 Siri 发往千问的文本请求改由 Gemini API 回答，并按千问事件流回给 Siri。安装后在插件参数里填写 Gemini API Key；Gemini API 域名走 PROXY 策略。安装后请在插件详情页的「代理指向的策略」中选择用于代理的策略组或节点，未选择时默认使用全局策略的第一个节点。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前，否则规则可能被提前匹配而失效。
 #!tag = AI,Siri,功能增强
 #!system = iOS
 #!loon_version = 3.2.4
@@ -7,7 +7,7 @@
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Google.png
 #!date = 2026-11-07
-#!version = 1.0.2
+#!version = 1.0.3
 
 [Argument]
 KEY = input,"",tag=Gemini API Key,desc=在 aistudio.google.com/apikey 获取（AIza… 或 AQ.… 开头均可）
@@ -15,13 +15,12 @@ MODEL = input,"gemini-2.5-flash",tag=模型,desc=Gemini 模型名，如 gemini-2
 SEARCH = switch,false,tag=联网搜索,desc=开启后使用 Google Search 接地（会更慢）
 PROMPT = input,"你是 Siri 的后台助手。请用简洁、口语化的中文回答，适合直接朗读；不要使用 Markdown、列表符号或表情。",tag=系统提示词,desc=控制回答风格
 BASE = input,"https://generativelanguage.googleapis.com",tag=API 地址,desc=默认官方地址；使用反代时改这里
-POLICY = input,"PROXY",tag=代理策略,desc=访问 Gemini 时使用的策略组或节点名；留空则只按规则分流
 
 [Rule]
-DOMAIN,generativelanguage.googleapis.com,PROXY
+DOMAIN-SUFFIX,generativelanguage.googleapis.com,PROXY
 
 [Script]
-http-request ^https:\/\/prod-yabuli\.qianwen\.com\/v1\/sessions\/responses requires-body=true, timeout=60, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/qianwen/qianwen_gemini.js, argument=[{KEY},{MODEL},{SEARCH},{PROMPT},{BASE},{POLICY}], tag=千问转Gemini
+http-request ^https:\/\/prod-yabuli\.qianwen\.com\/v1\/sessions\/responses requires-body=true, timeout=60, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/qianwen/qianwen_gemini.js, argument=[{KEY},{MODEL},{SEARCH},{PROMPT},{BASE}], tag=千问转Gemini
 
 [MitM]
 hostname = prod-yabuli.qianwen.com
