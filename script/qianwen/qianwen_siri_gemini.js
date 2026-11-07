@@ -1,5 +1,5 @@
 /*
- * Siri → Gemini 独立兼容层  v2.8.0
+ * Siri → Gemini 独立兼容层  v2.8.1
  *
  * 兼容 Siri 请求协议并由 Gemini API 独立处理，按 Siri 兼容的 SSE 事件流返回。
  * 不调用千问作为上游或备用服务；不支持的输入会明确报错，不会回落到千问。
@@ -8,7 +8,7 @@
  * 请在 Loon 日志里核对一次；时间预算见下方 BUDGET_MS / ATTEMPT_MS。
  */
 
-const VERSION = "2.8.0";
+const VERSION = "2.8.1";
 const TAG = "[qianwen_gemini]";
 
 const DEFAULTS = {
@@ -421,8 +421,8 @@ function main() {
   };
   // 快速模式：关闭/压低思考（仅 flash 系列支持；pro 无法关闭）
   if (args.FAST && /flash/i.test(args.MODEL) && !/pro/i.test(args.MODEL)) {
-    payload.generationConfig.thinkingConfig = /gemini-3/i.test(args.MODEL)
-      ? { thinkingLevel: "minimal" }   // 3.x 用 thinkingLevel
+    payload.generationConfig.thinkingConfig = (+((/gemini-(\d+)/i.exec(args.MODEL) || [])[1]) >= 3 || /-latest$/i.test(args.MODEL))
+      ? { thinkingLevel: "minimal" }   // 3 及以上用 thinkingLevel
       : { thinkingBudget: 0 };         // 2.5 用 thinkingBudget
   } else {
     // 思考会占用输出额度，放宽以免正文被截空
