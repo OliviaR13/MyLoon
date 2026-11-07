@@ -1,5 +1,5 @@
 /*
- * Siri → Gemini 独立兼容层  v2.5.1
+ * Siri → Gemini 独立兼容层  v2.6.0
  *
  * 兼容 Siri 请求协议并由 Gemini API 独立处理，按 Siri 兼容的 SSE 事件流返回。
  * 不调用千问作为上游或备用服务；不支持的输入会明确报错，不会回落到千问。
@@ -8,7 +8,7 @@
  * 请在 Loon 日志里核对一次；时间预算见下方 BUDGET_MS / ATTEMPT_MS。
  */
 
-const VERSION = "2.5.1";
+const VERSION = "2.6.0";
 const TAG = "[qianwen_gemini]";
 
 const DEFAULTS = {
@@ -52,7 +52,8 @@ function readArgs() {
     MODEL: (get("CUSTOM_MODEL") || get("MODEL") || DEFAULTS.MODEL).replace(/^\/?models\//i, ""),
     STYLE: style,
     BASE: (get("BASE") || DEFAULTS.BASE).replace(/\/+$/, "").replace(/\/v1(beta)?$/i, ""),
-    PROMPT: get("PROMPT") || "",
+    // 旧版本的默认提示词（已内置为「简短口语」风格）如果还留在参数里，视为未填写，避免重复/冲突
+    PROMPT: (get("PROMPT") === "你是 Siri 的后台助手。请用简洁、口语化的中文回答，适合直接朗读；不要使用 Markdown、列表符号或表情。" ? "" : get("PROMPT")) || "",
     SEARCH: get("SEARCH") === "true",
     FAST: get("FAST") !== "false",
   };
@@ -100,8 +101,64 @@ function stripTrigger(t) {
   return r || t; // 去掉后为空就保留原文
 }
 
+/* ───────────── 输出结构：跟随请求里的 response_format ─────────────
+ * 相机/普通对话: content + summary + isRequestingUserInput
+ * 写作工具(compose): body + refinements(三条改写建议)
+ * 脚本按请求里 json_schema 的字段生成返回，未知字段给空值。 */
+const DEFAULT_PROPS = { content: { type: "string" }, summary: { type: "string" }, isRequestingUserInput: { type: ["boolean", "null"] } };
+let OUT = { prop: "content", props: DEFAULT_PROPS };
+const KNOWN = { summary: 1, isRequestingUserInput: 1 };
+
+function pickType(t) { return Array.isArray(t) ? t.filter((x) => x !== "null")[0] : t; }
+
+function makeValue(text, extra) {
+  const o = {};
+  Object.keys(OUT.props).forEach((k) => {
+    const ty = pickType(OUT.props[k] && OUT.props[k].type);
+    if (k === OUT.prop) o[k] = text;
+    else if (k === "summary") o[k] = summarize(text);
+    else if (k === "isRequestingUserInput") o[k] = false;
+    else if (extra && extra[k] !== undefined) o[k] = extra[k];
+    else o[k] = ty === "array" ? [] : ty === "boolean" ? false : ty === "string" ? "" : null;
+  });
+  return JSON.stringify(o);
+}
+
+// 除正文/summary/isRequestingUserInput 之外还有别的字段（如 refinements）时，需要 Gemini 结构化输出
+function extraProps() { return Object.keys(OUT.props).filter((k) => k !== OUT.prop && !KNOWN[k]); }
+
+// JSON Schema → Gemini responseSchema（OpenAPI 子集）
+function toGSchema(sch) {
+  if (!sch || typeof sch !== "object") return { type: "STRING" };
+  const t = pickType(sch.type) || "string";
+  const o = { type: String(t).toUpperCase() };
+  if (Array.isArray(sch.type) && sch.type.indexOf("null") >= 0) o.nullable = true;
+  if (sch.description) o.description = sch.description;
+  if (o.type === "OBJECT") {
+    o.properties = {};
+    Object.keys(sch.properties || {}).forEach((k) => { o.properties[k] = toGSchema(sch.properties[k]); });
+    o.propertyOrdering = Object.keys(o.properties);
+  }
+  if (o.type === "ARRAY") o.items = toGSchema(sch.items);
+  return o;
+}
+
+function structuredSchema() {
+  const keys = [OUT.prop].concat(extraProps());
+  const props = {};
+  keys.forEach((k) => { props[k] = toGSchema(OUT.props[k]); });
+  return { type: "OBJECT", properties: props, required: keys, propertyOrdering: keys };
+}
+
+function structuredPrompt() {
+  const keys = [OUT.prop].concat(extraProps());
+  const lines = keys.map((k) => "- " + k + "：" + String((OUT.props[k] && OUT.props[k].description) || "").trim());
+  return "你是写作与文字处理助手。请只输出 JSON，字段含义如下（以用户请求所用的语言书写，通常是简体中文）：\n" + lines.join("\n") +
+    "\n正文要可直接使用，不要使用 Markdown 标记（如 # 和 **）、不要加寒暄或解释。";
+}
+
 /* ───────────── 千问请求 → Gemini contents ───────────── */
-function toGemini(body) {
+function toGemini(body, contentProp) {
   const contents = [];
   const system = [];
   let unsupported = false;
@@ -146,6 +203,13 @@ function toGemini(body) {
     }
     const role = m.role === "assistant" ? "model" : "user";
     if (role === "user") text = stripTrigger(text);
+    // 历史里的助手回复是 JSON 字符串，取出正文再给 Gemini
+    if (role === "model") {
+      try {
+        const jo = JSON.parse(text);
+        if (jo && typeof jo[contentProp || "content"] === "string") text = jo[contentProp || "content"];
+      } catch (e) {}
+    }
     const last = contents[contents.length - 1];
     if (last && last.role === role) last.parts.push({ text });
     else contents.push({ role, parts: [{ text }] });
@@ -157,13 +221,13 @@ function toGemini(body) {
 const ev = (name, data) =>
   "event: " + name + "\ndata: " + JSON.stringify({ [name]: data, type: name }) + "\n\n";
 
-function buildSSE(text, citations, model) {
+function buildSSE(text, citations, model, extra) {
   const now = Math.floor(Date.now() / 1000);
   const sid = "sess_" + uuid();
   const rid = "resp_" + uuid().replace(/-/g, "");
   const cid = "choice_" + uuid();
 
-  const value = JSON.stringify({ content: text, summary: summarize(text), isRequestingUserInput: false });
+  const value = makeValue(text, extra);
   const annotations = (citations || []).map((c) => ({
     type: "url_citation",
     url_citation: { index: 0, title: c.title || c.url, url: c.url },
@@ -213,10 +277,10 @@ function buildSSE(text, citations, model) {
 
 // 只允许结束一次：无论正常返回、异常还是看门狗，都在本地回复，绝不放行给千问
 let finished = false;
-function reply(text, citations, model) {
+function reply(text, citations, model, extra) {
   if (finished) return;
   finished = true;
-  const r = buildSSE(text, citations, model);
+  const r = buildSSE(text, citations, model, extra);
   $done({
     response: {
       status: 200,
@@ -241,8 +305,6 @@ function main() {
   const tag = "Gemini·" + args.MODEL;
   console.log(TAG + " script v" + VERSION + " running, model=" + args.MODEL + ", style=" + args.STYLE);
 
-  if (!args.KEY) return reply("还没有填写 Gemini API Key，请先在 Loon 插件参数里填写。", [], tag);
-
   let body;
   try { body = JSON.parse($request.body); } catch (e) { return reply("请求格式无法解析。", [], tag); }
   if (!body || typeof body !== "object" || Array.isArray(body) || !Array.isArray(body.input)) {
@@ -254,13 +316,24 @@ function main() {
     const rf = (body.response_format && body.response_format.json_schema && body.response_format.json_schema.schema) || {};
     console.log(TAG + " feature=" + (cfg.response_configuration_group_id || "?") + ", schema=" + Object.keys(rf.properties || {}).join("/") + ", tools=" + (body.client_tools || []).length + "/" + (body.server_tools || []).length);
   } catch (e) {}
-  const { contents, system, unsupported, hasImage } = toGemini(body);
+  // 输出结构跟随请求里的 json_schema（写作工具是 body/refinements，不是 content/summary）
+  try {
+    const jsch = body.response_format && body.response_format.json_schema;
+    const sch = jsch && jsch.schema;
+    if (sch && sch.properties && jsch.content_property && sch.properties[jsch.content_property]) {
+      OUT = { prop: jsch.content_property, props: sch.properties };
+    }
+  } catch (e) {}
+  // Key 检查放在输出结构确定之后，这样写作工具的报错也能按 body 字段显示
+  if (!args.KEY) return reply("还没有填写 Gemini API Key，请先在 Loon 插件参数里填写。", [], tag);
+  const structured = extraProps().length > 0;
+  const { contents, system, unsupported, hasImage } = toGemini(body, OUT.prop);
   if (unsupported) return reply("这种内容格式暂时识别不了，目前支持文字和相机图片。", [], tag);
   if (hasImage) console.log(TAG + " image request, parts=" + contents.map((c) => c.parts.length).join(","));
   if (!contents.length) return reply("没有识别到文字内容。", [], tag);
 
   const payload = {
-    systemInstruction: { parts: [{ text: [IDENTITY, STYLES[args.STYLE], args.PROMPT].concat(system).filter(Boolean).join("\n") }] },
+    systemInstruction: { parts: [{ text: [IDENTITY, structured ? structuredPrompt() : STYLES[args.STYLE], args.PROMPT].concat(system).filter(Boolean).join("\n") }] },
     contents,
     generationConfig: { maxOutputTokens: args.STYLE === "详细" ? 4096 : 2048 },
   };
@@ -273,7 +346,12 @@ function main() {
     // 思考会占用输出额度，放宽以免正文被截空
     payload.generationConfig.maxOutputTokens = args.STYLE === "详细" ? 8192 : 4096;
   }
-  if (args.SEARCH) payload.tools = [{ google_search: {} }];
+  if (structured) {
+    payload.generationConfig.responseMimeType = "application/json";
+    payload.generationConfig.responseSchema = structuredSchema();
+    payload.generationConfig.maxOutputTokens = Math.max(payload.generationConfig.maxOutputTokens, 4096);
+    console.log(TAG + " structured output: " + [OUT.prop].concat(extraProps()).join("/") + (args.SEARCH ? " (联网搜索在此模式下不启用)" : ""));
+  } else if (args.SEARCH) payload.tools = [{ google_search: {} }];
 
   const url = args.BASE + "/v1beta/models/" + encodeURIComponent(args.MODEL) + ":generateContent";
   const startAt = Date.now();
@@ -326,12 +404,27 @@ function main() {
     }
 
     const cand = (j.candidates || [])[0] || {};
-    const text = stripMd(
-      ((cand.content && cand.content.parts) || [])
-        .filter((p) => p.text && !p.thought)
-        .map((p) => p.text)
-        .join("")
-    );
+    let rawText = ((cand.content && cand.content.parts) || [])
+      .filter((p) => p.text && !p.thought)
+      .map((p) => p.text)
+      .join("");
+    let extra = null;
+    if (structured && rawText) {
+      try {
+        const jo = JSON.parse(rawText.replace(/^\s*```(?:json)?\s*|\s*```\s*$/g, ""));
+        extra = {};
+        extraProps().forEach((k) => {
+          const v = jo[k];
+          const ty = pickType(OUT.props[k] && OUT.props[k].type);
+          if (ty === "array") extra[k] = Array.isArray(v) ? v.map((x) => stripMd(String(x))).filter(Boolean).slice(0, 6) : [];
+          else if (typeof v === "string") extra[k] = stripMd(v);
+        });
+        rawText = typeof jo[OUT.prop] === "string" ? jo[OUT.prop] : rawText;
+      } catch (e) {
+        console.log(TAG + " structured parse failed, using raw text");
+      }
+    }
+    const text = stripMd(rawText);
     if (!text) {
       if (cand.finishReason === "MAX_TOKENS") return reply("这个问题思考过久没来得及回答，请换个问法，或在插件里开启快速模式。", [], tag);
       const why = (j.promptFeedback && j.promptFeedback.blockReason) || cand.finishReason || "空回复";
@@ -344,7 +437,7 @@ function main() {
       .slice(0, 5)
       .map((w) => ({ url: w.uri, title: w.title }));
     console.log(TAG + " Gemini response received (HTTP " + status + ")");
-    reply(text, cites, tag);
+    reply(text, cites, tag, extra);
   }
 
   attempt();
