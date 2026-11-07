@@ -1,5 +1,5 @@
 /*
- * Siri → Gemini 独立兼容层  v2.4.0
+ * Siri → Gemini 独立兼容层  v2.4.1
  *
  * 兼容 Siri 请求协议并由 Gemini API 独立处理，按 Siri 兼容的 SSE 事件流返回。
  * 不调用千问作为上游或备用服务；不支持的输入会明确报错，不会回落到千问。
@@ -8,7 +8,7 @@
  * 请在 Loon 日志里核对一次；时间预算见下方 BUDGET_MS / ATTEMPT_MS。
  */
 
-const VERSION = "2.4.0";
+const VERSION = "2.4.1";
 const TAG = "[qianwen_gemini]";
 
 const DEFAULTS = {
@@ -83,6 +83,16 @@ function summarize(text) {
   return first.length > 20 ? first.slice(0, 20) + "…" : first;
 }
 
+// 诊断：只记录非文本内容块的“结构”（类型、字段名、值的类型/长度），不记录内容本身
+function shapeOf(v, depth) {
+  if (v === null || v === undefined) return String(v);
+  if (typeof v === "string") return "str(" + v.length + ")" + (/^https?:\/\//.test(v) ? "@" + v.split("/")[2] : /^data:/.test(v) ? ":" + v.slice(5, v.indexOf(";")) : "");
+  if (typeof v !== "object") return typeof v;
+  if (depth > 3) return "…";
+  if (Array.isArray(v)) return "[" + v.slice(0, 3).map((x) => shapeOf(x, depth + 1)).join(",") + (v.length > 3 ? ",…" : "") + "]";
+  return "{" + Object.keys(v).map((k) => k + ":" + shapeOf(v[k], depth + 1)).join(",") + "}";
+}
+
 function stripTrigger(t) {
   const r = String(t).replace(TRIGGER_RE, "").trim();
   return r || t; // 去掉后为空就保留原文
@@ -101,7 +111,10 @@ function toGemini(body) {
       .map((c) => {
         if (c && typeof c.text === "string") return c.text;
         if (c && (c.type === "text" || c.type === "input_text") && typeof c.text === "string") return c.text;
-        if (c && Object.keys(c).length) unsupported = true;
+        if (c && Object.keys(c).length) {
+          unsupported = true;
+          console.log(TAG + " non-text block: " + shapeOf(c, 0));
+        }
         return "";
       })
       .filter(Boolean)
