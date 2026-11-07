@@ -1,5 +1,5 @@
 /*
- * Siri → Gemini 独立兼容层  v2.3.0
+ * Siri → Gemini 独立兼容层  v2.3.1
  *
  * 兼容 Siri 请求协议并由 Gemini API 独立处理，按 Siri 兼容的 SSE 事件流返回。
  * 不调用千问作为上游或备用服务；不支持的输入会明确报错，不会回落到千问。
@@ -8,13 +8,17 @@
  * 请在 Loon 日志里核对一次；时间预算见下方 BUDGET_MS / ATTEMPT_MS。
  */
 
-const VERSION = "2.3.0";
+const VERSION = "2.3.1";
 const TAG = "[qianwen_gemini]";
 
 const DEFAULTS = {
   MODEL: "gemini-2.5-flash",
   BASE: "https://generativelanguage.googleapis.com",
 };
+
+// 身份与触发词：大陆需要在话语前加「使用千问」才会走扩展模型，该前缀只是触发词，不属于问题
+const IDENTITY = "你是 Google 的 Gemini 大语言模型，不是千问或通义。用户话语开头的「使用千问」「用千问」只是触发词，请完全忽略，直接回答问题本身，不要提到千问，也不要自称千问。";
+const TRIGGER_RE = /^[\s，,。.、]*(请)?(使用|调用|用)(一下)?(通义)?千问[\s，,、:：。.]*/;
 
 // 回答风格预设（PROMPT 参数作为额外提示词追加在其后）
 const STYLES = {
@@ -78,6 +82,11 @@ function summarize(text) {
   return first.length > 20 ? first.slice(0, 20) + "…" : first;
 }
 
+function stripTrigger(t) {
+  const r = String(t).replace(TRIGGER_RE, "").trim();
+  return r || t; // 去掉后为空就保留原文
+}
+
 /* ───────────── 千问请求 → Gemini contents ───────────── */
 function toGemini(body) {
   const contents = [];
@@ -87,7 +96,7 @@ function toGemini(body) {
     if (!it || it.type !== "message" || !it.message) continue;
     const m = it.message;
     const blocks = Array.isArray(m.content) ? m.content : [];
-    const text = blocks
+    let text = blocks
       .map((c) => {
         if (c && typeof c.text === "string") return c.text;
         if (c && (c.type === "text" || c.type === "input_text") && typeof c.text === "string") return c.text;
@@ -97,8 +106,14 @@ function toGemini(body) {
       .filter(Boolean)
       .join("\n");
     if (!text) continue;
-    if (m.role === "system" || m.role === "developer") { system.push(text); continue; }
+    if (m.role === "system" || m.role === "developer") {
+      // 请求里自带的系统提示若设定成千问人设，会盖过我们的提示，去掉含千问/通义的行
+      const kept = text.split("\n").filter((l) => !/千问|通义|Qwen/i.test(l)).join("\n").trim();
+      if (kept) system.push(kept);
+      continue;
+    }
     const role = m.role === "assistant" ? "model" : "user";
+    if (role === "user") text = stripTrigger(text);
     const last = contents[contents.length - 1];
     if (last && last.role === role) last.parts.push({ text });
     else contents.push({ role, parts: [{ text }] });
@@ -195,7 +210,7 @@ function reply(text, citations, model) {
   if (!contents.length) return reply("没有识别到文字内容。", [], tag);
 
   const payload = {
-    systemInstruction: { parts: [{ text: [STYLES[args.STYLE], args.PROMPT].concat(system).filter(Boolean).join("\n") }] },
+    systemInstruction: { parts: [{ text: [IDENTITY, STYLES[args.STYLE], args.PROMPT].concat(system).filter(Boolean).join("\n") }] },
     contents,
     generationConfig: { maxOutputTokens: args.STYLE === "详细" ? 4096 : 2048 },
   };
