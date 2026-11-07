@@ -1,5 +1,5 @@
 /*
- * Siri → Gemini 独立兼容层  v2.6.0
+ * Siri → Gemini 独立兼容层  v2.6.1
  *
  * 兼容 Siri 请求协议并由 Gemini API 独立处理，按 Siri 兼容的 SSE 事件流返回。
  * 不调用千问作为上游或备用服务；不支持的输入会明确报错，不会回落到千问。
@@ -8,7 +8,7 @@
  * 请在 Loon 日志里核对一次；时间预算见下方 BUDGET_MS / ATTEMPT_MS。
  */
 
-const VERSION = "2.6.0";
+const VERSION = "2.6.1";
 const TAG = "[qianwen_gemini]";
 
 const DEFAULTS = {
@@ -350,8 +350,10 @@ function main() {
     payload.generationConfig.responseMimeType = "application/json";
     payload.generationConfig.responseSchema = structuredSchema();
     payload.generationConfig.maxOutputTokens = Math.max(payload.generationConfig.maxOutputTokens, 4096);
-    console.log(TAG + " structured output: " + [OUT.prop].concat(extraProps()).join("/") + (args.SEARCH ? " (联网搜索在此模式下不启用)" : ""));
-  } else if (args.SEARCH) payload.tools = [{ google_search: {} }];
+    console.log(TAG + " structured output: " + [OUT.prop].concat(extraProps()).join("/") + (args.SEARCH ? " + google_search" : ""));
+  }
+  // 联网搜索：Gemini 3 系列支持「结构化输出 + Google Search」同时使用；不支持的模型会返回 400，下面会自动去掉搜索重试
+  if (args.SEARCH) payload.tools = [{ google_search: {} }];
 
   const url = args.BASE + "/v1beta/models/" + encodeURIComponent(args.MODEL) + ":generateContent";
   const startAt = Date.now();
@@ -359,6 +361,7 @@ function main() {
   let retried5xx = false;
   let retriedNoThink = false;
   let retriedNet = false;
+  let retriedNoTools = false;
   function attempt() {
     const opts = {
       url,
@@ -396,6 +399,13 @@ function main() {
       if (status === 400 && /think/i.test(msg) && !retriedNoThink && payload.generationConfig.thinkingConfig) {
         retriedNoThink = true;
         delete payload.generationConfig.thinkingConfig;
+        return attempt();
+      }
+      // 结构化输出与搜索不能同时用（非 Gemini 3 系列）：去掉搜索重试一次
+      if (status === 400 && structured && payload.tools && !retriedNoTools) {
+        retriedNoTools = true;
+        console.log(TAG + " model does not support search + structured output, retrying without search");
+        delete payload.tools;
         return attempt();
       }
       // 临时性错误：重试一次
