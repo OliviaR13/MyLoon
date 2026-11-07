@@ -1,27 +1,23 @@
 /*
- * 千问 → Gemini（Siri）  v2.0.0
+ * Siri → Gemini 独立兼容层  v2.1.0
  *
- * 拦截 Siri 发往千问的请求 (prod-yabuli.qianwen.com/v1/sessions/responses)，
- * 改由 Gemini API 回答，并按千问的 SSE 事件流格式回给 Siri。
+ * 兼容 Siri 请求协议并由 Gemini API 独立处理，按 Siri 兼容的 SSE 事件流返回。
+ * 不调用千问作为上游或备用服务；不支持的输入会明确报错，不会回落到千问。
  *
  * 重要：Loon 的 $httpClient timeout 单位是【毫秒】。
  * 之前的版本写成了 30/40/50（被当成 30~50 毫秒），所以请求永远“超时”。
  */
 
-const VERSION = "2.0.0";
+const VERSION = "2.1.0";
 const TAG = "[qianwen_gemini]";
 
 const DEFAULTS = {
   MODEL: "gemini-2.5-flash",
   BASE: "https://generativelanguage.googleapis.com",
-  BACKUP: "日本时延优选,日本手动策略",
   PROMPT: "你是 Siri 的后台助手。请用简洁、口语化的中文回答，适合直接朗读；不要使用 Markdown、列表符号或表情。",
 };
 
-// 时间预算（毫秒）
-const BUDGET_MS = 55000;      // 整个脚本最多用这么久（插件里脚本 timeout=60 秒）
-const FIRST_TRY_MS = 15000;   // 第一次（按 Loon 配置规则）
-const BACKUP_TRY_MS = 20000;  // 每个备用策略
+// 请求超时（毫秒）；网络分流完全交给 Loon 当前配置规则
 
 /* ───────────── 参数 ───────────── */
 function readArgs() {
@@ -34,7 +30,6 @@ function readArgs() {
     const s = String(v).trim();
     return isPlaceholder(s) || s === "null" ? undefined : s;
   };
-  const backupRaw = get("BACKUP");
   return {
     KEY: get("KEY") || "",
     MODEL: get("MODEL") || DEFAULTS.MODEL,
@@ -42,8 +37,6 @@ function readArgs() {
     PROMPT: get("PROMPT") || DEFAULTS.PROMPT,
     SEARCH: get("SEARCH") === "true",
     FAST: get("FAST") !== "false",
-    BACKUP: (backupRaw === undefined ? DEFAULTS.BACKUP : backupRaw)
-      .split(/[,，]/).map((x) => x.trim()).filter(Boolean),
   };
 }
 
@@ -78,11 +71,18 @@ function summarize(text) {
 function toGemini(body) {
   const contents = [];
   const system = [];
+  let unsupported = false;
   for (const it of body.input || []) {
     if (!it || it.type !== "message" || !it.message) continue;
     const m = it.message;
-    const text = (Array.isArray(m.content) ? m.content : [])
-      .map((c) => (c && typeof c.text === "string" ? c.text : ""))
+    const blocks = Array.isArray(m.content) ? m.content : [];
+    const text = blocks
+      .map((c) => {
+        if (c && typeof c.text === "string") return c.text;
+        if (c && (c.type === "text" || c.type === "input_text") && typeof c.text === "string") return c.text;
+        if (c && Object.keys(c).length) unsupported = true;
+        return "";
+      })
       .filter(Boolean)
       .join("\n");
     if (!text) continue;
@@ -92,7 +92,7 @@ function toGemini(body) {
     if (last && last.role === role) last.parts.push({ text });
     else contents.push({ role, parts: [{ text }] });
   }
-  return { contents, system };
+  return { contents, system, unsupported };
 }
 
 /* ───────────── 构造千问 SSE 响应 ───────────── */
@@ -176,9 +176,10 @@ function reply(text, citations, model) {
   if (!args.KEY) return reply("还没有填写 Gemini API Key，请先在 Loon 插件参数里填写。", [], tag);
 
   let body;
-  try { body = JSON.parse($request.body); } catch (e) { return $done({}); }
+  try { body = JSON.parse($request.body); } catch (e) { return reply("Siri 请求格式无法解析，已停止处理，未转发给千问。", [], tag); }
   const { contents, system } = toGemini(body);
-  if (!contents.length) return $done({}); // 不认识的请求，放行给千问
+  if (unsupported) return reply("当前版本只支持文本输入；图片或其他多模态内容尚未接入 Gemini，请勿将此版本视为多模态兼容。", [], tag);
+  if (!contents.length) return reply("无法识别 Siri 请求中的文本内容，已停止处理，未转发给千问。", [], tag);
 
   const payload = {
     systemInstruction: { parts: [{ text: [args.PROMPT].concat(system).join("\n") }] },
@@ -192,37 +193,27 @@ function reply(text, citations, model) {
   if (args.SEARCH) payload.tools = [{ google_search: {} }];
 
   const url = args.BASE + "/v1beta/models/" + encodeURIComponent(args.MODEL) + ":generateContent";
-  const cands = [""].concat(args.BACKUP); // "" = 按 Loon 配置规则；其后依次尝试备用策略
-  const t0 = Date.now();
-  let idx = 0;
   let retried5xx = false;
   let retriedNoThink = false;
-
   function attempt() {
-    const node = cands[idx];
-    const remain = BUDGET_MS - (Date.now() - t0);
     const opts = {
       url,
       headers: { "Content-Type": "application/json", "x-goog-api-key": args.KEY },
       body: JSON.stringify(payload),
-      timeout: Math.max(5000, Math.min(idx === 0 ? FIRST_TRY_MS : BACKUP_TRY_MS, remain - 2000)), // 毫秒
+      timeout: 45000,
     };
-    if (node) opts.node = node;
-    console.log(TAG + " POST via " + (node || "config rules") + ", timeout=" + opts.timeout + "ms");
+    console.log(TAG + " POST via Loon config rules, timeout=" + opts.timeout + "ms");
 
     $httpClient.post(opts, (err, resp, data) => {
-      const took = Date.now() - t0;
       if (err) {
-        console.log(TAG + " " + (node || "config rules") + " failed @" + took + "ms: " + err);
-        if (idx < cands.length - 1 && BUDGET_MS - took > 8000) { idx++; return attempt(); }
-        const tried = cands.map((x) => x || "配置规则").join("、");
-        return reply("连接 Gemini 失败：已尝试 " + tried + "，都连不上。请确认其中有能访问 Google 的节点。（脚本 v" + VERSION + "）", [], tag);
+        console.log(TAG + " Gemini request failed: " + err);
+        return reply("连接 Gemini 失败，请检查 Loon 当前配置规则及网络连通性。（脚本 v" + VERSION + "）", [], tag);
       }
-      handle(resp, data, node, took);
+      handle(resp, data);
     });
   }
 
-  function handle(resp, data, node, took) {
+  function handle(resp, data) {
     const status = resp && resp.status;
     let j;
     try { j = JSON.parse(data); } catch (e) {
@@ -260,7 +251,7 @@ function reply(text, citations, model) {
       .filter((w) => w && w.uri && !seen[w.uri] && (seen[w.uri] = 1))
       .slice(0, 5)
       .map((w) => ({ url: w.uri, title: w.title }));
-    console.log(TAG + " ok via " + (node || "config rules") + " in " + took + "ms");
+    console.log(TAG + " Gemini response received (HTTP " + status + ")");
     reply(text, cites, tag);
   }
 
