@@ -1,5 +1,5 @@
 /*
- * Siri → Gemini 独立兼容层  v2.6.1
+ * Siri → Gemini 独立兼容层  v2.7.0
  *
  * 兼容 Siri 请求协议并由 Gemini API 独立处理，按 Siri 兼容的 SSE 事件流返回。
  * 不调用千问作为上游或备用服务；不支持的输入会明确报错，不会回落到千问。
@@ -8,7 +8,7 @@
  * 请在 Loon 日志里核对一次；时间预算见下方 BUDGET_MS / ATTEMPT_MS。
  */
 
-const VERSION = "2.6.1";
+const VERSION = "2.7.0";
 const TAG = "[qianwen_gemini]";
 
 const DEFAULTS = {
@@ -217,15 +217,73 @@ function toGemini(body, contentProp) {
   return { contents, system, unsupported, hasImage };
 }
 
+/* ───────────── 连续对话：会话历史（$persistentStore） ─────────────
+ * 追问请求发往 /v1/sessions/{sid}/responses，且只带新一句话 + previous_choice_id，
+ * 没有历史。所以首轮回复里用的 sess_/choice_ 由脚本生成并记下对话，追问时取回。 */
+const STORE_KEY = "siri_gemini_sessions";
+const SESS_TTL = 3600 * 1000;   // 会话保留 1 小时
+const MAX_SESS = 12;            // 最多保留的会话数
+const MAX_TURNS = 20;           // 每个会话最多保留的轮数
+const MAX_CHARS = 60000;        // 每个会话历史最大字数
+let SESSION = { sid: null, cid: null, follow: false, prev: null };
+
+function loadSessions() {
+  try {
+    if (typeof $persistentStore === "undefined") return {};
+    const r = $persistentStore.read(STORE_KEY);
+    return r ? JSON.parse(r) || {} : {};
+  } catch (e) { return {}; }
+}
+function saveSessions(all) {
+  try {
+    if (typeof $persistentStore === "undefined") return;
+    const now = Date.now();
+    Object.keys(all).forEach((k) => { if (!all[k] || now - all[k].t > SESS_TTL) delete all[k]; });
+    const ids = Object.keys(all).sort((a, b) => all[b].t - all[a].t);
+    ids.slice(MAX_SESS).forEach((k) => delete all[k]);
+    $persistentStore.write(JSON.stringify(all), STORE_KEY);
+  } catch (e) { console.log(TAG + " save session failed: " + e); }
+}
+// 取出该会话的历史（按 previous_choice_id 截到对应那一轮；找不到就用全部）
+function historyContents(sid, prevChoice) {
+  const sess = loadSessions()[sid];
+  if (!sess || !Array.isArray(sess.turns)) return [];
+  let turns = sess.turns;
+  if (prevChoice) {
+    const i = turns.findIndex((t) => t.c === prevChoice);
+    if (i >= 0) turns = turns.slice(0, i + 1);
+  }
+  const out = [];
+  turns.forEach((t) => {
+    out.push({ role: "user", parts: [{ text: t.u }] });
+    out.push({ role: "model", parts: [{ text: t.m }] });
+  });
+  return out;
+}
+function recordTurn(sid, cid, prevChoice, userText, modelText) {
+  const all = loadSessions();
+  const sess = all[sid] || { t: 0, turns: [] };
+  let turns = sess.turns;
+  if (prevChoice) {
+    const i = turns.findIndex((t) => t.c === prevChoice);
+    if (i >= 0) turns = turns.slice(0, i + 1);
+  }
+  turns.push({ c: cid, u: String(userText).slice(0, 8000), m: String(modelText).slice(0, 8000) });
+  turns = turns.slice(-MAX_TURNS);
+  while (turns.length > 1 && turns.reduce((n, t) => n + t.u.length + t.m.length, 0) > MAX_CHARS) turns.shift();
+  all[sid] = { t: Date.now(), turns };
+  saveSessions(all);
+}
+
 /* ───────────── 构造千问 SSE 响应 ───────────── */
 const ev = (name, data) =>
   "event: " + name + "\ndata: " + JSON.stringify({ [name]: data, type: name }) + "\n\n";
 
 function buildSSE(text, citations, model, extra) {
   const now = Math.floor(Date.now() / 1000);
-  const sid = "sess_" + uuid();
+  const sid = SESSION.sid || "sess_" + uuid();
   const rid = "resp_" + uuid().replace(/-/g, "");
-  const cid = "choice_" + uuid();
+  const cid = SESSION.cid || "choice_" + uuid();
 
   const value = makeValue(text, extra);
   const annotations = (citations || []).map((c) => ({
@@ -292,7 +350,12 @@ function reply(text, citations, model, extra) {
 
 /* ───────────── 主流程 ───────────── */
 function main() {
-  if (!$request || !/\/v1\/sessions\/responses/.test($request.url)) { finished = true; return $done({}); }
+  // 首轮: /v1/sessions/responses ；追问: /v1/sessions/{sid}/responses
+  const um = $request && /\/v1\/sessions(?:\/([^\/?]+))?\/responses(?:\?|$)/.exec($request.url);
+  if (!um) { finished = true; return $done({}); }
+  SESSION.sid = um[1] || "sess_" + uuid();
+  SESSION.cid = "choice_" + uuid();
+  SESSION.follow = !!um[1];
   // 看门狗：到点还没结果，就在本地回一句提示，不让请求漏给千问
   if (typeof setTimeout === "function") {
     setTimeout(() => {
@@ -327,10 +390,20 @@ function main() {
   // Key 检查放在输出结构确定之后，这样写作工具的报错也能按 body 字段显示
   if (!args.KEY) return reply("还没有填写 Gemini API Key，请先在 Loon 插件参数里填写。", [], tag);
   const structured = extraProps().length > 0;
-  const { contents, system, unsupported, hasImage } = toGemini(body, OUT.prop);
+  SESSION.prev = body.previous_choice_id || null;
+  const { contents: newContents, system, unsupported, hasImage } = toGemini(body, OUT.prop);
+  // 追问：把之前的对话接在前面（追问请求本身不带历史）
+  const hist = SESSION.follow ? historyContents(SESSION.sid, SESSION.prev) : [];
+  if (SESSION.follow) console.log(TAG + " follow-up, history messages=" + hist.length);
+  const contents = hist.concat(newContents);
+  // 本轮用户输入（用于存档，不存图片本身）
+  const lastUser = newContents.filter((c) => c.role === "user").slice(-1)[0];
+  const userText = lastUser
+    ? (lastUser.parts.some((p) => p.inlineData) ? "[用户发送了一张图片] " : "") + lastUser.parts.filter((p) => p.text).map((p) => p.text).join("\n")
+    : "";
   if (unsupported) return reply("这种内容格式暂时识别不了，目前支持文字和相机图片。", [], tag);
   if (hasImage) console.log(TAG + " image request, parts=" + contents.map((c) => c.parts.length).join(","));
-  if (!contents.length) return reply("没有识别到文字内容。", [], tag);
+  if (!newContents.length) return reply("没有识别到文字内容。", [], tag);
 
   const payload = {
     systemInstruction: { parts: [{ text: [IDENTITY, structured ? structuredPrompt() : STYLES[args.STYLE], args.PROMPT].concat(system).filter(Boolean).join("\n") }] },
@@ -447,6 +520,7 @@ function main() {
       .slice(0, 5)
       .map((w) => ({ url: w.uri, title: w.title }));
     console.log(TAG + " Gemini response received (HTTP " + status + ")");
+    try { recordTurn(SESSION.sid, SESSION.cid, SESSION.prev, userText, text); } catch (e) { console.log(TAG + " record turn failed: " + e); }
     reply(text, cites, tag, extra);
   }
 

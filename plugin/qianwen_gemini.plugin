@@ -7,7 +7,7 @@
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Google.png
 #!date = 2026-11-07
-#!version = 2.6.1
+#!version = 2.7.0
 
 [Argument]
 KEY = input,"",tag=Gemini API Key,desc=在 aistudio.google.com/apikey 获取，粘贴即可（自动去除空格）
@@ -20,7 +20,7 @@ FAST = switch,true,tag=快速模式,desc=压低模型思考以加快回复（仅
 BASE = input,"https://generativelanguage.googleapis.com",tag=API 地址,desc=默认官方地址；使用反代时改这里（无需带 /v1beta）
 
 [Script]
-http-request ^https:\/\/prod-yabuli\.qianwen\.com\/v1\/sessions\/responses requires-body=true, timeout=60, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/qianwen/qianwen_siri_gemini.js, argument=[{KEY},{MODEL},{CUSTOM_MODEL},{STYLE},{PROMPT},{SEARCH},{FAST},{BASE}], tag=Siri to Gemini
+http-request ^https:\/\/prod-yabuli\.qianwen\.com\/v1\/sessions(\/[^\/?]+)?\/responses(\?.*)?$ requires-body=true, timeout=60, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/qianwen/qianwen_siri_gemini.js, argument=[{KEY},{MODEL},{CUSTOM_MODEL},{STYLE},{PROMPT},{SEARCH},{FAST},{BASE}], tag=Siri to Gemini
 
 [MitM]
 hostname = prod-yabuli.qianwen.com
