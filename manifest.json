@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-11-07T10:16:04.419624+00:00",
+  "generatedAt": "2026-11-07T10:18:00.663176+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -189,7 +189,7 @@
       "id": "qianwen_gemini",
       "name": "千问转 Gemini（Siri）",
       "file": "plugin/qianwen_gemini.plugin",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "author": "@OliviaR13",
       "category": "AI",
       "tags": [
@@ -200,12 +200,12 @@
       "mitm": true,
       "script": true,
       "args": true,
-      "rule": true,
-      "proxy": true,
+      "rule": false,
+      "proxy": false,
       "date": "2026-11-07",
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Google.png",
-      "description": "把 Siri 发往千问的文本请求改由 Gemini API 回答，并按千问事件流回给 Siri。安装后在插件参数里填写 Gemini API Key；Gemini API 域名走 PROXY 策略。安装后请在插件详情页的「代理指向的策略」中选择用于代理的策略组或节点，未选择时默认使用全局策略的第一个节点。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前，否则规则可能被提前匹配而失效。"
+      "description": "把 Siri 发往千问的文本请求改由 Gemini API 回答，并按千问事件流回给 Siri。安装后在插件参数里填写 Gemini API Key；Gemini 请求的分流由你的 Loon 配置决定（例如 AI 规则），请确保 generativelanguage.googleapis.com 命中的策略有可用节点。"
     },
     {
       "id": "rednotebook_ip",
