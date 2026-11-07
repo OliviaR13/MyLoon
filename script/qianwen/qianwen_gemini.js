@@ -3,7 +3,7 @@
  * 拦截 Siri 发往千问 (prod-yabuli.qianwen.com/v1/sessions/responses) 的请求，
  * 改由 Gemini API 回答，并按千问的 SSE 事件流格式回给 Siri。
  *
- * 参数（在插件里填写）：KEY / MODEL / SEARCH / PROMPT / BASE
+ * 参数（在插件里填写）：KEY / MODEL / SEARCH / FAST / PROMPT / BASE
  */
 
 const DEFAULTS = {
@@ -28,6 +28,7 @@ function readArgs() {
     KEY: clean(a.KEY),
     MODEL: clean(a.MODEL) || DEFAULTS.MODEL,
     SEARCH: clean(a.SEARCH) === "true",
+    FAST: clean(a.FAST) !== "false", // 默认开启：关闭思考以提速
     PROMPT: clean(a.PROMPT) || DEFAULTS.PROMPT,
     BASE: (clean(a.BASE) || DEFAULTS.BASE).replace(/\/+$/, ""),
   };
@@ -42,6 +43,26 @@ const uuid = () =>
 
 function ev(name, data) {
   return "event: " + name + "\ndata: " + JSON.stringify({ [name]: data, type: name }) + "\n\n";
+}
+
+// Siri 是朗读/纯文本展示，去掉 Markdown 标记
+function stripMd(t) {
+  return String(t)
+    .replace(/```[\s\S]*?```/g, (m) => m.replace(/```\w*\n?/g, ""))
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/(\*\*|__)(.+?)\1/g, "$2")
+    .replace(/(^|[^*])\*(?!\s)([^*\n]+?)\*(?!\*)/g, "$1$2")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^\s*[-*+]\s+/gm, "")
+    .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, "$1")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function friendlyError(err) {
+  const e = String(err);
+  if (/timeout|timed out/i.test(e)) return "连接 Gemini 超时。请确认插件详情页「代理指向的策略」里的 PROXY 选了能访问 Google 的节点，或稍后重试。";
+  return "连接 Gemini 失败：" + e.replace(/^.*?error:/i, "").slice(0, 120);
 }
 
 function summarize(text) {
@@ -161,44 +182,73 @@ function reply(text, citations, model) {
   const payload = {
     systemInstruction: { parts: [{ text: [args.PROMPT].concat(system).join("\n") }] },
     contents,
+    generationConfig: { maxOutputTokens: 2048 },
   };
+  // 快速模式：关闭思考（仅 flash 系列支持；pro 无法关闭）
+  const canFast = args.FAST && /flash/i.test(args.MODEL) && !/pro/i.test(args.MODEL);
+  if (canFast) payload.generationConfig.thinkingConfig = { thinkingBudget: 0 };
   if (args.SEARCH) payload.tools = [{ google_search: {} }];
 
-  const opts = {
-    url: args.BASE + "/v1beta/models/" + encodeURIComponent(args.MODEL) + ":generateContent",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": args.KEY },
-    body: JSON.stringify(payload),
-    timeout: 50,
-  };
+  const url = args.BASE + "/v1beta/models/" + encodeURIComponent(args.MODEL) + ":generateContent";
+  let tried5xx = false;
+  let triedNoThink = false;
 
-  $httpClient.post(
-    opts,
-    (err, resp, data) => {
-      if (err) {
-        console.log("[qianwen_gemini] request error: " + err);
-        return reply("连接 Gemini 失败，请检查插件详情页「代理指向的策略」是否已选择可用节点，且本插件位于 GEOIP,CN,DIRECT 之前。详情：" + String(err).slice(0, 200), [], tag);
+  function send() {
+    $httpClient.post(
+      {
+        url,
+        headers: { "Content-Type": "application/json", "x-goog-api-key": args.KEY },
+        body: JSON.stringify(payload),
+        timeout: 40,
+      },
+      onResult
+    );
+  }
+
+  function onResult(err, resp, data) {
+    if (err) {
+      console.log("[qianwen_gemini] request error: " + err);
+      return reply(friendlyError(err), [], tag);
+    }
+    const status = resp && resp.status;
+    let j;
+    try { j = JSON.parse(data); } catch (e) {
+      console.log("[qianwen_gemini] bad body (HTTP " + status + "): " + String(data).slice(0, 200));
+      return reply("Gemini 返回了无法解析的内容（HTTP " + status + "）。", [], tag);
+    }
+    if (j.error) {
+      const msg = j.error.message || "";
+      console.log("[qianwen_gemini] api error " + status + ": " + msg);
+      // 个别模型不支持关闭思考：去掉 thinkingConfig 重试一次
+      if (status === 400 && /think/i.test(msg) && !triedNoThink && payload.generationConfig.thinkingConfig) {
+        triedNoThink = true;
+        delete payload.generationConfig.thinkingConfig;
+        return send();
       }
-      let j;
-      try { j = JSON.parse(data); } catch (e) { return reply("Gemini 返回了无法解析的内容（HTTP " + (resp && resp.status) + "）。", [], tag); }
-      if (j.error) return reply("Gemini 出错：" + (j.error.message || "").slice(0, 120), [], tag);
+      // 临时性错误：重试一次
+      if ((status === 429 || status >= 500) && !tried5xx) { tried5xx = true; return send(); }
+      return reply("Gemini 出错（" + status + "）：" + msg.slice(0, 120), [], tag);
+    }
 
-      const cand = (j.candidates || [])[0] || {};
-      const text = ((cand.content && cand.content.parts) || [])
+    const cand = (j.candidates || [])[0] || {};
+    const text = stripMd(
+      ((cand.content && cand.content.parts) || [])
         .filter((p) => p.text && !p.thought)
         .map((p) => p.text)
         .join("")
-        .trim();
-      if (!text) {
-        const why = (j.promptFeedback && j.promptFeedback.blockReason) || cand.finishReason || "空回复";
-        return reply("Gemini 没有给出回答（" + why + "）。", [], tag);
-      }
-      const seen = {};
-      const cites = (((cand.groundingMetadata || {}).groundingChunks) || [])
-        .map((c) => c.web)
-        .filter((w) => w && w.uri && !seen[w.uri] && (seen[w.uri] = 1))
-        .slice(0, 5)
-        .map((w) => ({ url: w.uri, title: w.title }));
-      reply(text, cites, tag);
+    );
+    if (!text) {
+      const why = (j.promptFeedback && j.promptFeedback.blockReason) || cand.finishReason || "空回复";
+      return reply("Gemini 没有给出回答（" + why + "）。", [], tag);
     }
-  );
+    const seen = {};
+    const cites = (((cand.groundingMetadata || {}).groundingChunks) || [])
+      .map((c) => c.web)
+      .filter((w) => w && w.uri && !seen[w.uri] && (seen[w.uri] = 1))
+      .slice(0, 5)
+      .map((w) => ({ url: w.uri, title: w.title }));
+    reply(text, cites, tag);
+  }
+
+  send();
 })();
