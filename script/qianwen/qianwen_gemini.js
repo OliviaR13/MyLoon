@@ -3,7 +3,8 @@
  * 拦截 Siri 发往千问 (prod-yabuli.qianwen.com/v1/sessions/responses) 的请求，
  * 改由 Gemini API 回答，并按千问的 SSE 事件流格式回给 Siri。
  *
- * 参数（在插件里填写）：KEY / MODEL / SEARCH / FAST / PROMPT / BASE / NODE
+ * 分流不在本插件里处理：Gemini 域名走 Loon 配置里的规则（如 AI 规则）。
+ * 参数（在插件里填写）：KEY / MODEL / SEARCH / FAST / PROMPT / BASE
  */
 
 const DEFAULTS = {
@@ -28,7 +29,6 @@ function readArgs() {
     KEY: clean(a.KEY),
     MODEL: clean(a.MODEL) || DEFAULTS.MODEL,
     SEARCH: clean(a.SEARCH) === "true",
-    NODE: clean(a.NODE), // 可选：强制 Gemini 请求使用的策略组/节点名
     FAST: clean(a.FAST) !== "false", // 默认开启：关闭思考以提速
     PROMPT: clean(a.PROMPT) || DEFAULTS.PROMPT,
     BASE: (clean(a.BASE) || DEFAULTS.BASE).replace(/\/+$/, ""),
@@ -62,7 +62,7 @@ function stripMd(t) {
 
 function friendlyError(err) {
   const e = String(err);
-  if (/timeout|timed out/i.test(e)) return "连接 Gemini 超时。请确认插件详情页「代理指向的策略」里的 PROXY 选了能访问 Google 的节点，或在插件参数「指定节点」里填写策略组名。";
+  if (/timeout|timed out/i.test(e)) return "连接 Gemini 超时。请检查 Loon 配置里 generativelanguage.googleapis.com 命中的规则（通常是 AI 规则）所指向的策略是否有可用节点。";
   return "连接 Gemini 失败：" + e.replace(/^.*?error:/i, "").slice(0, 120);
 }
 
@@ -202,8 +202,7 @@ function reply(text, citations, model) {
       body: JSON.stringify(payload),
       timeout: 30,
     };
-    if (args.NODE) opts.node = args.NODE;
-    console.log("[qianwen_gemini] POST " + args.MODEL + (args.NODE ? " via " + args.NODE : " via rules"));
+    console.log("[qianwen_gemini] POST " + args.MODEL + " (routing follows Loon config rules)");
     $httpClient.post(opts, onResult);
   }
 
