@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-11-07T10:26:31.415298+00:00",
+  "generatedAt": "2026-11-07T10:35:46.366265+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -189,7 +189,7 @@
       "id": "qianwen_gemini",
       "name": "千问转 Gemini（Siri）",
       "file": "plugin/qianwen_gemini.plugin",
-      "version": "1.4.0",
+      "version": "2.0.0",
       "author": "@OliviaR13",
       "category": "AI",
       "tags": [
@@ -205,7 +205,7 @@
       "date": "2026-11-07",
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Google.png",
-      "description": "把 Siri 发往千问的文本请求改由 Gemini API 回答，并按千问事件流回给 Siri。安装后在插件参数里填写 Gemini API Key；Gemini 请求会先走「备用策略」里的策略/节点（默认日本），失败再按 Loon 配置规则分流，不受配置里 AI 规则的影响。"
+      "description": "把 Siri 发往千问的文本请求改由 Gemini API 回答，并按千问事件流回给 Siri。填写 Gemini API Key 即可使用。请求默认按你的 Loon 配置规则分流，失败时依次尝试「备用策略」。"
     },
     {
       "id": "rednotebook_ip",
