@@ -1,5 +1,5 @@
 /*
- * Siri → Gemini 独立兼容层  v2.5.0
+ * Siri → Gemini 独立兼容层  v2.5.1
  *
  * 兼容 Siri 请求协议并由 Gemini API 独立处理，按 Siri 兼容的 SSE 事件流返回。
  * 不调用千问作为上游或备用服务；不支持的输入会明确报错，不会回落到千问。
@@ -8,7 +8,7 @@
  * 请在 Loon 日志里核对一次；时间预算见下方 BUDGET_MS / ATTEMPT_MS。
  */
 
-const VERSION = "2.5.0";
+const VERSION = "2.5.1";
 const TAG = "[qianwen_gemini]";
 
 const DEFAULTS = {
@@ -248,6 +248,12 @@ function main() {
   if (!body || typeof body !== "object" || Array.isArray(body) || !Array.isArray(body.input)) {
     return reply("请求结构不受支持。", [], tag);
   }
+  // 诊断：记录是哪个功能发起的请求（如 siri.visualIntelligenceCamera），便于确认写作工具等是否也会触发
+  try {
+    const cfg = body.configuration || {};
+    const rf = (body.response_format && body.response_format.json_schema && body.response_format.json_schema.schema) || {};
+    console.log(TAG + " feature=" + (cfg.response_configuration_group_id || "?") + ", schema=" + Object.keys(rf.properties || {}).join("/") + ", tools=" + (body.client_tools || []).length + "/" + (body.server_tools || []).length);
+  } catch (e) {}
   const { contents, system, unsupported, hasImage } = toGemini(body);
   if (unsupported) return reply("这种内容格式暂时识别不了，目前支持文字和相机图片。", [], tag);
   if (hasImage) console.log(TAG + " image request, parts=" + contents.map((c) => c.parts.length).join(","));
