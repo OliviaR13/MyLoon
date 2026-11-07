@@ -1,5 +1,5 @@
 /*
- * Siri → Gemini 独立兼容层  v2.3.1
+ * Siri → Gemini 独立兼容层  v2.4.0
  *
  * 兼容 Siri 请求协议并由 Gemini API 独立处理，按 Siri 兼容的 SSE 事件流返回。
  * 不调用千问作为上游或备用服务；不支持的输入会明确报错，不会回落到千问。
@@ -8,7 +8,7 @@
  * 请在 Loon 日志里核对一次；时间预算见下方 BUDGET_MS / ATTEMPT_MS。
  */
 
-const VERSION = "2.3.1";
+const VERSION = "2.4.0";
 const TAG = "[qianwen_gemini]";
 
 const DEFAULTS = {
@@ -28,7 +28,8 @@ const STYLES = {
 };
 
 // 时间预算（毫秒）：整个脚本不超过插件里 timeout=60 秒；网络分流完全交给 Loon 当前配置规则
-const BUDGET_MS = 55000;
+const BUDGET_MS = 48000;
+const WATCHDOG_MS = 52000;  // 看门狗：必须赶在 Loon 60 秒强杀脚本（并放行原请求给千问）之前本地回复
 const ATTEMPT_MS = 45000;   // 单次请求上限
 const RETRY_MIN_MS = 12000; // 剩余不足这么久就不再重试
 
@@ -179,7 +180,11 @@ function buildSSE(text, citations, model) {
   return { sid, body: s };
 }
 
+// 只允许结束一次：无论正常返回、异常还是看门狗，都在本地回复，绝不放行给千问
+let finished = false;
 function reply(text, citations, model) {
+  if (finished) return;
+  finished = true;
   const r = buildSSE(text, citations, model);
   $done({
     response: {
@@ -191,8 +196,15 @@ function reply(text, citations, model) {
 }
 
 /* ───────────── 主流程 ───────────── */
-(function main() {
-  if (!$request || !/\/v1\/sessions\/responses/.test($request.url)) return $done({});
+function main() {
+  if (!$request || !/\/v1\/sessions\/responses/.test($request.url)) { finished = true; return $done({}); }
+  // 看门狗：到点还没结果，就在本地回一句提示，不让请求漏给千问
+  if (typeof setTimeout === "function") {
+    setTimeout(() => {
+      console.log(TAG + " watchdog fired");
+      reply("Gemini 响应太慢了，这次先放弃，请稍后再试。", [], "Gemini");
+    }, WATCHDOG_MS);
+  }
   if ($request.method !== "POST") return reply("仅支持 POST 请求。", [], "Gemini");
   const args = readArgs();
   const tag = "Gemini·" + args.MODEL;
@@ -247,7 +259,10 @@ function reply(text, citations, model) {
         if (!retriedNet && remaining() > RETRY_MIN_MS) { retriedNet = true; return attempt(); }
         return reply("连接 Gemini 失败，请检查网络或代理设置。", [], tag);
       }
-      handle(resp, data);
+      try { handle(resp, data); } catch (e) {
+        console.log(TAG + " handle error: " + (e && e.stack || e));
+        reply("处理 Gemini 回复时出错了，请稍后再试。", [], tag);
+      }
     });
   }
 
@@ -295,4 +310,10 @@ function reply(text, citations, model) {
   }
 
   attempt();
-})();
+}
+
+// 任何未捕获异常都在本地回复，不放行原请求
+try { main(); } catch (e) {
+  console.log(TAG + " fatal: " + (e && e.stack || e));
+  reply("脚本出错了，已拦下这次请求，没有发给千问。", [], "Gemini");
+}

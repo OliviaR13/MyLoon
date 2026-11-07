@@ -7,7 +7,7 @@
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Google.png
 #!date = 2026-11-07
-#!version = 2.3.1
+#!version = 2.4.0
 
 [Argument]
 KEY = input,"",tag=Gemini API Key,desc=在 aistudio.google.com/apikey 获取，粘贴即可（自动去除空格）
