@@ -7,10 +7,10 @@
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Google.png
 #!date = 2026-11-07
-#!version = 1.0.0
+#!version = 1.0.1
 
 [Argument]
-KEY = input,"",tag=Gemini API Key,desc=在 aistudio.google.com/apikey 获取，以 AIza 开头
+KEY = input,"",tag=Gemini API Key,desc=在 aistudio.google.com/apikey 获取（AIza… 或 AQ.… 开头均可）
 MODEL = input,"gemini-2.5-flash",tag=模型,desc=Gemini 模型名，如 gemini-2.5-flash / gemini-2.5-pro
 SEARCH = switch,false,tag=联网搜索,desc=开启后使用 Google Search 接地（会更慢）
 PROMPT = input,"你是 Siri 的后台助手。请用简洁、口语化的中文回答，适合直接朗读；不要使用 Markdown、列表符号或表情。",tag=系统提示词,desc=控制回答风格
