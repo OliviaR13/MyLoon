@@ -1,5 +1,5 @@
 /*
- * Siri → Gemini 独立兼容层  v2.2.0
+ * Siri → Gemini 独立兼容层  v2.3.0
  *
  * 兼容 Siri 请求协议并由 Gemini API 独立处理，按 Siri 兼容的 SSE 事件流返回。
  * 不调用千问作为上游或备用服务；不支持的输入会明确报错，不会回落到千问。
@@ -8,13 +8,19 @@
  * 请在 Loon 日志里核对一次；时间预算见下方 BUDGET_MS / ATTEMPT_MS。
  */
 
-const VERSION = "2.2.0";
+const VERSION = "2.3.0";
 const TAG = "[qianwen_gemini]";
 
 const DEFAULTS = {
   MODEL: "gemini-2.5-flash",
   BASE: "https://generativelanguage.googleapis.com",
-  PROMPT: "你是 Siri 的后台助手。请用简洁、口语化的中文回答，适合直接朗读；不要使用 Markdown、列表符号或表情。",
+};
+
+// 回答风格预设（PROMPT 参数作为额外提示词追加在其后）
+const STYLES = {
+  "简短口语": "你是 Siri 的后台助手。请用简洁、口语化的中文回答，适合直接朗读；不要使用 Markdown、列表符号或表情。",
+  "标准": "你是 Siri 的后台助手。请用清晰、自然的中文回答，条理分明但不要使用 Markdown、列表符号或表情。",
+  "详细": "你是 Siri 的后台助手。请用中文详细回答，必要时分点说明，但不要使用 Markdown 符号或表情。",
 };
 
 // 时间预算（毫秒）：整个脚本不超过插件里 timeout=60 秒；网络分流完全交给 Loon 当前配置规则
@@ -33,11 +39,13 @@ function readArgs() {
     const s = String(v).trim();
     return isPlaceholder(s) || s === "null" ? undefined : s;
   };
+  const style = STYLES[get("STYLE")] ? get("STYLE") : "简短口语";
   return {
-    KEY: get("KEY") || "",
-    MODEL: (get("MODEL") || DEFAULTS.MODEL).replace(/^\/?models\//i, ""),
+    KEY: (get("KEY") || "").replace(/\s+/g, ""),
+    MODEL: (get("CUSTOM_MODEL") || get("MODEL") || DEFAULTS.MODEL).replace(/^\/?models\//i, ""),
+    STYLE: style,
     BASE: (get("BASE") || DEFAULTS.BASE).replace(/\/+$/, "").replace(/\/v1(beta)?$/i, ""),
-    PROMPT: get("PROMPT") || DEFAULTS.PROMPT,
+    PROMPT: get("PROMPT") || "",
     SEARCH: get("SEARCH") === "true",
     FAST: get("FAST") !== "false",
   };
@@ -173,7 +181,7 @@ function reply(text, citations, model) {
   if ($request.method !== "POST") return reply("仅支持 POST 请求。", [], "Gemini");
   const args = readArgs();
   const tag = "Gemini·" + args.MODEL;
-  console.log(TAG + " script v" + VERSION + " running, model=" + args.MODEL);
+  console.log(TAG + " script v" + VERSION + " running, model=" + args.MODEL + ", style=" + args.STYLE);
 
   if (!args.KEY) return reply("还没有填写 Gemini API Key，请先在 Loon 插件参数里填写。", [], tag);
 
@@ -187,9 +195,9 @@ function reply(text, citations, model) {
   if (!contents.length) return reply("没有识别到文字内容。", [], tag);
 
   const payload = {
-    systemInstruction: { parts: [{ text: [args.PROMPT].concat(system).join("\n") }] },
+    systemInstruction: { parts: [{ text: [STYLES[args.STYLE], args.PROMPT].concat(system).filter(Boolean).join("\n") }] },
     contents,
-    generationConfig: { maxOutputTokens: 2048 },
+    generationConfig: { maxOutputTokens: args.STYLE === "详细" ? 4096 : 2048 },
   };
   // 快速模式：关闭/压低思考（仅 flash 系列支持；pro 无法关闭）
   if (args.FAST && /flash/i.test(args.MODEL) && !/pro/i.test(args.MODEL)) {
@@ -198,7 +206,7 @@ function reply(text, citations, model) {
       : { thinkingBudget: 0 };         // 2.5 用 thinkingBudget
   } else {
     // 思考会占用输出额度，放宽以免正文被截空
-    payload.generationConfig.maxOutputTokens = 4096;
+    payload.generationConfig.maxOutputTokens = args.STYLE === "详细" ? 8192 : 4096;
   }
   if (args.SEARCH) payload.tools = [{ google_search: {} }];
 
