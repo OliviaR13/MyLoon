@@ -166,9 +166,8 @@ function reply(text, citations, model) {
 
 /* ───────────── 主流程 ───────────── */
 (function main() {
-  if (!$request || $request.method !== "POST" || !/\/v1\/sessions\/responses/.test($request.url)) {
-    return $done({});
-  }
+  if (!$request || !/\/v1\/sessions\/responses/.test($request.url)) return $done({});
+  if ($request.method !== "POST") return reply("仅支持 POST 请求，已停止处理。", [], "Gemini");
   const args = readArgs();
   const tag = "Gemini·" + args.MODEL;
   console.log(TAG + " script v" + VERSION + " running, model=" + args.MODEL);
@@ -177,7 +176,10 @@ function reply(text, citations, model) {
 
   let body;
   try { body = JSON.parse($request.body); } catch (e) { return reply("Siri 请求格式无法解析，已停止处理，未转发给千问。", [], tag); }
-  const { contents, system } = toGemini(body);
+  if (!body || typeof body !== "object" || Array.isArray(body) || !Array.isArray(body.input)) {
+    return reply("Siri 请求结构不受支持，已停止处理，未转发给千问。", [], tag);
+  }
+  const { contents, system, unsupported } = toGemini(body);
   if (unsupported) return reply("当前版本只支持文本输入；图片或其他多模态内容尚未接入 Gemini，请勿将此版本视为多模态兼容。", [], tag);
   if (!contents.length) return reply("无法识别 Siri 请求中的文本内容，已停止处理，未转发给千问。", [], tag);
 
