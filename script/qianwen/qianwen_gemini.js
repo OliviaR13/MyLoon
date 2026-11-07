@@ -3,7 +3,7 @@
  * 拦截 Siri 发往千问 (prod-yabuli.qianwen.com/v1/sessions/responses) 的请求，
  * 改由 Gemini API 回答，并按千问的 SSE 事件流格式回给 Siri。
  *
- * 参数（在插件里填写）：KEY / MODEL / SEARCH / PROMPT / BASE
+ * 参数（在插件里填写）：KEY / MODEL / SEARCH / PROMPT / BASE / POLICY
  */
 
 const DEFAULTS = {
@@ -30,6 +30,7 @@ function readArgs() {
     SEARCH: clean(a.SEARCH) === "true",
     PROMPT: clean(a.PROMPT) || DEFAULTS.PROMPT,
     BASE: (clean(a.BASE) || DEFAULTS.BASE).replace(/\/+$/, ""),
+    POLICY: clean(a.POLICY),
   };
 }
 
@@ -164,15 +165,21 @@ function reply(text, citations, model) {
   };
   if (args.SEARCH) payload.tools = [{ google_search: {} }];
 
+  const opts = {
+    url: args.BASE + "/v1beta/models/" + encodeURIComponent(args.MODEL) + ":generateContent",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": args.KEY },
+    body: JSON.stringify(payload),
+    timeout: 50,
+  };
+  if (args.POLICY) opts.node = args.POLICY; // 强制该请求走指定策略/节点
+
   $httpClient.post(
-    {
-      url: args.BASE + "/v1beta/models/" + encodeURIComponent(args.MODEL) + ":generateContent",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": args.KEY },
-      body: JSON.stringify(payload),
-      timeout: 50,
-    },
+    opts,
     (err, resp, data) => {
-      if (err) return reply("连接 Gemini 失败：" + String(err).slice(0, 80), [], tag);
+      if (err) {
+        console.log("[qianwen_gemini] request error: " + err);
+        return reply("连接 Gemini 失败，请检查 Gemini 域名是否走代理（插件参数「代理策略」）。详情：" + String(err).slice(0, 200), [], tag);
+      }
       let j;
       try { j = JSON.parse(data); } catch (e) { return reply("Gemini 返回了无法解析的内容（HTTP " + (resp && resp.status) + "）。", [], tag); }
       if (j.error) return reply("Gemini 出错：" + (j.error.message || "").slice(0, 120), [], tag);

@@ -7,7 +7,7 @@
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Google.png
 #!date = 2026-11-07
-#!version = 1.0.1
+#!version = 1.0.2
 
 [Argument]
 KEY = input,"",tag=Gemini API Key,desc=在 aistudio.google.com/apikey 获取（AIza… 或 AQ.… 开头均可）
@@ -15,12 +15,13 @@ MODEL = input,"gemini-2.5-flash",tag=模型,desc=Gemini 模型名，如 gemini-2
 SEARCH = switch,false,tag=联网搜索,desc=开启后使用 Google Search 接地（会更慢）
 PROMPT = input,"你是 Siri 的后台助手。请用简洁、口语化的中文回答，适合直接朗读；不要使用 Markdown、列表符号或表情。",tag=系统提示词,desc=控制回答风格
 BASE = input,"https://generativelanguage.googleapis.com",tag=API 地址,desc=默认官方地址；使用反代时改这里
+POLICY = input,"PROXY",tag=代理策略,desc=访问 Gemini 时使用的策略组或节点名；留空则只按规则分流
 
 [Rule]
 DOMAIN,generativelanguage.googleapis.com,PROXY
 
 [Script]
-http-request ^https:\/\/prod-yabuli\.qianwen\.com\/v1\/sessions\/responses requires-body=true, timeout=60, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/qianwen/qianwen_gemini.js, argument=[{KEY},{MODEL},{SEARCH},{PROMPT},{BASE}], tag=千问转Gemini
+http-request ^https:\/\/prod-yabuli\.qianwen\.com\/v1\/sessions\/responses requires-body=true, timeout=60, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/qianwen/qianwen_gemini.js, argument=[{KEY},{MODEL},{SEARCH},{PROMPT},{BASE},{POLICY}], tag=千问转Gemini
 
 [MitM]
 hostname = prod-yabuli.qianwen.com
