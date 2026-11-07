@@ -1,5 +1,5 @@
 /*
- * Siri → Gemini 独立兼容层  v2.7.0
+ * Siri → Gemini 独立兼容层  v2.8.0
  *
  * 兼容 Siri 请求协议并由 Gemini API 独立处理，按 Siri 兼容的 SSE 事件流返回。
  * 不调用千问作为上游或备用服务；不支持的输入会明确报错，不会回落到千问。
@@ -8,7 +8,7 @@
  * 请在 Loon 日志里核对一次；时间预算见下方 BUDGET_MS / ATTEMPT_MS。
  */
 
-const VERSION = "2.7.0";
+const VERSION = "2.8.0";
 const TAG = "[qianwen_gemini]";
 
 const DEFAULTS = {
@@ -56,6 +56,7 @@ function readArgs() {
     PROMPT: (get("PROMPT") === "你是 Siri 的后台助手。请用简洁、口语化的中文回答，适合直接朗读；不要使用 Markdown、列表符号或表情。" ? "" : get("PROMPT")) || "",
     SEARCH: get("SEARCH") === "true",
     FAST: get("FAST") !== "false",
+    STRICT: get("STRICT") !== "false",   // 隐私兜底：默认拦截该域名下除对话接口外的所有请求
   };
 }
 
@@ -352,7 +353,15 @@ function reply(text, citations, model, extra) {
 function main() {
   // 首轮: /v1/sessions/responses ；追问: /v1/sessions/{sid}/responses
   const um = $request && /\/v1\/sessions(?:\/([^\/?]+))?\/responses(?:\?|$)/.exec($request.url);
-  if (!um) { finished = true; return $done({}); }
+  if (!um) {
+    finished = true;
+    // 隐私兜底：插件规则会把该域名下所有请求交给本脚本；不是对话接口的，默认本地拒绝，绝不原样发给千问
+    if ($request && readArgs().STRICT) {
+      console.log(TAG + " blocked non-response request: " + $request.method + " " + String($request.url).replace(/^https?:\/\/[^\/]+/, "").split("?")[0]);
+      return $done({ response: { status: 403, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ error: { code: "blocked", message: "blocked by Siri to Gemini" } }) } });
+    }
+    return $done({});
+  }
   SESSION.sid = um[1] || "sess_" + uuid();
   SESSION.cid = "choice_" + uuid();
   SESSION.follow = !!um[1];
