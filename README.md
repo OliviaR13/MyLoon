@@ -10,7 +10,7 @@
 
 [![License](https://img.shields.io/badge/License-All_Rights_Reserved-8a8a85?style=flat-square)](LICENSE)
 [![Last commit](https://img.shields.io/github/last-commit/OliviaR13/MyLoon?style=flat-square&logo=github)](https://github.com/OliviaR13/MyLoon/commits/main)
-[![Plugins](https://img.shields.io/badge/Plugins-11-0f7f69?style=flat-square)](plugin/)
+[![Plugins](https://img.shields.io/badge/Plugins-12-0f7f69?style=flat-square)](plugin/)
 [![Cloudflare Pages](https://img.shields.io/badge/Hosted_on-Cloudflare_Pages-f38020?style=flat-square&logo=cloudflare&logoColor=white)](https://olivia-loon-box.pages.dev/)
 
 **[打开 Loon Box](https://olivia-loon-box.pages.dev/)**
@@ -161,7 +161,7 @@ https://raw.githubusercontent.com/OliviaR13/MyLoon/main/plugin/<文件名>.plugi
 
 | 路径 | 内容 |
 |---|---|
-| [`plugin/`](plugin/) | Loon 插件（11 款） |
+| [`plugin/`](plugin/) | Loon 插件（12 款） |
 | [`script/`](script/) | 插件所用脚本 |
 | [`box/`](box/) | Loon Box 前端（原生 HTML / CSS / ES Modules） |
 | [`functions/`](functions/) | Cloudflare Pages Functions：清单接口、GitHub OAuth、云端同步、人机验证、安装统计 |

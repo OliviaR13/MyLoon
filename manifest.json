@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-11-06T18:06:20.790785+00:00",
+  "generatedAt": "2026-11-07T09:53:17.138984+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -184,6 +184,28 @@
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Microsoft.png",
       "description": "对 Microsoft / Outlook 认证相关域名直连，并跳过 MITM 解密，用于处理登录窗口反复弹出的问题。"
+    },
+    {
+      "id": "qianwen_gemini",
+      "name": "千问转 Gemini（Siri）",
+      "file": "plugin/qianwen_gemini.plugin",
+      "version": "1.0.0",
+      "author": "@OliviaR13",
+      "category": "AI",
+      "tags": [
+        "AI",
+        "Siri",
+        "功能增强"
+      ],
+      "mitm": true,
+      "script": true,
+      "args": true,
+      "rule": true,
+      "proxy": true,
+      "date": "2026-11-07",
+      "homepage": "https://www.github.com/OliviaR13",
+      "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Google.png",
+      "description": "把 Siri 发往千问的文本请求改由 Gemini API 回答，并按千问事件流回给 Siri。安装后在插件参数里填写 Gemini API Key；Gemini 域名默认走 PROXY。"
     },
     {
       "id": "rednotebook_ip",
