@@ -1,5 +1,5 @@
 /*
- * Siri → Gemini 独立兼容层  v2.4.1
+ * Siri → Gemini 独立兼容层  v2.5.0
  *
  * 兼容 Siri 请求协议并由 Gemini API 独立处理，按 Siri 兼容的 SSE 事件流返回。
  * 不调用千问作为上游或备用服务；不支持的输入会明确报错，不会回落到千问。
@@ -8,7 +8,7 @@
  * 请在 Loon 日志里核对一次；时间预算见下方 BUDGET_MS / ATTEMPT_MS。
  */
 
-const VERSION = "2.4.1";
+const VERSION = "2.5.0";
 const TAG = "[qianwen_gemini]";
 
 const DEFAULTS = {
@@ -18,6 +18,8 @@ const DEFAULTS = {
 
 // 身份与触发词：大陆需要在话语前加「使用千问」才会走扩展模型，该前缀只是触发词，不属于问题
 const IDENTITY = "你是 Google 的 Gemini 大语言模型，不是千问或通义。用户话语开头的「使用千问」「用千问」只是触发词，请完全忽略，直接回答问题本身，不要提到千问，也不要自称千问。";
+// 视觉智能（相机）只发图片、没有文字时使用的默认问题
+const IMAGE_ONLY_PROMPT = "请识别并简要说明图片里是什么；如果有文字，请读出重点；如果是商品、植物、动物或地点，请说出名称和关键信息。";
 const TRIGGER_RE = /^[\s，,。.、]*(请)?(使用|调用|用)(一下)?(通义)?千问[\s，,、:：。.]*/;
 
 // 回答风格预设（PROMPT 参数作为额外提示词追加在其后）
@@ -103,14 +105,21 @@ function toGemini(body) {
   const contents = [];
   const system = [];
   let unsupported = false;
+  let hasImage = false;
   for (const it of body.input || []) {
     if (!it || it.type !== "message" || !it.message) continue;
     const m = it.message;
     const blocks = Array.isArray(m.content) ? m.content : [];
+    const imgParts = [];
     let text = blocks
       .map((c) => {
         if (c && typeof c.text === "string") return c.text;
-        if (c && (c.type === "text" || c.type === "input_text") && typeof c.text === "string") return c.text;
+        // 图片：千问格式为 {type:"image_url", image_url:{url:"data:image/jpeg;base64,..."}}
+        const u = c && c.type === "image_url" && c.image_url && c.image_url.url;
+        if (typeof u === "string") {
+          const mm = /^data:([^;,]+);base64,(.+)$/s.exec(u);
+          if (mm) { imgParts.push({ inlineData: { mimeType: mm[1], data: mm[2] } }); return ""; }
+        }
         if (c && Object.keys(c).length) {
           unsupported = true;
           console.log(TAG + " non-text block: " + shapeOf(c, 0));
@@ -119,6 +128,15 @@ function toGemini(body) {
       })
       .filter(Boolean)
       .join("\n");
+    if (imgParts.length && m.role !== "assistant" && m.role !== "system" && m.role !== "developer") {
+      hasImage = true;
+      const t2 = String(text).replace(TRIGGER_RE, "").trim() || IMAGE_ONLY_PROMPT; // 只剩触发词时也按“看图”处理
+      const parts = imgParts.concat([{ text: t2 }]);
+      const lastC = contents[contents.length - 1];
+      if (lastC && lastC.role === "user") lastC.parts.push(...parts);
+      else contents.push({ role: "user", parts });
+      continue;
+    }
     if (!text) continue;
     if (m.role === "system" || m.role === "developer") {
       // 请求里自带的系统提示若设定成千问人设，会盖过我们的提示，去掉含千问/通义的行
@@ -132,7 +150,7 @@ function toGemini(body) {
     if (last && last.role === role) last.parts.push({ text });
     else contents.push({ role, parts: [{ text }] });
   }
-  return { contents, system, unsupported };
+  return { contents, system, unsupported, hasImage };
 }
 
 /* ───────────── 构造千问 SSE 响应 ───────────── */
@@ -230,8 +248,9 @@ function main() {
   if (!body || typeof body !== "object" || Array.isArray(body) || !Array.isArray(body.input)) {
     return reply("请求结构不受支持。", [], tag);
   }
-  const { contents, system, unsupported } = toGemini(body);
-  if (unsupported) return reply("目前只支持文字输入，暂不支持图片。", [], tag);
+  const { contents, system, unsupported, hasImage } = toGemini(body);
+  if (unsupported) return reply("这种内容格式暂时识别不了，目前支持文字和相机图片。", [], tag);
+  if (hasImage) console.log(TAG + " image request, parts=" + contents.map((c) => c.parts.length).join(","));
   if (!contents.length) return reply("没有识别到文字内容。", [], tag);
 
   const payload = {
