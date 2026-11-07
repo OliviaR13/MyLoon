@@ -4,19 +4,25 @@
  * 改由 Gemini API 回答，并按千问的 SSE 事件流格式回给 Siri。
  *
  * 分流不在本插件里处理：Gemini 域名走 Loon 配置里的规则（如 AI 规则）。
- * 参数（在插件里填写）：KEY / MODEL / SEARCH / FAST / PROMPT / BASE
+ * 参数（在插件里填写）：KEY / MODEL / SEARCH / FAST / PROMPT / BASE / NODES
  */
 
-const VERSION = "1.3.1";
+const VERSION = "1.4.0";
 
 const DEFAULTS = {
   MODEL: "gemini-2.5-flash",
   BASE: "https://generativelanguage.googleapis.com",
+  NODES: "日本时延优选,日本手动策略,台湾时延优选",
   PROMPT:
     "你是 Siri 的后台助手。请用简洁、口语化的中文回答，适合直接朗读；不要使用 Markdown、列表符号或表情。",
 };
 
 /* ---------- 参数 ---------- */
+// 备用策略：Gemini 请求先按顺序尝试这些策略/节点（绕开配置里可能不通的 AI 规则），最后再按规则分流
+function parseNodes(v) {
+  if (v === undefined || v === null || /^\{.*\}$/.test(String(v).trim())) v = DEFAULTS.NODES;
+  return String(v).split(/[,，]/).map((x) => x.trim()).filter(Boolean);
+}
 function readArgs() {
   let a = typeof $argument === "undefined" ? {} : $argument;
   if (typeof a === "string") {
@@ -33,6 +39,7 @@ function readArgs() {
     SEARCH: clean(a.SEARCH) === "true",
     FAST: clean(a.FAST) !== "false", // 默认开启：关闭思考以提速
     PROMPT: clean(a.PROMPT) || DEFAULTS.PROMPT,
+    NODES: parseNodes(a.NODES),
     BASE: (clean(a.BASE) || DEFAULTS.BASE).replace(/\/+$/, ""),
   };
 }
@@ -62,10 +69,10 @@ function stripMd(t) {
     .trim();
 }
 
-function friendlyError(err) {
+function friendlyError(err, tried) {
   const e = String(err);
   const v = "（脚本 v" + VERSION + "）";
-  if (/timeout|timed out/i.test(e)) return "连接 Gemini 超时。请检查 Loon 配置里 generativelanguage.googleapis.com 命中的规则（通常是 AI 规则）所指向的策略是否有可用节点。" + v;
+  if (/timeout|timed out/i.test(e)) return "连接 Gemini 失败：已依次尝试 " + (tried || []).map((x) => x || "配置规则").join("、") + "，都连不上。请确认其中至少一个策略里有能访问 Google 的节点。" + v;
   return "连接 Gemini 失败：" + e.replace(/^.*?error:/i, "").slice(0, 120) + v;
 }
 
@@ -198,22 +205,37 @@ function reply(text, citations, model) {
   let tried5xx = false;
   let triedNoThink = false;
 
+  // 依次尝试：备用策略 → 最后按 Loon 配置规则（空串）
+  const cands = args.NODES.concat([""]);
+  const BUDGET = 55000;
+  let idx = 0;
   const t0 = Date.now();
   function send() {
+    const node = cands[idx];
+    const remain = BUDGET - (Date.now() - t0);
     const opts = {
       url,
       headers: { "Content-Type": "application/json", "x-goog-api-key": args.KEY },
       body: JSON.stringify(payload),
-      timeout: 30,
+      timeout: Math.max(5, Math.min(25, Math.floor(remain / 1000) - 3)),
     };
-    console.log("[qianwen_gemini] POST " + args.MODEL + " (routing follows Loon config rules)");
-    $httpClient.post(opts, onResult);
+    if (node) opts.node = node;
+    console.log("[qianwen_gemini] POST " + args.MODEL + " via " + (node || "config rules"));
+    $httpClient.post(opts, (err, resp, data) => {
+      // 连接层失败（节点不通 / 策略名不存在）：换下一个候选
+      if (err && idx < cands.length - 1 && Date.now() - t0 < BUDGET - 8000) {
+        console.log("[qianwen_gemini] " + (node || "rules") + " failed after " + (Date.now() - t0) + "ms: " + err);
+        idx++;
+        return send();
+      }
+      onResult(err, resp, data);
+    });
   }
 
   function onResult(err, resp, data) {
     if (err) {
-      console.log("[qianwen_gemini] request error after " + (Date.now() - t0) + "ms: " + err);
-      return reply(friendlyError(err), [], tag);
+      console.log("[qianwen_gemini] all attempts failed after " + (Date.now() - t0) + "ms: " + err);
+      return reply(friendlyError(err, cands), [], tag);
     }
     const status = resp && resp.status;
     let j;
