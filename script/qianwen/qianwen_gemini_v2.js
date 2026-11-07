@@ -7,6 +7,8 @@
  * 参数（在插件里填写）：KEY / MODEL / SEARCH / FAST / PROMPT / BASE
  */
 
+const VERSION = "1.3.1";
+
 const DEFAULTS = {
   MODEL: "gemini-2.5-flash",
   BASE: "https://generativelanguage.googleapis.com",
@@ -62,8 +64,9 @@ function stripMd(t) {
 
 function friendlyError(err) {
   const e = String(err);
-  if (/timeout|timed out/i.test(e)) return "连接 Gemini 超时。请检查 Loon 配置里 generativelanguage.googleapis.com 命中的规则（通常是 AI 规则）所指向的策略是否有可用节点。";
-  return "连接 Gemini 失败：" + e.replace(/^.*?error:/i, "").slice(0, 120);
+  const v = "（脚本 v" + VERSION + "）";
+  if (/timeout|timed out/i.test(e)) return "连接 Gemini 超时。请检查 Loon 配置里 generativelanguage.googleapis.com 命中的规则（通常是 AI 规则）所指向的策略是否有可用节点。" + v;
+  return "连接 Gemini 失败：" + e.replace(/^.*?error:/i, "").slice(0, 120) + v;
 }
 
 function summarize(text) {
@@ -171,6 +174,7 @@ function reply(text, citations, model) {
   }
   const args = readArgs();
   const tag = "Gemini·" + args.MODEL;
+  console.log("[qianwen_gemini] script v" + VERSION + " running");
 
   if (!args.KEY) return reply("还没有填写 Gemini API Key，请先在 Loon 插件参数里填写。", [], tag);
 
