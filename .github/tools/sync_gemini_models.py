@@ -3,7 +3,7 @@
 
 - 数据来源：Gemini API  GET /v1beta/models（需要仓库 Secret：GEMINI_API_KEY）
 - 只保留：支持 generateContent、名字以 gemini- 开头、版本 >= 2.5 的文本/多模态对话模型
-- 排除：tts / image / live / audio / embedding / 带日期的快照 / 实验版等
+- 排除：tts / image / live / audio / transcribe / embedding / 带日期的快照 / 实验版等；正式版已出时不再保留同名 -preview
 - 稳定排序：已有选项保持原顺序（第一个是默认值），新模型追加在末尾，下线的模型移除
 - 出错或数据异常时不改动任何文件（退出码 0），不会把下拉清空
 """
@@ -21,13 +21,14 @@ API = "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000"
 
 EXCLUDE = re.compile(
     r"(embedding|tts|image|live|audio|robotics|computer-use|learnlm|exp|vision|aqa|imagen|veo|"
-    r"nano|banana|deep-research|customtools|dialog|native|thinking-|antigravity)",
+    r"nano|banana|deep-research|customtools|dialog|native|thinking-|antigravity|"
+    r"transcribe|speech|translat|moderation)",
     re.I,
 )
 DATED = re.compile(r"(-\d{3}$|-\d{4}$|-\d{2}-\d{4}$|-\d{2}-\d{2}$)")  # -001 / -0827 / -09-2025 / -03-25
 LATEST_ALIASES = {"gemini-flash-latest", "gemini-flash-lite-latest", "gemini-pro-latest"}
 MIN_VERSION = (2, 5)
-MAX_OPTIONS = 14
+MAX_OPTIONS = 20
 
 
 def fetch_models():
@@ -68,7 +69,10 @@ def pick(models):
         v = version_of(name)
         if v and v >= MIN_VERSION:
             out.append(name)
-    return sorted(set(out))
+    out = set(out)
+    # 正式版已发布时，去掉同名的 -preview 版本（如 gemini-3.1-flash-lite-preview）
+    out = {n for n in out if not (n.endswith("-preview") and n[: -len("-preview")] in out)}
+    return sorted(out)
 
 
 def parse_current(text):
