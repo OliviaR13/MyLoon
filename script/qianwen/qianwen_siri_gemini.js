@@ -1,14 +1,14 @@
 /*
- * Siri → Gemini 独立兼容层  v2.1.0
+ * Siri → Gemini 独立兼容层  v2.2.0
  *
  * 兼容 Siri 请求协议并由 Gemini API 独立处理，按 Siri 兼容的 SSE 事件流返回。
  * 不调用千问作为上游或备用服务；不支持的输入会明确报错，不会回落到千问。
  *
- * 重要：Loon 的 $httpClient timeout 单位是【毫秒】。
- * 之前的版本写成了 30/40/50（被当成 30~50 毫秒），所以请求永远“超时”。
+ * 注意：$httpClient 的 timeout 单位以 Loon 实际表现为准（脚本按毫秒传值），
+ * 请在 Loon 日志里核对一次；时间预算见下方 BUDGET_MS / ATTEMPT_MS。
  */
 
-const VERSION = "2.1.0";
+const VERSION = "2.2.0";
 const TAG = "[qianwen_gemini]";
 
 const DEFAULTS = {
@@ -17,7 +17,10 @@ const DEFAULTS = {
   PROMPT: "你是 Siri 的后台助手。请用简洁、口语化的中文回答，适合直接朗读；不要使用 Markdown、列表符号或表情。",
 };
 
-// 请求超时（毫秒）；网络分流完全交给 Loon 当前配置规则
+// 时间预算（毫秒）：整个脚本不超过插件里 timeout=60 秒；网络分流完全交给 Loon 当前配置规则
+const BUDGET_MS = 55000;
+const ATTEMPT_MS = 45000;   // 单次请求上限
+const RETRY_MIN_MS = 12000; // 剩余不足这么久就不再重试
 
 /* ───────────── 参数 ───────────── */
 function readArgs() {
@@ -32,8 +35,8 @@ function readArgs() {
   };
   return {
     KEY: get("KEY") || "",
-    MODEL: get("MODEL") || DEFAULTS.MODEL,
-    BASE: (get("BASE") || DEFAULTS.BASE).replace(/\/+$/, ""),
+    MODEL: (get("MODEL") || DEFAULTS.MODEL).replace(/^\/?models\//i, ""),
+    BASE: (get("BASE") || DEFAULTS.BASE).replace(/\/+$/, "").replace(/\/v1(beta)?$/i, ""),
     PROMPT: get("PROMPT") || DEFAULTS.PROMPT,
     SEARCH: get("SEARCH") === "true",
     FAST: get("FAST") !== "false",
@@ -167,7 +170,7 @@ function reply(text, citations, model) {
 /* ───────────── 主流程 ───────────── */
 (function main() {
   if (!$request || !/\/v1\/sessions\/responses/.test($request.url)) return $done({});
-  if ($request.method !== "POST") return reply("仅支持 POST 请求，已停止处理。", [], "Gemini");
+  if ($request.method !== "POST") return reply("仅支持 POST 请求。", [], "Gemini");
   const args = readArgs();
   const tag = "Gemini·" + args.MODEL;
   console.log(TAG + " script v" + VERSION + " running, model=" + args.MODEL);
@@ -175,41 +178,51 @@ function reply(text, citations, model) {
   if (!args.KEY) return reply("还没有填写 Gemini API Key，请先在 Loon 插件参数里填写。", [], tag);
 
   let body;
-  try { body = JSON.parse($request.body); } catch (e) { return reply("Siri 请求格式无法解析，已停止处理，未转发给千问。", [], tag); }
+  try { body = JSON.parse($request.body); } catch (e) { return reply("请求格式无法解析。", [], tag); }
   if (!body || typeof body !== "object" || Array.isArray(body) || !Array.isArray(body.input)) {
-    return reply("Siri 请求结构不受支持，已停止处理，未转发给千问。", [], tag);
+    return reply("请求结构不受支持。", [], tag);
   }
   const { contents, system, unsupported } = toGemini(body);
-  if (unsupported) return reply("当前版本只支持文本输入；图片或其他多模态内容尚未接入 Gemini，请勿将此版本视为多模态兼容。", [], tag);
-  if (!contents.length) return reply("无法识别 Siri 请求中的文本内容，已停止处理，未转发给千问。", [], tag);
+  if (unsupported) return reply("目前只支持文字输入，暂不支持图片。", [], tag);
+  if (!contents.length) return reply("没有识别到文字内容。", [], tag);
 
   const payload = {
     systemInstruction: { parts: [{ text: [args.PROMPT].concat(system).join("\n") }] },
     contents,
     generationConfig: { maxOutputTokens: 2048 },
   };
-  // 快速模式：关闭思考（仅 flash 系列支持；pro 无法关闭）
+  // 快速模式：关闭/压低思考（仅 flash 系列支持；pro 无法关闭）
   if (args.FAST && /flash/i.test(args.MODEL) && !/pro/i.test(args.MODEL)) {
-    payload.generationConfig.thinkingConfig = { thinkingBudget: 0 };
+    payload.generationConfig.thinkingConfig = /gemini-3/i.test(args.MODEL)
+      ? { thinkingLevel: "minimal" }   // 3.x 用 thinkingLevel
+      : { thinkingBudget: 0 };         // 2.5 用 thinkingBudget
+  } else {
+    // 思考会占用输出额度，放宽以免正文被截空
+    payload.generationConfig.maxOutputTokens = 4096;
   }
   if (args.SEARCH) payload.tools = [{ google_search: {} }];
 
   const url = args.BASE + "/v1beta/models/" + encodeURIComponent(args.MODEL) + ":generateContent";
+  const startAt = Date.now();
+  const remaining = () => BUDGET_MS - (Date.now() - startAt);
   let retried5xx = false;
   let retriedNoThink = false;
+  let retriedNet = false;
   function attempt() {
     const opts = {
       url,
       headers: { "Content-Type": "application/json", "x-goog-api-key": args.KEY },
       body: JSON.stringify(payload),
-      timeout: 45000,
+      timeout: Math.max(5000, Math.min(ATTEMPT_MS, remaining() - 2000)),
     };
     console.log(TAG + " POST via Loon config rules, timeout=" + opts.timeout + "ms");
 
     $httpClient.post(opts, (err, resp, data) => {
       if (err) {
         console.log(TAG + " Gemini request failed: " + err);
-        return reply("连接 Gemini 失败，请检查 Loon 当前配置规则及网络连通性。（脚本 v" + VERSION + "）", [], tag);
+        // 网络错误/超时：时间够就重试一次
+        if (!retriedNet && remaining() > RETRY_MIN_MS) { retriedNet = true; return attempt(); }
+        return reply("连接 Gemini 失败，请检查网络或代理设置。", [], tag);
       }
       handle(resp, data);
     });
@@ -220,7 +233,7 @@ function reply(text, citations, model) {
     let j;
     try { j = JSON.parse(data); } catch (e) {
       console.log(TAG + " bad body (HTTP " + status + "): " + String(data).slice(0, 200));
-      return reply("Gemini 返回了无法解析的内容（HTTP " + status + "）。", [], tag);
+      return reply("Gemini 返回了无法解析的内容。", [], tag);
     }
     if (j.error) {
       const msg = j.error.message || "";
@@ -232,8 +245,8 @@ function reply(text, citations, model) {
         return attempt();
       }
       // 临时性错误：重试一次
-      if ((status === 429 || status >= 500) && !retried5xx) { retried5xx = true; return attempt(); }
-      return reply("Gemini 出错（" + status + "）：" + msg.slice(0, 120), [], tag);
+      if ((status === 429 || status >= 500) && !retried5xx && remaining() > RETRY_MIN_MS) { retried5xx = true; return attempt(); }
+      return reply("Gemini 出错了（" + status + "），请稍后再试。", [], tag);
     }
 
     const cand = (j.candidates || [])[0] || {};
@@ -244,6 +257,7 @@ function reply(text, citations, model) {
         .join("")
     );
     if (!text) {
+      if (cand.finishReason === "MAX_TOKENS") return reply("这个问题思考过久没来得及回答，请换个问法，或在插件里开启快速模式。", [], tag);
       const why = (j.promptFeedback && j.promptFeedback.blockReason) || cand.finishReason || "空回复";
       return reply("Gemini 没有给出回答（" + why + "）。", [], tag);
     }
