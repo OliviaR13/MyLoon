@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-11-07T14:56:12.460070+00:00",
+  "generatedAt": "2026-11-07T15:02:36.070843+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -226,6 +226,28 @@
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/luestr/IconResource/main/App_icon/120px/RedPaper.png",
       "description": "仅代理小红书 App 中承载 IP 属地/风控判定信号的接口（含经纬度参数的推荐接口、设备指纹注册接口、打点上报接口），Feed、图片、头像、视频等媒体 CDN 直连，不占用代理流量。安装后请在插件详情页的「代理指向的策略」中选择用于代理的策略组或节点，未选择时默认使用全局策略的第一个节点。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前，否则规则可能被提前匹配而失效。"
+    },
+    {
+      "id": "siri_ai_bridge",
+      "name": "Siri AI Bridge",
+      "file": "plugin/siri_ai_bridge.plugin",
+      "version": "1.0.0",
+      "author": "@OliviaR13",
+      "category": "AI",
+      "tags": [
+        "AI",
+        "Siri",
+        "功能增强"
+      ],
+      "mitm": true,
+      "script": true,
+      "args": true,
+      "rule": false,
+      "proxy": false,
+      "date": "2026-11-07",
+      "homepage": "https://www.github.com/OliviaR13",
+      "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/AI.png",
+      "description": "将 Siri 请求转换为通用 AI API 请求，支持 Gemini、OpenAI、Anthropic 及 OpenAI 兼容接口，并将响应转换为 Siri 可识别格式。当前仅支持文本输入；网络请求遵循 Loon 当前配置规则。"
     },
     {
       "id": "weibo",
