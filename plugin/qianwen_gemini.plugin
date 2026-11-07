@@ -7,18 +7,18 @@
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Google.png
 #!date = 2026-11-07
-#!version = 2.8.0
+#!version = 2.8.1
 
 [Argument]
-KEY = input,"",tag=Gemini API Key,desc=在 aistudio.google.com/apikey 获取，粘贴即可（自动去除空格）
-MODEL = select,"gemini-2.5-flash","gemini-3.1-flash-lite","gemini-2.5-flash-lite","gemini-2.5-pro","gemini-flash-latest",tag=模型,desc=flash-lite 最快最省；flash 均衡；pro 最强但较慢
-CUSTOM_MODEL = input,"",tag=自定义模型（可选）,desc=填写后优先于上面的选择，如 gemini-3.1-pro-preview；留空则不生效
-STYLE = select,"简短口语","标准","详细",tag=回答风格,desc=简短口语最适合 Siri 朗读；详细会更长更慢
-PROMPT = input,"",tag=额外提示词（可选）,desc=追加在风格提示之后，例如「称呼我为…」；留空即可
-SEARCH = switch,false,tag=联网搜索,desc=使用 Google Search 接地，可查实时信息，对写作工具同样生效（会更慢；仅 Gemini 3 系列支持写作+搜索同时使用）
-FAST = switch,true,tag=快速模式,desc=压低模型思考以加快回复（仅 flash 系列生效）
-BASE = input,"https://generativelanguage.googleapis.com",tag=API 地址,desc=默认官方地址；使用反代时改这里（无需带 /v1beta）
-STRICT = switch,true,tag=隐私兜底,desc=开启后，该域名下除对话接口外的其他请求一律在本地拒绝，不会发给千问；若 Siri 出现异常可关闭
+KEY = input,"",tag=Gemini API Key,desc=必填。在 aistudio.google.com/apikey 创建后直接粘贴（首尾空格会自动去除）
+MODEL = select,"gemini-2.5-flash","gemini-3.1-flash-lite","gemini-2.5-flash-lite","gemini-2.5-pro","gemini-flash-latest",tag=模型,desc=3.1-flash-lite 最快最省（推荐）；2.5-flash 均衡；2.5-pro 最强但较慢；flash-latest 自动跟随最新 flash
+CUSTOM_MODEL = input,"",tag=自定义模型（可选）,desc=填写后优先于上面的选择，例如 gemini-3.1-pro-preview；留空则使用上面的选择
+STYLE = select,"简短口语","标准","详细",tag=回答风格,desc=用于 Siri 对话和识图：简短口语适合朗读；标准更完整；详细更长也更慢。写作工具不受影响
+PROMPT = input,"",tag=额外提示词（可选）,desc=追加在风格提示之后，对话和写作工具都会带上，例如「称呼我为小明」；留空即可
+SEARCH = switch,false,tag=联网搜索,desc=用 Google Search 查实时信息，回复会变慢。对话、识图、写作工具都可用；写作工具仅 Gemini 3 系列支持，其他模型自动不联网
+FAST = switch,true,tag=快速模式,desc=压低模型思考深度以加快回复，仅对 flash 系列生效（pro 无法关闭思考）
+BASE = input,"https://generativelanguage.googleapis.com",tag=API 地址,desc=默认即官方地址；使用反向代理时改这里，填到域名即可，无需带 /v1beta
+STRICT = switch,true,tag=隐私兜底,desc=开启后千问域名下除对话外的其他请求一律在本地拒绝，防止内容泄露；仅在 Siri 出现异常时再临时关闭
 
 [Script]
 http-request ^https:\/\/prod-yabuli\.qianwen\.com\/ requires-body=true, timeout=60, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/qianwen/qianwen_siri_gemini.js, argument=[{KEY},{MODEL},{CUSTOM_MODEL},{STYLE},{PROMPT},{SEARCH},{FAST},{BASE},{STRICT}], tag=Siri to Gemini
