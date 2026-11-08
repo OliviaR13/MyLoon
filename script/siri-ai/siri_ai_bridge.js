@@ -1,5 +1,5 @@
 /*
- * Siri AI Bridge  v2.3.0
+ * Siri AI Bridge  v3.0.0
  *
  * 将 Siri 请求转换为通用 AI API 请求（Gemini / OpenAI / Anthropic / OpenAI 兼容接口），
  * 并按 Siri 兼容的 SSE 事件流返回。能力对齐 Siri to Gemini：
@@ -7,7 +7,7 @@
  * 不支持的输入会明确报错，不会放行给原始服务。
  */
 
-const VERSION = "2.3.0";
+const VERSION = "3.0.0";
 const TAG = "[siri_ai_bridge]";
 
 const BASE_DEFAULTS = {
@@ -15,10 +15,17 @@ const BASE_DEFAULTS = {
   openai: "https://api.openai.com",
   anthropic: "https://api.anthropic.com",
 };
-// 用户话语开头的「使用千问」只是 Siri 的触发词，不属于问题
-const IDENTITY = "用户话语开头的「使用千问」「用千问」只是触发词，请完全忽略，直接回答问题本身，不要提到千问或通义。";
+// 各服务商不填模型时的默认模型：选快速、便宜的型号，Siri 等待时间有限
+const MODEL_DEFAULTS = { gemini: "gemini-flash-lite-latest", openai: "gpt-4o-mini", anthropic: "claude-haiku-5-5" };
+// 用户话语里的「使用千问」「问问千问」等只是唤起 Siri 扩展的触发词，不属于问题
+const IDENTITY = "用户话语里的「使用千问」「问问千问」等只是唤起 Siri 扩展的触发词，请完全忽略，直接回答问题本身，不要提到千问或通义。";
 const IMAGE_ONLY_PROMPT = "请识别并简要说明图片里是什么；如果有文字，请读出重点；如果是商品、植物、动物或地点，请说出名称和关键信息。";
-const TRIGGER_RE = /^[\s，,。.、]*(请)?(使用|调用|用)(一下)?(通义)?千问[\s，,、:：。.]*/;
+// 触发词清洗：用户说「使用千问」「问问千问」「帮我问一下千问」「向千问提问」等只是唤起扩展，不属于问题；
+// 前缀、句末后缀、英文说法都会去掉
+const TRIGGER_PREFIX = /^[\s，,。.、]*(?:(?:请|帮我|麻烦你?)?(?:使用|调用|用|问问|问一下|问下|问|叫|让)(?:一下|下)?(?:通义)?千问|(?:请|帮我|麻烦你?)?向(?:通义)?千问)(?:帮我|一下|下|说|回答|提问|请教)?[\s，,、:：。.]*/;
+const TRIGGER_SUFFIX = /[\s，,、:：。.]+(?:请|帮我|麻烦你?)?(?:使用|调用|用|问问|问一下|问下|问)(?:通义)?千问(?:帮我|一下|下)?[\s。.]*$/;
+const TRIGGER_EN = /^\s*(?:please\s+)?(?:ask|use|query)\s+(?:tongyi\s+)?qwen[\s,:，：]*/i;
+function cleanTrigger(t) { return String(t).replace(TRIGGER_PREFIX, "").replace(TRIGGER_EN, "").replace(TRIGGER_SUFFIX, "").trim(); }
 const OLD_DEFAULT_PROMPT = "你是 Siri 的后台助手。请用简洁、口语化的中文回答，适合直接朗读；不要使用 Markdown、列表符号或表情。";
 
 const FORMAT_RULES = "排版要求：必须使用完整的中文标点（逗号、顿号、句号、冒号等），不要省略标点；内容较多时按意思分成几个短段落，段落之间空一行；英文名称与中文之间用标点或空格隔开。";
@@ -39,13 +46,25 @@ const MAX_WAIT_MS = 15000; // 限流时最多愿意等多久再重试；超过�
 function readArgs() {
   let a = typeof $argument === "undefined" ? {} : $argument;
   if (typeof a === "string") { try { a = JSON.parse(a); } catch (e) { a = {}; } }
+  // 高级覆写：$persistentStore 里的 SIRI_BRIDGE_<参数名>（如 SIRI_BRIDGE_HISTORY=2轮）优先于插件参数。
+  // 插件只展示必要参数，其余都有合适的默认值，需要时再用这种方式调整
+  const ov = (k) => {
+    try {
+      if (typeof $persistentStore !== "undefined") {
+        const x = $persistentStore.read("SIRI_BRIDGE_" + k);
+        if (x !== null && x !== undefined && String(x).trim() !== "") return String(x).trim();
+      }
+    } catch (e) {}
+    return undefined;
+  };
   const get = (k) => {
-    const v = a[k];
+    const o = ov(k);
+    const v = o !== undefined ? o : a[k];
     if (v === undefined || v === null) return undefined;
     const s = String(v).trim();
     return /^\{.*\}$/.test(s) || s === "null" || s === "" ? undefined : s;
   };
-  const provider = (get("PROVIDER") || "openai_compatible").toLowerCase();
+  const provider = (get("PROVIDER") || "gemini").toLowerCase();
   const style = STYLES[get("STYLE")] ? get("STYLE") : "简短口语";
   let base = (get("BASE") || BASE_DEFAULTS[provider] || "").replace(/\/+$/, "");
   if (provider === "gemini" || provider === "anthropic") base = base.replace(/\/v1(beta)?$/i, "");
@@ -54,10 +73,11 @@ function readArgs() {
     provider,
     key: (get("KEY") || "").replace(/\s+/g, ""),
     base,
-    model: (get("MODEL") || "").replace(/^\/?models\//i, ""),
+    model: (get("MODEL") || MODEL_DEFAULTS[provider] || "").replace(/^\/?models\//i, ""),
     style,
     prompt: prompt === OLD_DEFAULT_PROMPT ? "" : (prompt || ""),
-    search: get("SEARCH") === "true",
+    // 联网搜索：自动（默认，问题涉及天气、新闻、价格等实时信息才联网）/ 开 / 关；兼容旧版开关的 true / false
+    search: (() => { const v = get("SEARCH"); return v === "true" || v === "开" ? "on" : v === "false" || v === "关" ? "off" : "auto"; })(),
     fast: get("FAST") !== "false",
     history: (() => { const v = get("HISTORY"); if (v === "不带历史") return 0; const n = parseInt(v, 10); return isFinite(n) ? Math.max(0, Math.min(20, n)) : 6; })(),
     strict: get("STRICT") !== "false",
@@ -98,7 +118,7 @@ function shapeOf(v, depth) {
   if (Array.isArray(v)) return "[" + v.slice(0, 3).map((x) => shapeOf(x, depth + 1)).join(",") + (v.length > 3 ? ",…" : "") + "]";
   return "{" + Object.keys(v).map((k) => k + ":" + shapeOf(v[k], depth + 1)).join(",") + "}";
 }
-function stripTrigger(t) { const r = String(t).replace(TRIGGER_RE, "").trim(); return r || t; }
+function stripTrigger(t) { const r = cleanTrigger(t); return r || t; }
 
 /* ───────────── 输出结构：跟随请求里的 response_format ─────────────
  * 相机/普通对话: content + summary + isRequestingUserInput
@@ -178,7 +198,7 @@ function toUnified(body, contentProp) {
     let parts = [];
     if (imgs.length && role === "user") {
       hasImage = true;
-      parts = imgs.concat([{ t: String(text).replace(TRIGGER_RE, "").trim() || IMAGE_ONLY_PROMPT }]);
+      parts = imgs.concat([{ t: cleanTrigger(text) || IMAGE_ONLY_PROMPT }]);
     } else {
       if (!text) continue;
       if (role === "user") text = stripTrigger(text);
@@ -333,6 +353,10 @@ function todayLine() {
   const d = new Date();
   return "当前日期：" + d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日 星期" + "日一二三四五六"[d.getDay()] + "。涉及今天、明天、现在、最近等时间问题时，以这个日期为准。";
 }
+
+// 联网搜索「自动」模式：问题明显需要实时信息时才联网，其余不联网，保持快速
+const SEARCH_CUE = /(最新|最近|实时|刚刚|刚才|新闻|热搜|头条|天气|气温|下雨|下雪|空气质量|股价|股市|股票|汇率|币价|比特币|油价|金价|行情|比分|赛程|战绩|票房|上映|发布会|多少钱|售价|报价|价格|航班|车次|路况|限行|营业时间|谁赢了|获奖名单|更新了什么|latest|news|weather|price|score|stock)/i;
+function needsSearch(text) { return SEARCH_CUE.test(String(text || "")); }
 
 // 限流时服务商会告诉要等多久：Retry-After 响应头，Gemini 的 retryDelay，或错误信息里的 "try again in 1.2s"
 function retryDelayMs(j, resp) {
@@ -632,7 +656,7 @@ function main() {
     setTimeout(() => { console.log(TAG + " watchdog fired"); reply("AI 响应太慢了，这次先放弃，请稍后再试。", [], "AI"); }, WATCHDOG_MS);
   }
   const a = readArgs();
-  const label = a.model || "AI";
+  let label = a.model || "AI";
   if ($request.method !== "POST") return reply("仅支持 POST 请求。", [], label);
   console.log(TAG + " script v" + VERSION + " running, provider=" + a.provider + ", model=" + a.model + ", style=" + a.style);
 
@@ -650,7 +674,8 @@ function main() {
     if (sch && sch.properties && jsch.content_property && sch.properties[jsch.content_property]) OUT = { prop: jsch.content_property, props: sch.properties };
   } catch (e) {}
 
-  if (!a.key || !a.model) return reply("请先在 Loon 插件参数里填写 API Key 和模型名称。", [], label);
+  if (!a.key) return reply("请先在 Loon 插件参数里填写 API Key。", [], label);
+  if (!a.model) return reply("使用 OpenAI 兼容接口时需要填写模型名称。", [], label);
   if (!a.base) return reply("请先在 Loon 插件参数里填写 API 地址。", [], label);
   const structured = extraProps().length > 0;
   SESSION.prev = body.previous_choice_id || null;
@@ -692,8 +717,11 @@ function main() {
 
   // 联网搜索：Gemini（Google Search）与 Anthropic（web_search）支持；其他服务商忽略
   const searchCapable = a.provider === "gemini" || a.provider === "anthropic";
-  let searchOn = a.search && searchCapable, searchSkipped = false;
-  if (a.search && !searchCapable) { searchSkipped = true; console.log(TAG + " provider " + a.provider + " has no search adapter, ignoring SEARCH"); }
+  // 开 = 每次联网；自动 = 只有问题涉及实时信息时才联网（写作工具不自动联网）；关 = 不联网
+  const searchWanted = a.search === "on" || (a.search === "auto" && !structured && needsSearch(userText));
+  if (searchWanted && a.search === "auto") console.log(TAG + " auto search enabled for this question");
+  let searchOn = searchWanted && searchCapable, searchSkipped = false;
+  if (a.search === "on" && !searchCapable) { searchSkipped = true; console.log(TAG + " provider " + a.provider + " has no search adapter, ignoring SEARCH"); }
   else if (searchOn && searchCooling()) { searchOn = false; searchSkipped = true; console.log(TAG + " search recently failed, skipping"); }
 
   let req, thinkOn = a.provider === "gemini" && a.fast;
@@ -702,7 +730,7 @@ function main() {
 
   const startAt = Date.now();
   const remaining = () => BUDGET_MS - (Date.now() - startAt);
-  let retriedTemp = false, retriedNet = false, retriedNoThink = false, retriedNoSearch = false;
+  let retriedTemp = false, retriedNet = false, retriedNoThink = false, retriedNoSearch = false, retriedModel = false;
 
   function attempt() {
     if (finished) return; // 看门狗已经回复过了，不再发请求
@@ -732,6 +760,15 @@ function main() {
     if (status < 200 || status >= 300 || j.error) {
       const msg = String((j.error && (j.error.message || j.error.type || j.error)) || j.message || ("HTTP " + status));
       console.log(TAG + " api error " + status + ": " + msg.slice(0, 200));
+      // Gemini 模型不存在或对当前 Key 不可用（如 2.5 系列不再对新用户开放）：自动改用默认模型重试一次
+      if (a.provider === "gemini" && (status === 404 || /no longer available/i.test(msg)) && a.model !== MODEL_DEFAULTS.gemini && !retriedModel) {
+        retriedModel = true;
+        console.log(TAG + " model " + a.model + " unavailable (" + status + "), falling back to " + MODEL_DEFAULTS.gemini);
+        a.model = MODEL_DEFAULTS.gemini;
+        label = a.model;
+        rebuild();
+        return attempt();
+      }
       // 个别 Gemini 模型不支持关闭思考：去掉后重试一次
       if (status === 400 && a.provider === "gemini" && thinkOn && /think/i.test(msg) && !retriedNoThink) {
         retriedNoThink = true; thinkOn = false; rebuild(); return attempt();
@@ -787,9 +824,9 @@ function main() {
       return reply(BLOCK_TEXT[why] || ("AI 没有给出回答（" + why + "），请再试一次。"), [], label);
     }
     const us = j.usageMetadata || j.usage || {};
-    console.log(TAG + " response received (HTTP " + status + "), tokens: input=" + (us.promptTokenCount || us.input_tokens || us.prompt_tokens || "?") + ", cached=" + (us.cachedContentTokenCount || us.cache_read_input_tokens || 0) + ", output=" + (us.candidatesTokenCount || us.output_tokens || us.completion_tokens || "?"));
+    console.log(TAG + " response received (HTTP " + status + ", " + (Date.now() - startAt) + "ms), tokens: input=" + (us.promptTokenCount || us.input_tokens || us.prompt_tokens || "?") + ", cached=" + (us.cachedContentTokenCount || us.cache_read_input_tokens || 0) + ", output=" + (us.candidatesTokenCount || us.output_tokens || us.completion_tokens || "?"));
     try { recordTurn(SESSION.sid, SESSION.cid, SESSION.prev, userText, text); } catch (e) { console.log(TAG + " record turn failed: " + e); }
-    reply(searchSkipped && a.search && !structured ? text + SEARCH_NOTE : text, r.cites, label, extra);
+    reply(searchSkipped && !structured ? text + SEARCH_NOTE : text, r.cites, label, extra);
   }
   attempt();
 }
