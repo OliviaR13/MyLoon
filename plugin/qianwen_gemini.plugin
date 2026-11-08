@@ -1,5 +1,5 @@
 #!name = Siri to Gemini
-#!desc = 将 Siri 请求交由 Google Gemini API 处理，并转换为兼容响应格式。开箱即用：只需填写 API Key。支持文本对话、连续追问、相机识图、写作工具、文件问答（PDF、图片、音视频、文本）、按需联网搜索及自定义模型，网络请求遵循 Loon 当前配置规则，不使用千问作为上游或备用服务。
+#!desc = 将 Siri 请求交由 Google Gemini API 处理，并转换为兼容响应格式。支持文本对话、连续追问、相机识图、写作工具、文件问答（PDF、图片、音视频、文本）、联网搜索及自定义模型，网络请求遵循 Loon 当前配置规则，不使用千问作为上游或备用服务。
 #!tag = AI,Siri,功能增强
 #!system = iOS
 #!loon_version = 3.2.4
@@ -7,15 +7,15 @@
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Google.png
 #!date = 2026-11-08
-#!version = 3.0.0
+#!version = 3.0.1
 
 [Argument]
-KEY = input,"",tag=Gemini API Key,desc=必填。在 aistudio.google.com/apikey 创建后直接粘贴（首尾空格会自动去除）
-MODEL = select,"gemini-flash-lite-latest","gemini-flash-latest","gemini-2.5-flash","gemini-3.1-flash-lite","gemini-2.5-flash-lite","gemini-2.5-pro","gemini-3-flash-preview","gemini-3.1-pro-preview","gemini-3.5-flash","gemini-3.5-flash-lite","gemini-3.6-flash","gemini-3.7-flash","gemini-3.8-flash","gemini-4-argon","gemini-pro-latest",tag=模型,desc=默认即可，开箱即用；选项每天自动同步。flash-lite-latest 自动跟随最新的 flash-lite，最快最省（推荐）；flash-latest 自动跟随最新 flash，质量更好；数字版本固定不变，pro 最强但较慢。所选模型不可用时会自动改用默认模型
-PROMPT = input,"",tag=额外提示词（可选）,desc=追加在内置提示之后，例如「称呼我为小明」「回答尽量简短」，对话和写作工具都会带上；留空即可
-SEARCH = select,"自动","开","关",tag=联网搜索,desc=自动（推荐）：问题涉及天气、新闻、价格、比分等实时信息时才联网，其余不联网以保持快速；开：每次都联网（更慢）；关：从不联网。Gemini 3 的搜索额度单独计算，免费 Key 常为 0，额度不足时会自动改为不联网并短暂暂停搜索
-CUSTOM_MODEL = input,"",tag=自定义模型（可选）,desc=填写后优先于上面的模型选择。适合刚发布还没出现在下拉里的模型、被过滤掉的模型，或反代使用的自定义名称；按官方模型名填写，留空则使用下拉选择
-BASE = input,"https://generativelanguage.googleapis.com",tag=API 地址（可选）,desc=默认即官方地址；使用反向代理时改这里，填到域名即可，无需带 /v1beta
+KEY = input,"",tag=Gemini API Key,desc=必填。在 aistudio.google.com/apikey 创建后粘贴，首尾空格会自动去除
+MODEL = select,"gemini-flash-lite-latest","gemini-flash-latest","gemini-2.5-flash","gemini-3.1-flash-lite","gemini-2.5-flash-lite","gemini-2.5-pro","gemini-3-flash-preview","gemini-3.1-pro-preview","gemini-3.5-flash","gemini-3.5-flash-lite","gemini-3.6-flash","gemini-3.7-flash","gemini-3.8-flash","gemini-4-argon","gemini-pro-latest",tag=模型,desc=默认 gemini-flash-lite-latest，速度最快。flash 系列质量更好，pro 最强但更慢；名称带 latest 的会自动跟随最新版本。选项每天同步，所选模型不可用时自动改用默认模型
+PROMPT = input,"",tag=额外提示词（可选）,desc=追加在内置提示之后，对话和写作工具都会带上，例如「称呼我为小明」。一般留空
+SEARCH = select,"自动","开","关",tag=联网搜索,desc=自动：问到天气、新闻、价格、比分等实时信息时才联网；开：每次都联网，回复更慢；关：不联网。Gemini 3 的搜索额度单独计算，免费 Key 常为 0，额度不足时会自动改为不联网
+CUSTOM_MODEL = input,"",tag=自定义模型（可选）,desc=填写后优先于上面的选择，用于下拉里没有的新模型或反代的自定义名称，按官方模型名填写。一般留空
+BASE = input,"https://generativelanguage.googleapis.com",tag=API 地址（可选）,desc=默认即官方地址。使用反向代理时改成代理域名，无需带 /v1beta
 
 [Script]
 http-request ^https:\/\/prod-yabuli\.qianwen\.com\/v1\/sessions(\/[^\/?]+)?\/files(\?.*)?$ requires-body=true, binary-body-mode=true, max-size=33554432, timeout=60, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/qianwen/qianwen_siri_gemini.js, argument=[{KEY},{MODEL},{PROMPT},{SEARCH},{CUSTOM_MODEL},{BASE}], tag=Siri to Gemini 文件上传

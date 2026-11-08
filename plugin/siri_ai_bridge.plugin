@@ -1,5 +1,5 @@
 #!name = Siri AI Bridge
-#!desc = 将 Siri 请求转换为通用 AI API 请求，支持 Gemini、OpenAI、Anthropic 及 OpenAI 兼容接口，并将响应转换为 Siri 可识别格式。开箱即用：选好服务商、填写 API Key 即可。支持文本对话、连续追问、相机识图、写作工具、文件问答（PDF、图片、文本；音视频仅 Gemini）及按需联网搜索（Gemini、Anthropic），网络请求遵循 Loon 当前配置规则。
+#!desc = 将 Siri 请求转换为通用 AI API 请求，支持 Gemini、OpenAI、Anthropic 及 OpenAI 兼容接口，并将响应转换为 Siri 可识别格式。支持文本对话、连续追问、相机识图、写作工具、文件问答（PDF、图片、文本；音视频仅 Gemini）及联网搜索（Gemini、Anthropic），网络请求遵循 Loon 当前配置规则。
 #!tag = AI,Siri,功能增强
 #!system = iOS
 #!loon_version = 3.2.4
@@ -7,15 +7,15 @@
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/AI.png
 #!date = 2026-11-08
-#!version = 3.0.0
+#!version = 3.0.1
 
 [Argument]
-PROVIDER = select,"gemini","openai","anthropic","openai_compatible",tag=服务商,desc=默认 Gemini。openai_compatible 适用于 DeepSeek、Kimi、OpenRouter 等兼容 OpenAI 的接口，需要同时填写 API 地址和模型名称
-KEY = input,"",tag=API Key,desc=必填。所选服务商的 API 密钥（首尾空格会自动去除）
-BASE = input,"",tag=API 地址（可选）,desc=留空即可：gemini / openai / anthropic 自动使用官方地址；openai_compatible 必填，可带 /v1；使用反向代理时填到域名即可
-MODEL = input,"",tag=模型名称（可选）,desc=留空则按服务商自动选用快速模型（gemini-flash-lite-latest / gpt-4o-mini / claude-haiku-5-5）；openai_compatible 必须填写
-PROMPT = input,"",tag=额外提示词（可选）,desc=追加在内置提示之后，例如「称呼我为小明」「回答尽量简短」，对话和写作工具都会带上；留空即可
-SEARCH = select,"自动","开","关",tag=联网搜索,desc=自动（推荐）：问题涉及天气、新闻、价格、比分等实时信息时才联网，其余不联网以保持快速；开：每次都联网（更慢）；关：从不联网。仅 Gemini（Google Search）和 Anthropic（web_search）支持，其他服务商忽略；额度不足或不可用时会自动改为不联网并短暂暂停搜索
+PROVIDER = select,"gemini","openai","anthropic","openai_compatible",tag=服务商,desc=选择使用的服务商。openai_compatible 适用于 DeepSeek、Kimi、OpenRouter 等兼容 OpenAI 的接口，需同时填写 API 地址和模型名称
+KEY = input,"",tag=API Key,desc=必填。所选服务商的 API Key，首尾空格会自动去除
+BASE = input,"",tag=API 地址（可选）,desc=gemini、openai、anthropic 留空即用官方地址；openai_compatible 必填，可带 /v1。使用反向代理时填代理域名
+MODEL = input,"",tag=模型名称（可选）,desc=留空则按服务商自动选择：gemini-flash-lite-latest、gpt-4o-mini、claude-haiku-5-5。openai_compatible 必须填写
+PROMPT = input,"",tag=额外提示词（可选）,desc=追加在内置提示之后，对话和写作工具都会带上，例如「称呼我为小明」。一般留空
+SEARCH = select,"自动","开","关",tag=联网搜索,desc=自动：问到天气、新闻、价格、比分等实时信息时才联网；开：每次都联网，回复更慢；关：不联网。仅 Gemini 和 Anthropic 支持，其他服务商忽略；额度不足时会自动改为不联网
 
 [Script]
 http-request ^https:\/\/prod-yabuli\.qianwen\.com\/v1\/sessions(\/[^\/?]+)?\/files(\?.*)?$ requires-body=true, binary-body-mode=true, max-size=33554432, timeout=60, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/siri-ai/siri_ai_bridge.js, argument=[{PROVIDER},{KEY},{BASE},{MODEL},{PROMPT},{SEARCH}], tag=Siri AI Bridge 文件上传
