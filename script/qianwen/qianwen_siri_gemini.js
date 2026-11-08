@@ -8,7 +8,7 @@
  * 请在 Loon 日志里核对一次；时间预算见下方 BUDGET_MS / ATTEMPT_MS。
  */
 
-const VERSION = "2.9.1";
+const VERSION = "2.10.0";
 const TAG = "[qianwen_gemini]";
 
 const DEFAULTS = {
@@ -58,6 +58,7 @@ function readArgs() {
     PROMPT: (get("PROMPT") === "你是 Siri 的后台助手。请用简洁、口语化的中文回答，适合直接朗读；不要使用 Markdown、列表符号或表情。" ? "" : get("PROMPT")) || "",
     SEARCH: get("SEARCH") === "true",
     FAST: get("FAST") !== "false",
+    HISTORY: (() => { const v = get("HISTORY"); if (v === "不带历史") return 0; const n = parseInt(v, 10); return isFinite(n) ? Math.max(0, Math.min(20, n)) : 6; })(),
     STRICT: get("STRICT") !== "false",   // 隐私兜底：默认拦截该域名下除对话接口外的所有请求
   };
 }
@@ -388,6 +389,7 @@ const STORE_KEY = "siri_gemini_sessions";
 const SESS_TTL = 3600 * 1000;   // 会话保留 1 小时
 const MAX_SESS = 12;            // 最多保留的会话数
 const MAX_TURNS = 20;           // 每个会话最多保留的轮数
+const SEND_CHARS = 20000;       // 每次请求最多带给模型的历史字数（超出先丢最早的）
 const MAX_CHARS = 60000;        // 每个会话历史最大字数
 let SESSION = { sid: null, cid: null, follow: false, prev: null };
 
@@ -409,7 +411,7 @@ function saveSessions(all) {
   } catch (e) { console.log(TAG + " save session failed: " + e); }
 }
 // 取出该会话的历史（按 previous_choice_id 截到对应那一轮；找不到就用全部）
-function historyContents(sid, prevChoice) {
+function historyContents(sid, prevChoice, maxTurns) {
   const sess = loadSessions()[sid];
   if (!sess || !Array.isArray(sess.turns)) return [];
   let turns = sess.turns;
@@ -417,6 +419,8 @@ function historyContents(sid, prevChoice) {
     const i = turns.findIndex((t) => t.c === prevChoice);
     if (i >= 0) turns = turns.slice(0, i + 1);
   }
+  turns = maxTurns > 0 ? turns.slice(-maxTurns) : [];
+  while (turns.length > 1 && turns.reduce((n, t) => n + t.u.length + t.m.length, 0) > SEND_CHARS) turns = turns.slice(1);
   const out = [];
   turns.forEach((t) => {
     out.push({ role: "user", parts: [{ text: t.u }] });
@@ -432,7 +436,7 @@ function recordTurn(sid, cid, prevChoice, userText, modelText) {
     const i = turns.findIndex((t) => t.c === prevChoice);
     if (i >= 0) turns = turns.slice(0, i + 1);
   }
-  turns.push({ c: cid, u: String(userText).slice(0, 8000), m: String(modelText).slice(0, 8000) });
+  turns.push({ c: cid, u: String(userText).slice(0, 3000), m: String(modelText).slice(0, 3000) });
   turns = turns.slice(-MAX_TURNS);
   while (turns.length > 1 && turns.reduce((n, t) => n + t.u.length + t.m.length, 0) > MAX_CHARS) turns.shift();
   all[sid] = { t: Date.now(), turns };
@@ -571,8 +575,8 @@ function main() {
   SESSION.prev = body.previous_choice_id || null;
   const { contents: newContents, system, unsupported, hasImage } = toGemini(body, OUT.prop);
   // 追问：把之前的对话接在前面（追问请求本身不带历史）
-  const hist = SESSION.follow ? historyContents(SESSION.sid, SESSION.prev) : [];
-  if (SESSION.follow) console.log(TAG + " follow-up, history messages=" + hist.length);
+  const hist = SESSION.follow ? historyContents(SESSION.sid, SESSION.prev, args.HISTORY) : [];
+  if (SESSION.follow) console.log(TAG + " follow-up, history messages=" + hist.length + " (limit " + args.HISTORY + " turns), chars=" + hist.reduce((n, m) => n + m.parts[0].text.length, 0));
   // 该会话上传过的文件：放在最前面一并发给 Gemini（Gemini 无状态，每轮都要带上）
   const fileList = loadFiles(SESSION.sid);
   let fileUnsupported = null;
@@ -726,7 +730,8 @@ function main() {
       .filter((w) => w && w.uri && !seen[w.uri] && (seen[w.uri] = 1))
       .slice(0, 5)
       .map((w) => ({ url: w.uri, title: w.title }));
-    console.log(TAG + " Gemini response received (HTTP " + status + ")");
+    const um = j.usageMetadata || {};
+    console.log(TAG + " Gemini response received (HTTP " + status + "), tokens: input=" + (um.promptTokenCount || "?") + ", cached=" + (um.cachedContentTokenCount || 0) + ", thinking=" + (um.thoughtsTokenCount || 0) + ", output=" + (um.candidatesTokenCount || "?"));
     try { recordTurn(SESSION.sid, SESSION.cid, SESSION.prev, userText, text); } catch (e) { console.log(TAG + " record turn failed: " + e); }
     // 搜索被跳过（额度不足）时，在普通回答末尾提示一句；写作工具的正文保持干净，只写日志
     reply(searchSkipped && !structured ? text + SEARCH_NOTE : text, cites, tag, extra);

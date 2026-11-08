@@ -7,7 +7,7 @@
  * 不支持的输入会明确报错，不会放行给原始服务。
  */
 
-const VERSION = "2.0.0";
+const VERSION = "2.1.0";
 const TAG = "[siri_ai_bridge]";
 
 const BASE_DEFAULTS = {
@@ -58,6 +58,7 @@ function readArgs() {
     prompt: prompt === OLD_DEFAULT_PROMPT ? "" : (prompt || ""),
     search: get("SEARCH") === "true",
     fast: get("FAST") !== "false",
+    history: (() => { const v = get("HISTORY"); if (v === "不带历史") return 0; const n = parseInt(v, 10); return isFinite(n) ? Math.max(0, Math.min(20, n)) : 6; })(),
     strict: get("STRICT") !== "false",
     max: Math.max(128, Math.min(8192, Number(get("MAX")) || 2048)),
   };
@@ -351,6 +352,7 @@ const STORE_KEY = "siri_bridge_sessions";
 const SESS_TTL = 3600 * 1000;
 const MAX_SESS = 12;
 const MAX_TURNS = 20;
+const SEND_CHARS = 20000; // 每次请求最多带给模型的历史字数（超出先丢最早的）
 const MAX_CHARS = 60000;
 let SESSION = { sid: null, cid: null, follow: false, prev: null };
 
@@ -365,11 +367,13 @@ function saveSessions(all) {
     store(STORE_KEY, JSON.stringify(all));
   } catch (e) { console.log(TAG + " save session failed: " + e); }
 }
-function historyMsgs(sid, prevChoice) {
+function historyMsgs(sid, prevChoice, maxTurns) {
   const sess = loadSessions()[sid];
   if (!sess || !Array.isArray(sess.turns)) return [];
   let turns = sess.turns;
   if (prevChoice) { const i = turns.findIndex((t) => t.c === prevChoice); if (i >= 0) turns = turns.slice(0, i + 1); }
+  turns = maxTurns > 0 ? turns.slice(-maxTurns) : [];
+  while (turns.length > 1 && turns.reduce((n, t) => n + t.u.length + t.m.length, 0) > SEND_CHARS) turns = turns.slice(1);
   const out = [];
   turns.forEach((t) => { out.push({ role: "user", parts: [{ t: t.u }] }); out.push({ role: "assistant", parts: [{ t: t.m }] }); });
   return out;
@@ -379,7 +383,7 @@ function recordTurn(sid, cid, prevChoice, userText, modelText) {
   const sess = all[sid] || { t: 0, turns: [] };
   let turns = sess.turns;
   if (prevChoice) { const i = turns.findIndex((t) => t.c === prevChoice); if (i >= 0) turns = turns.slice(0, i + 1); }
-  turns.push({ c: cid, u: String(userText).slice(0, 8000), m: String(modelText).slice(0, 8000) });
+  turns.push({ c: cid, u: String(userText).slice(0, 3000), m: String(modelText).slice(0, 3000) });
   turns = turns.slice(-MAX_TURNS);
   while (turns.length > 1 && turns.reduce((n, t) => n + t.u.length + t.m.length, 0) > MAX_CHARS) turns.shift();
   all[sid] = { t: Date.now(), turns };
@@ -579,8 +583,8 @@ function main() {
   if (u.unsupported) return reply("这种内容格式暂时识别不了，目前支持文字、相机图片和上传的文件。", [], label);
   if (!u.msgs.length) return reply("没有识别到文字内容。", [], label);
 
-  const hist = SESSION.follow ? historyMsgs(SESSION.sid, SESSION.prev) : [];
-  if (SESSION.follow) console.log(TAG + " follow-up, history messages=" + hist.length);
+  const hist = SESSION.follow ? historyMsgs(SESSION.sid, SESSION.prev, a.history) : [];
+  if (SESSION.follow) console.log(TAG + " follow-up, history messages=" + hist.length + " (limit " + a.history + " turns), chars=" + hist.reduce((n, m) => n + m.parts[0].t.length, 0));
   const fileList = loadFiles(SESSION.sid);
   const fileParts = [];
   let fileUnsupported = null;
@@ -678,7 +682,8 @@ function main() {
       if (r.finish === "MAX_TOKENS") return reply("这个问题思考过久没来得及回答，请换个问法，或在插件里开启快速模式、调大最大输出。", [], label);
       return reply("AI 没有给出回答（" + (r.block || r.finish || "空回复") + "）。", [], label);
     }
-    console.log(TAG + " response received (HTTP " + status + ")");
+    const us = j.usageMetadata || j.usage || {};
+    console.log(TAG + " response received (HTTP " + status + "), tokens: input=" + (us.promptTokenCount || us.input_tokens || us.prompt_tokens || "?") + ", cached=" + (us.cachedContentTokenCount || us.cache_read_input_tokens || 0) + ", output=" + (us.candidatesTokenCount || us.output_tokens || us.completion_tokens || "?"));
     try { recordTurn(SESSION.sid, SESSION.cid, SESSION.prev, userText, text); } catch (e) { console.log(TAG + " record turn failed: " + e); }
     reply(searchSkipped && a.search && !structured ? text + SEARCH_NOTE : text, r.cites, label, extra);
   }
