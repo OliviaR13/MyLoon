@@ -7,7 +7,7 @@
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/AI.png
 #!date = 2026-11-08
-#!version = 2.0.0
+#!version = 2.0.1
 
 [Argument]
 PROVIDER = select,"openai_compatible","gemini","openai","anthropic",tag=服务商,desc=openai_compatible 适用于 DeepSeek、通义、Kimi、OpenRouter 等兼容 OpenAI 的接口；其余为官方接口
@@ -22,8 +22,8 @@ STRICT = switch,true,tag=隐私兜底,desc=开启后千问域名下除对话外�
 MAX = input,"2048",tag=最大输出 Token,desc=最大生成长度（128–8192）。思考型模型可适当调大
 
 [Script]
-http-request ^https:\/\/prod-yabuli\.qianwen\.com\/v1\/sessions(\/[^\/?]+)?\/files(\?.*)?$ requires-body=true, binary-body-mode=true, max-size=33554432, timeout=60, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/siri-ai/siri_ai_bridge.js, argument=[{PROVIDER},{KEY},{BASE},{MODEL},{STYLE},{PROMPT},{SEARCH},{FAST},{STRICT},{MAX}], tag=Siri AI Bridge 文件
-http-request ^https:\/\/prod-yabuli\.qianwen\.com\/(?!v1\/sessions(\/[^\/?]+)?\/files(\?|$)) requires-body=true, timeout=60, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/siri-ai/siri_ai_bridge.js, argument=[{PROVIDER},{KEY},{BASE},{MODEL},{STYLE},{PROMPT},{SEARCH},{FAST},{STRICT},{MAX}], tag=Siri AI Bridge
+http-request ^https:\/\/prod-yabuli\.qianwen\.com\/v1\/sessions(\/[^\/?]+)?\/files(\?.*)?$ requires-body=true, binary-body-mode=true, max-size=33554432, timeout=60, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/siri-ai/siri_ai_bridge.js, argument=[{PROVIDER},{KEY},{BASE},{MODEL},{STYLE},{PROMPT},{SEARCH},{FAST},{STRICT},{MAX}], tag=Siri AI Bridge 文件上传
+http-request ^https:\/\/prod-yabuli\.qianwen\.com\/(?!v1\/sessions(\/[^\/?]+)?\/files(\?|$)) requires-body=true, timeout=60, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/siri-ai/siri_ai_bridge.js, argument=[{PROVIDER},{KEY},{BASE},{MODEL},{STYLE},{PROMPT},{SEARCH},{FAST},{STRICT},{MAX}], tag=Siri AI Bridge 对话请求
 
 [MitM]
 hostname = prod-yabuli.qianwen.com
