@@ -1,5 +1,5 @@
 /*
- * Siri → Gemini 独立兼容层  v2.8.1
+ * Siri → Gemini 独立兼容层  v2.8.2
  *
  * 兼容 Siri 请求协议并由 Gemini API 独立处理，按 Siri 兼容的 SSE 事件流返回。
  * 不调用千问作为上游或备用服务；不支持的输入会明确报错，不会回落到千问。
@@ -8,7 +8,7 @@
  * 请在 Loon 日志里核对一次；时间预算见下方 BUDGET_MS / ATTEMPT_MS。
  */
 
-const VERSION = "2.8.1";
+const VERSION = "2.8.2";
 const TAG = "[qianwen_gemini]";
 
 const DEFAULTS = {
@@ -23,10 +23,12 @@ const IMAGE_ONLY_PROMPT = "请识别并简要说明图片里是什么；如果�
 const TRIGGER_RE = /^[\s，,。.、]*(请)?(使用|调用|用)(一下)?(通义)?千问[\s，,、:：。.]*/;
 
 // 回答风格预设（PROMPT 参数作为额外提示词追加在其后）
+// 排版规则：模型被要求“适合朗读”时偶尔会省略逗号、整段不分行，这里明确要求保留标点并分段
+const FORMAT_RULES = "排版要求：必须使用完整的中文标点（逗号、顿号、句号、冒号等），不要省略标点；内容较多时按意思分成几个短段落，段落之间空一行；英文名称与中文之间用标点或空格隔开。";
 const STYLES = {
-  "简短口语": "你是 Siri 的后台助手。请用简洁、口语化的中文回答，适合直接朗读；不要使用 Markdown、列表符号或表情。",
-  "标准": "你是 Siri 的后台助手。请用清晰、自然的中文回答，条理分明但不要使用 Markdown、列表符号或表情。",
-  "详细": "你是 Siri 的后台助手。请用中文详细回答，必要时分点说明，但不要使用 Markdown 符号或表情。",
+  "简短口语": "你是 Siri 的后台助手。请用简洁、口语化的中文回答，语句自然流畅；不要使用 Markdown、列表符号或表情。" + FORMAT_RULES,
+  "标准": "你是 Siri 的后台助手。请用清晰、自然的中文回答，条理分明但不要使用 Markdown、列表符号或表情。" + FORMAT_RULES,
+  "详细": "你是 Siri 的后台助手。请用中文详细回答，必要时分点说明，但不要使用 Markdown 符号或表情。" + FORMAT_RULES,
 };
 
 // 时间预算（毫秒）：整个脚本不超过插件里 timeout=60 秒；网络分流完全交给 Loon 当前配置规则
@@ -155,7 +157,7 @@ function structuredPrompt() {
   const keys = [OUT.prop].concat(extraProps());
   const lines = keys.map((k) => "- " + k + "：" + String((OUT.props[k] && OUT.props[k].description) || "").trim());
   return "你是写作与文字处理助手。请只输出 JSON，字段含义如下（以用户请求所用的语言书写，通常是简体中文）：\n" + lines.join("\n") +
-    "\n正文要可直接使用，不要使用 Markdown 标记（如 # 和 **）、不要加寒暄或解释。";
+    "\n正文要可直接使用，不要使用 Markdown 标记（如 # 和 **）、不要加寒暄或解释；必须使用完整的中文标点，内容较多时分段。";
 }
 
 /* ───────────── 千问请求 → Gemini contents ───────────── */
