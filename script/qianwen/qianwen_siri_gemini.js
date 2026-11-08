@@ -1,5 +1,5 @@
 /*
- * Siri → Gemini 独立兼容层  v2.9.1
+ * Siri → Gemini 独立兼容层  v2.11.0
  *
  * 兼容 Siri 请求协议并由 Gemini API 独立处理，按 Siri 兼容的 SSE 事件流返回。
  * 不调用千问作为上游或备用服务；不支持的输入会明确报错，不会回落到千问。
@@ -8,7 +8,7 @@
  * 请在 Loon 日志里核对一次；时间预算见下方 BUDGET_MS / ATTEMPT_MS。
  */
 
-const VERSION = "2.10.0";
+const VERSION = "2.11.0";
 const TAG = "[qianwen_gemini]";
 
 const DEFAULTS = {
@@ -320,6 +320,64 @@ function loadFiles(sid) {
   return [];
 }
 
+/* ───────────── 相机图片：追问时继续带上最近一张 ─────────────
+ * 追问请求只带文字，历史里也只记文字，所以要把最近一张图存下来，追问时接回去，
+ * 否则「这是什么品种」这类追问 Gemini 看不到图。每个会话只留最近一张，1 小时过期。 */
+const IMG_KEY = "siri_gemini_img:";
+const IMG_INDEX = "siri_gemini_img_index";
+const IMG_MAX_B64 = 4 * 1024 * 1024; // 单张图片 base64 上限，超过就不保留
+function lastUserImage(contents) {
+  for (let i = contents.length - 1; i >= 0; i--) {
+    if (contents[i].role !== "user") continue;
+    const p = contents[i].parts.filter((x) => x.inlineData);
+    if (p.length) return { mime: p[p.length - 1].inlineData.mimeType, b64: p[p.length - 1].inlineData.data };
+  }
+  return null;
+}
+function saveImage(sid, img) {
+  try {
+    if (!img || !img.b64) return;
+    if (img.b64.length > IMG_MAX_B64) { console.log(TAG + " image too large to keep for follow-ups"); return; }
+    const now = Date.now();
+    if (!store(IMG_KEY + sid, JSON.stringify({ t: now, mime: img.mime, b64: img.b64 }))) { console.log(TAG + " image save failed"); return; }
+    let idx = [];
+    try { idx = JSON.parse(fetchStore(IMG_INDEX) || "[]"); } catch (e) {}
+    idx = idx.filter((x) => x.sid !== sid);
+    idx.push({ sid, t: now });
+    idx = idx.filter((x) => { if (now - x.t > FILE_TTL) { store(IMG_KEY + x.sid, ""); return false; } return true; });
+    idx.sort((a, b) => b.t - a.t);
+    idx.slice(FILE_MAX_SESS).forEach((x) => store(IMG_KEY + x.sid, ""));
+    store(IMG_INDEX, JSON.stringify(idx.slice(0, FILE_MAX_SESS)));
+  } catch (e) { console.log(TAG + " save image error: " + e); }
+}
+function loadImage(sid) {
+  try {
+    const r = JSON.parse(fetchStore(IMG_KEY + sid) || "null");
+    if (r && r.b64 && Date.now() - r.t <= FILE_TTL) return r;
+  } catch (e) {}
+  return null;
+}
+
+// Gemini 没有时钟：把今天的日期告诉它（只放日期，不放具体时间，避免每次都破坏缓存）
+function todayLine() {
+  const d = new Date();
+  return "当前日期：" + d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日 星期" + "日一二三四五六"[d.getDay()] + "。涉及今天、明天、现在、最近等时间问题时，以这个日期为准。";
+}
+
+// 被拦截或没有回答时，用中文说明原因
+const BLOCK_TEXT = {
+  SAFETY: "内容被 Gemini 的安全策略拦截了，请换个说法再试。",
+  PROHIBITED_CONTENT: "内容被 Gemini 的安全策略拦截了，请换个说法再试。",
+  BLOCKLIST: "内容被 Gemini 的安全策略拦截了，请换个说法再试。",
+  SPII: "内容里可能含有敏感个人信息，Gemini 拒绝处理，请去掉后再试。",
+  IMAGE_SAFETY: "图片被 Gemini 的安全策略拦截了，请换一张再试。",
+  IMAGE_PROHIBITED_CONTENT: "图片被 Gemini 的安全策略拦截了，请换一张再试。",
+  RECITATION: "回答可能涉及受版权保护的内容，已被拦截，请换个问法。",
+  LANGUAGE: "Gemini 暂不支持这种语言。",
+  OTHER: "Gemini 没能处理这个请求，请换个说法再试。",
+  "空回复": "Gemini 这次没有给出回答，请再试一次。",
+};
+
 function localJson(status, obj) {
   return { response: { status, headers: { "Content-Type": "application/json" }, body: JSON.stringify(obj) } };
 }
@@ -587,7 +645,18 @@ function main() {
     else if (f.unsupported) fileUnsupported = f;
   });
   if (fileList.length) console.log(TAG + " files attached: " + fileList.map((f) => f.name + "(" + f.mime + ")").join(", "));
-  const contents = (fileParts.length ? [{ role: "user", parts: fileParts }] : []).concat(hist, newContents);
+  // 相机图片：本轮带图就记下来；追问时（本轮没带图）把最近一张图接回去
+  const imgParts = [];
+  if (hasImage) saveImage(SESSION.sid, lastUserImage(newContents));
+  else if (SESSION.follow && args.HISTORY > 0) {
+    const si = loadImage(SESSION.sid);
+    if (si) {
+      imgParts.push({ inlineData: { mimeType: si.mime, data: si.b64 } }, { text: "（上面是用户之前发来的图片）" });
+      console.log(TAG + " previous image re-attached for follow-up");
+    }
+  }
+  const prefixParts = fileParts.concat(imgParts);
+  const contents = (prefixParts.length ? [{ role: "user", parts: prefixParts }] : []).concat(hist, newContents);
   // 本轮用户输入（用于存档，不存图片本身）
   const lastUser = newContents.filter((c) => c.role === "user").slice(-1)[0];
   const userText = lastUser
@@ -599,7 +668,7 @@ function main() {
   if (fileUnsupported && !fileParts.length) return reply("暂不支持 " + fileUnsupported.name + " 这种格式的文件，目前支持 PDF、图片、音视频和文本类文件。", [], tag);
 
   const payload = {
-    systemInstruction: { parts: [{ text: [IDENTITY, structured ? structuredPrompt() : STYLES[args.STYLE], args.PROMPT].concat(system).filter(Boolean).join("\n") }] },
+    systemInstruction: { parts: [{ text: [IDENTITY, structured ? structuredPrompt() : STYLES[args.STYLE], structured ? "" : todayLine(), args.PROMPT].concat(system).filter(Boolean).join("\n") }] },
     contents,
     generationConfig: { maxOutputTokens: args.STYLE === "详细" ? 4096 : 2048 },
   };
@@ -660,6 +729,7 @@ function main() {
     let j;
     try { j = JSON.parse(data); } catch (e) {
       console.log(TAG + " bad body (HTTP " + status + "): " + String(data).slice(0, 200));
+      if (status === 413) return reply("文件或对话内容太大，处理不了。请开始一个新对话，或换小一点的文件。", [], tag);
       return reply("Gemini 返回了无法解析的内容。", [], tag);
     }
     if (j.error) {
@@ -694,6 +764,11 @@ function main() {
       else if (status === 404) hint = "找不到这个模型，可能已下线，请在插件里换一个模型。";
       else if (/location is not supported/i.test(msg)) hint = "当前网络地区不支持 Gemini，请检查代理节点。";
       else if (status === 401 || status === 403 || /API key/i.test(msg)) hint = "API Key 无效或没有权限，请检查插件里的 Key。";
+      else if (status === 413 || (status === 400 && /too large|exceed|payload|request size|maximum number of tokens|token count/i.test(msg))) hint = "文件或对话内容太大，处理不了。请开始一个新对话，或换小一点的文件。";
+      else if (status === 400 && /mime|unsupported|not supported|invalid.*(file|media|data)|could not process/i.test(msg)) hint = "Gemini 不支持这种文件或内容格式，请换个格式再试。";
+      else if (status === 503 || /overloaded|unavailable/i.test(msg)) hint = "Gemini 现在比较繁忙，请稍后再试。";
+      else if (status === 400) hint = "Gemini 拒绝了这次请求（400），可能是文件、模型或参数不被支持。";
+      else if (status >= 500) hint = "Gemini 服务暂时出问题了，请稍后再试。";
       return reply(hint, [], tag);
     }
 
@@ -722,7 +797,7 @@ function main() {
     if (!text) {
       if (cand.finishReason === "MAX_TOKENS") return reply("这个问题思考过久没来得及回答，请换个问法，或在插件里开启快速模式。", [], tag);
       const why = (j.promptFeedback && j.promptFeedback.blockReason) || cand.finishReason || "空回复";
-      return reply("Gemini 没有给出回答（" + why + "）。", [], tag);
+      return reply(BLOCK_TEXT[why] || ("Gemini 没有给出回答（" + why + "），请再试一次。"), [], tag);
     }
     const seen = {};
     const cites = (((cand.groundingMetadata || {}).groundingChunks) || [])

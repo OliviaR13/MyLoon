@@ -1,5 +1,5 @@
 /*
- * Siri AI Bridge  v2.0.0
+ * Siri AI Bridge  v2.2.0
  *
  * 将 Siri 请求转换为通用 AI API 请求（Gemini / OpenAI / Anthropic / OpenAI 兼容接口），
  * 并按 Siri 兼容的 SSE 事件流返回。能力对齐 Siri to Gemini：
@@ -7,7 +7,7 @@
  * 不支持的输入会明确报错，不会放行给原始服务。
  */
 
-const VERSION = "2.1.0";
+const VERSION = "2.2.0";
 const TAG = "[siri_ai_bridge]";
 
 const BASE_DEFAULTS = {
@@ -289,6 +289,66 @@ function loadFiles(sid) {
   } catch (e) {}
   return [];
 }
+/* ───────────── 相机图片：追问时继续带上最近一张 ─────────────
+ * 追问请求只带文字，历史里也只记文字，所以把最近一张图存下来，追问时接回去。
+ * 每个会话只留最近一张，1 小时过期。 */
+const IMG_KEY = "siri_bridge_img:";
+const IMG_INDEX = "siri_bridge_img_index";
+const IMG_MAX_B64 = 4 * 1024 * 1024;
+function lastUserImage(msgs) {
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    if (msgs[i].role !== "user") continue;
+    const p = msgs[i].parts.filter((x) => x.img);
+    if (p.length) return p[p.length - 1].img;
+  }
+  return null;
+}
+function saveImage(sid, img) {
+  try {
+    if (!img || !img.b64) return;
+    if (img.b64.length > IMG_MAX_B64) { console.log(TAG + " image too large to keep for follow-ups"); return; }
+    const now = Date.now();
+    if (!store(IMG_KEY + sid, JSON.stringify({ t: now, mime: img.mime, b64: img.b64 }))) { console.log(TAG + " image save failed"); return; }
+    let idx = [];
+    try { idx = JSON.parse(fetchStore(IMG_INDEX) || "[]"); } catch (e) {}
+    idx = idx.filter((x) => x.sid !== sid);
+    idx.push({ sid, t: now });
+    idx = idx.filter((x) => { if (now - x.t > FILE_TTL) { store(IMG_KEY + x.sid, ""); return false; } return true; });
+    idx.sort((a, b) => b.t - a.t);
+    idx.slice(FILE_MAX_SESS).forEach((x) => store(IMG_KEY + x.sid, ""));
+    store(IMG_INDEX, JSON.stringify(idx.slice(0, FILE_MAX_SESS)));
+  } catch (e) { console.log(TAG + " save image error: " + e); }
+}
+function loadImage(sid) {
+  try {
+    const r = JSON.parse(fetchStore(IMG_KEY + sid) || "null");
+    if (r && r.b64 && Date.now() - r.t <= FILE_TTL) return r;
+  } catch (e) {}
+  return null;
+}
+
+// 模型没有时钟：把今天的日期告诉它（只放日期，不放具体时间，避免每次都破坏缓存）
+function todayLine() {
+  const d = new Date();
+  return "当前日期：" + d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日 星期" + "日一二三四五六"[d.getDay()] + "。涉及今天、明天、现在、最近等时间问题时，以这个日期为准。";
+}
+
+// 被拦截或没有回答时，用中文说明原因
+const BLOCK_TEXT = {
+  SAFETY: "内容被服务商的安全策略拦截了，请换个说法再试。",
+  PROHIBITED_CONTENT: "内容被服务商的安全策略拦截了，请换个说法再试。",
+  BLOCKLIST: "内容被服务商的安全策略拦截了，请换个说法再试。",
+  content_filter: "内容被服务商的安全策略拦截了，请换个说法再试。",
+  refusal: "服务商拒绝回答这个问题，请换个说法再试。",
+  SPII: "内容里可能含有敏感个人信息，服务商拒绝处理，请去掉后再试。",
+  IMAGE_SAFETY: "图片被服务商的安全策略拦截了，请换一张再试。",
+  IMAGE_PROHIBITED_CONTENT: "图片被服务商的安全策略拦截了，请换一张再试。",
+  RECITATION: "回答可能涉及受版权保护的内容，已被拦截，请换个问法。",
+  LANGUAGE: "服务商暂不支持这种语言。",
+  OTHER: "服务商没能处理这个请求，请换个说法再试。",
+  "空回复": "AI 这次没有给出回答，请再试一次。",
+};
+
 function localJson(status, obj) {
   return { response: { status, headers: { "Content-Type": "application/json" }, body: JSON.stringify(obj) } };
 }
@@ -596,12 +656,23 @@ function main() {
   if (fileList.length) console.log(TAG + " files attached: " + fileList.map((f) => f.name + "(" + f.mime + ")").join(", "));
   if (fileUnsupported && !fileParts.length) return reply("暂不支持 " + fileUnsupported.name + " 这种格式的文件，目前支持 PDF、图片、音视频和文本类文件。", [], label);
 
-  const msgs = normalize((fileParts.length ? [{ role: "user", parts: fileParts }] : []).concat(hist, u.msgs));
+  // 相机图片：本轮带图就记下来；追问时（本轮没带图）把最近一张图接回去
+  const imgParts = [];
+  if (u.hasImage) saveImage(SESSION.sid, lastUserImage(u.msgs));
+  else if (SESSION.follow && a.history > 0) {
+    const si = loadImage(SESSION.sid);
+    if (si) {
+      imgParts.push({ img: { mime: si.mime, b64: si.b64 } }, { t: "（上面是用户之前发来的图片）" });
+      console.log(TAG + " previous image re-attached for follow-up");
+    }
+  }
+  const prefixParts = fileParts.concat(imgParts);
+  const msgs = normalize((prefixParts.length ? [{ role: "user", parts: prefixParts }] : []).concat(hist, u.msgs));
   const lastUser = u.msgs.filter((m) => m.role === "user").slice(-1)[0];
   const userText = lastUser ? (lastUser.parts.some((p) => p.img) ? "[用户发送了一张图片] " : "") + partsToText(lastUser.parts) : "";
   if (u.hasImage) console.log(TAG + " image request, messages=" + msgs.length);
 
-  const system = [IDENTITY, structured ? structuredPrompt() : STYLES[a.style], a.prompt].concat(u.system).filter(Boolean).join("\n");
+  const system = [IDENTITY, structured ? structuredPrompt() : STYLES[a.style], structured ? "" : todayLine(), a.prompt].concat(u.system).filter(Boolean).join("\n");
 
   // 联网搜索：Gemini（Google Search）与 Anthropic（web_search）支持；其他服务商忽略
   const searchCapable = a.provider === "gemini" || a.provider === "anthropic";
@@ -638,6 +709,7 @@ function main() {
     let j;
     try { j = JSON.parse(data); } catch (e) {
       console.log(TAG + " bad body (HTTP " + status + "): " + String(data).slice(0, 200));
+      if (status === 413) return reply("文件或对话内容太大，处理不了。请开始一个新对话，或换小一点的文件。", [], label);
       return reply("AI 服务返回了无法解析的内容（HTTP " + status + "）。", [], label);
     }
     if (status < 200 || status >= 300 || j.error) {
@@ -660,6 +732,9 @@ function main() {
       else if (status === 404) hint = "找不到这个模型或接口，请检查插件里的模型名称和 API 地址。";
       else if (status === 401 || status === 403 || /API key/i.test(msg)) hint = "API Key 无效或没有权限，请检查插件里的 Key。";
       else if (/location is not supported/i.test(msg)) hint = "当前网络地区不支持该服务，请检查代理节点。";
+      else if (status === 413 || (status === 400 && /too large|exceed|payload|request size|maximum (number of tokens|context)|context length|token count/i.test(msg))) hint = "文件或对话内容太大，处理不了。请开始一个新对话，或换小一点的文件。";
+      else if (status === 400 && /mime|unsupported|not supported|invalid.*(file|media|data|image)|could not process/i.test(msg)) hint = "服务商不支持这种文件或内容格式，请换个格式再试。";
+      else if (status === 503 || status === 529 || /overloaded|unavailable/i.test(msg)) hint = "AI 服务现在比较繁忙，请稍后再试。";
       return reply(hint, [], label);
     }
 
@@ -680,7 +755,8 @@ function main() {
     const text = stripMd(rawText);
     if (!text) {
       if (r.finish === "MAX_TOKENS") return reply("这个问题思考过久没来得及回答，请换个问法，或在插件里开启快速模式、调大最大输出。", [], label);
-      return reply("AI 没有给出回答（" + (r.block || r.finish || "空回复") + "）。", [], label);
+      const why = r.block || r.finish || "空回复";
+      return reply(BLOCK_TEXT[why] || ("AI 没有给出回答（" + why + "），请再试一次。"), [], label);
     }
     const us = j.usageMetadata || j.usage || {};
     console.log(TAG + " response received (HTTP " + status + "), tokens: input=" + (us.promptTokenCount || us.input_tokens || us.prompt_tokens || "?") + ", cached=" + (us.cachedContentTokenCount || us.cache_read_input_tokens || 0) + ", output=" + (us.candidatesTokenCount || us.output_tokens || us.completion_tokens || "?"));

@@ -7,7 +7,7 @@
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/AI.png
 #!date = 2026-11-08
-#!version = 2.1.0
+#!version = 2.2.0
 
 [Argument]
 PROVIDER = select,"openai_compatible","gemini","openai","anthropic",tag=服务商,desc=openai_compatible 适用于 DeepSeek、通义、Kimi、OpenRouter 等兼容 OpenAI 的接口；其余为官方接口
