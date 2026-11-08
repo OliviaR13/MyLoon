@@ -1,5 +1,5 @@
 /*
- * Siri → Gemini 独立兼容层  v2.8.2
+ * Siri → Gemini 独立兼容层  v2.8.3
  *
  * 兼容 Siri 请求协议并由 Gemini API 独立处理，按 Siri 兼容的 SSE 事件流返回。
  * 不调用千问作为上游或备用服务；不支持的输入会明确报错，不会回落到千问。
@@ -8,7 +8,7 @@
  * 请在 Loon 日志里核对一次；时间预算见下方 BUDGET_MS / ATTEMPT_MS。
  */
 
-const VERSION = "2.8.2";
+const VERSION = "2.8.3";
 const TAG = "[qianwen_gemini]";
 
 const DEFAULTS = {
@@ -359,7 +359,11 @@ function main() {
     finished = true;
     // 隐私兜底：插件规则会把该域名下所有请求交给本脚本；不是对话接口的，默认本地拒绝，绝不原样发给千问
     if ($request && readArgs().STRICT) {
-      console.log(TAG + " blocked non-response request: " + $request.method + " " + String($request.url).replace(/^https?:\/\/[^\/]+/, "").split("?")[0]);
+      const hdr = $request.headers || {};
+      const hv = (n) => hdr[n] || hdr[n.toLowerCase()] || hdr[n.replace(/(^|-)(\w)/g, (m, a, c) => a + c.toUpperCase())] || "?";
+      const bl = typeof $request.body === "string" ? $request.body.length : ($request.body && $request.body.byteLength) || 0;
+      console.log(TAG + " blocked non-response request: " + $request.method + " " + String($request.url).replace(/^https?:\/\/[^\/]+/, "").split("?")[0] +
+        " | content-type=" + String(hv("Content-Type")).split(";")[0] + ", body=" + bl);
       return $done({ response: { status: 403, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ error: { code: "blocked", message: "blocked by Siri to Gemini" } }) } });
     }
     return $done({});
