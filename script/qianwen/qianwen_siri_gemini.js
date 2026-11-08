@@ -1,5 +1,5 @@
 /*
- * Siri → Gemini 独立兼容层  v2.8.3
+ * Siri → Gemini 独立兼容层  v2.9.0
  *
  * 兼容 Siri 请求协议并由 Gemini API 独立处理，按 Siri 兼容的 SSE 事件流返回。
  * 不调用千问作为上游或备用服务；不支持的输入会明确报错，不会回落到千问。
@@ -8,7 +8,7 @@
  * 请在 Loon 日志里核对一次；时间预算见下方 BUDGET_MS / ATTEMPT_MS。
  */
 
-const VERSION = "2.8.3";
+const VERSION = "2.9.0";
 const TAG = "[qianwen_gemini]";
 
 const DEFAULTS = {
@@ -220,6 +220,157 @@ function toGemini(body, contentProp) {
   return { contents, system, unsupported, hasImage };
 }
 
+/* ───────────── 文件上传：本地接住，不发给千问 ─────────────
+ * 流程：Siri 先 POST /v1/sessions/files（multipart：file + json）上传文件，
+ * 随后的对话请求只带文字，文件靠会话 ID 关联。脚本在本地解析 multipart，
+ * 把文件存进 $persistentStore，回一个与千问同结构的“上传成功”响应；
+ * 对话请求到来时，再把该会话的文件一并发给 Gemini。 */
+const FILE_KEY = "siri_gemini_file:";
+const FILE_INDEX = "siri_gemini_file_index";
+const FILE_TTL = 3600 * 1000;       // 文件保留 1 小时
+const FILE_MAX_SESS = 3;            // 最多同时保留几个会话的文件
+const FILE_MAX_BYTES = 6 * 1024 * 1024; // 单个文件上限 6MB
+const TEXT_EXT = /\.(txt|md|markdown|csv|tsv|json|xml|html?|css|js|ts|py|java|c|cc|cpp|h|go|rs|rb|php|sh|yaml|yml|toml|ini|log|sql|swift|kt)$/i;
+
+function store(k, v) { try { if (typeof $persistentStore !== "undefined") return $persistentStore.write(v, k); } catch (e) {} return false; }
+function fetchStore(k) { try { if (typeof $persistentStore !== "undefined") return $persistentStore.read(k); } catch (e) {} return null; }
+
+function u8(x) { return x instanceof Uint8Array ? x : new Uint8Array(x && x.buffer ? x.buffer : x); }
+function indexOfBytes(buf, pat, from) {
+  const n = buf.length, m = pat.length, first = pat[0];
+  for (let i = from || 0; i <= n - m; i++) {
+    if (buf[i] !== first) continue;
+    let j = 1;
+    while (j < m && buf[i + j] === pat[j]) j++;
+    if (j === m) return i;
+  }
+  return -1;
+}
+function latin1(buf, s, e) {
+  let out = "";
+  for (let i = s; i < e; i += 8192) out += String.fromCharCode.apply(null, buf.subarray(i, Math.min(e, i + 8192)));
+  return out;
+}
+function utf8dec(bin) { try { return decodeURIComponent(escape(bin)); } catch (e) { return bin; } }
+function strBytes(str) { const b = new Uint8Array(str.length); for (let i = 0; i < str.length; i++) b[i] = str.charCodeAt(i) & 255; return b; }
+
+function parseMultipart(buf, ctype) {
+  const m = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(ctype || "");
+  if (!m) return [];
+  const bnd = strBytes("--" + (m[1] || m[2]).trim());
+  const out = [];
+  let pos = indexOfBytes(buf, bnd, 0);
+  while (pos >= 0) {
+    const next = indexOfBytes(buf, bnd, pos + bnd.length);
+    if (next < 0) break;
+    let ps = pos + bnd.length;
+    if (buf[ps] === 13 && buf[ps + 1] === 10) ps += 2;
+    let pe = next;
+    if (buf[pe - 2] === 13 && buf[pe - 1] === 10) pe -= 2;
+    const he = indexOfBytes(buf, [13, 10, 13, 10], ps);
+    if (he >= 0 && he < pe) {
+      const head = utf8dec(latin1(buf, ps, he));
+      out.push({
+        name: (/name="([^"]*)"/i.exec(head) || [])[1],
+        filename: (/filename="([^"]*)"/i.exec(head) || [])[1],
+        type: ((/content-type:\s*([^\r\n;]+)/i.exec(head) || [])[1] || "").trim(),
+        start: he + 4,
+        end: pe,
+      });
+    }
+    pos = next;
+  }
+  return out;
+}
+
+const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+function toBase64(buf, s, e) {
+  const chunks = [];
+  let cur = [];
+  for (let i = s; i < e; i += 3) {
+    const a = buf[i], b = i + 1 < e ? buf[i + 1] : 0, c = i + 2 < e ? buf[i + 2] : 0;
+    cur.push(B64[a >> 2], B64[((a & 3) << 4) | (b >> 4)], i + 1 < e ? B64[((b & 15) << 2) | (c >> 6)] : "=", i + 2 < e ? B64[c & 63] : "=");
+    if (cur.length > 30000) { chunks.push(cur.join("")); cur = []; }
+  }
+  chunks.push(cur.join(""));
+  return chunks.join("");
+}
+
+function saveFile(sid, rec) {
+  let idx = [];
+  try { idx = JSON.parse(fetchStore(FILE_INDEX) || "[]"); } catch (e) {}
+  const now = Date.now();
+  const cur = (() => { try { return JSON.parse(fetchStore(FILE_KEY + sid) || "null"); } catch (e) { return null; } })() || { t: now, files: [] };
+  cur.t = now;
+  cur.files.push(rec);
+  if (!store(FILE_KEY + sid, JSON.stringify(cur))) throw new Error("persistent store write failed");
+  idx = idx.filter((x) => x.sid !== sid);
+  idx.push({ sid, t: now });
+  idx = idx.filter((x) => { if (now - x.t > FILE_TTL) { store(FILE_KEY + x.sid, ""); return false; } return true; });
+  idx.sort((a, b) => b.t - a.t);
+  idx.slice(FILE_MAX_SESS).forEach((x) => store(FILE_KEY + x.sid, ""));
+  store(FILE_INDEX, JSON.stringify(idx.slice(0, FILE_MAX_SESS)));
+}
+function loadFiles(sid) {
+  try {
+    const r = JSON.parse(fetchStore(FILE_KEY + sid) || "null");
+    if (r && Date.now() - r.t <= FILE_TTL) return r.files || [];
+  } catch (e) {}
+  return [];
+}
+
+function localJson(status, obj) {
+  return { response: { status, headers: { "Content-Type": "application/json" }, body: JSON.stringify(obj) } };
+}
+
+function handleUpload(sidInUrl) {
+  finished = true;
+  try {
+    const hdr = $request.headers || {};
+    const ctype = hdr["Content-Type"] || hdr["content-type"] || "";
+    const body = $request.body;
+    if (!body || typeof body === "string") {
+      console.log(TAG + " upload: body is not binary (need binary-body-mode=true on the files rule)");
+      return $done(localJson(400, { error: { code: "bad_request", message: "插件的文件规则缺少 binary-body-mode，请更新插件" } }));
+    }
+    const buf = u8(body);
+    const parts = parseMultipart(buf, ctype);
+    const fp = parts.filter((p) => p.name === "file")[0];
+    if (!fp) {
+      console.log(TAG + " upload: no file part, parts=" + parts.map((p) => p.name).join("/"));
+      return $done(localJson(400, { error: { code: "bad_request", message: "没有找到文件内容" } }));
+    }
+    let meta = {};
+    const jp = parts.filter((p) => p.name === "json")[0];
+    if (jp) { try { meta = JSON.parse(utf8dec(latin1(buf, jp.start, jp.end))); } catch (e) {} }
+    const mf = (meta.source && meta.source.file) || {};
+    const name = mf.name || fp.filename || "文件";
+    const mime = (mf.mime_type || fp.type || "application/octet-stream").toLowerCase();
+    const size = fp.end - fp.start;
+    console.log(TAG + " upload: name=" + name + ", mime=" + mime + ", bytes=" + size);
+    if (size > FILE_MAX_BYTES) {
+      return $done(localJson(413, { error: { code: "file_too_large", message: "文件太大，上限 " + (FILE_MAX_BYTES >> 20) + "MB" } }));
+    }
+    const rec = { id: "file-" + uuid().replace(/-/g, "").slice(0, 24), name, mime, size };
+    const geminiInline = /^(application\/pdf|image\/(png|jpe?g|webp|heic|heif|gif)|audio\/|video\/)/.test(mime);
+    const textLike = /^text\//.test(mime) || /^application\/(json|xml|x-yaml|yaml|javascript)/.test(mime) || TEXT_EXT.test(name);
+    if (geminiInline) rec.b64 = toBase64(buf, fp.start, fp.end);
+    else if (textLike) rec.text = utf8dec(latin1(buf, fp.start, Math.min(fp.end, fp.start + 400000))).slice(0, 200000);
+    else rec.unsupported = true;
+    const sid = sidInUrl || "sess_" + uuid();
+    saveFile(sid, rec);
+    const now = Math.floor(Date.now() / 1000);
+    return $done(localJson(200, {
+      source: null, size, name, id: rec.id, object: "session.file", status: "completed",
+      session: { expires_at: now + 600, expires_after: { seconds: 600, anchor: "last_active_at" }, last_active_at: now, created_at: now, id: sid, object: "session" },
+      created_at: now, session_id: sid, completed_at: now, uploaded_at: now, mime_type: mime, upload_url: null, failed_at: null,
+    }));
+  } catch (e) {
+    console.log(TAG + " upload error: " + (e && e.stack || e));
+    return $done(localJson(500, { error: { code: "upload_failed", message: "文件保存失败" } }));
+  }
+}
+
 /* ───────────── 连续对话：会话历史（$persistentStore） ─────────────
  * 追问请求发往 /v1/sessions/{sid}/responses，且只带新一句话 + previous_choice_id，
  * 没有历史。所以首轮回复里用的 sess_/choice_ 由脚本生成并记下对话，追问时取回。 */
@@ -354,6 +505,8 @@ function reply(text, citations, model, extra) {
 /* ───────────── 主流程 ───────────── */
 function main() {
   // 首轮: /v1/sessions/responses ；追问: /v1/sessions/{sid}/responses
+  const fm = $request && /\/v1\/sessions(?:\/([^\/?]+))?\/files(?:\?|$)/.exec($request.url);
+  if (fm && String($request.method).toUpperCase() === "POST") return handleUpload(fm[1]);
   const um = $request && /\/v1\/sessions(?:\/([^\/?]+))?\/responses(?:\?|$)/.exec($request.url);
   if (!um) {
     finished = true;
@@ -410,7 +563,17 @@ function main() {
   // 追问：把之前的对话接在前面（追问请求本身不带历史）
   const hist = SESSION.follow ? historyContents(SESSION.sid, SESSION.prev) : [];
   if (SESSION.follow) console.log(TAG + " follow-up, history messages=" + hist.length);
-  const contents = hist.concat(newContents);
+  // 该会话上传过的文件：放在最前面一并发给 Gemini（Gemini 无状态，每轮都要带上）
+  const fileList = loadFiles(SESSION.sid);
+  let fileUnsupported = null;
+  const fileParts = [];
+  fileList.forEach((f) => {
+    if (f.b64) fileParts.push({ inlineData: { mimeType: f.mime, data: f.b64 } }, { text: "（上面是用户上传的文件：" + f.name + "）" });
+    else if (f.text) fileParts.push({ text: "【用户上传的文件：" + f.name + "】\n" + f.text });
+    else if (f.unsupported) fileUnsupported = f;
+  });
+  if (fileList.length) console.log(TAG + " files attached: " + fileList.map((f) => f.name + "(" + f.mime + ")").join(", "));
+  const contents = (fileParts.length ? [{ role: "user", parts: fileParts }] : []).concat(hist, newContents);
   // 本轮用户输入（用于存档，不存图片本身）
   const lastUser = newContents.filter((c) => c.role === "user").slice(-1)[0];
   const userText = lastUser
@@ -419,6 +582,7 @@ function main() {
   if (unsupported) return reply("这种内容格式暂时识别不了，目前支持文字和相机图片。", [], tag);
   if (hasImage) console.log(TAG + " image request, parts=" + contents.map((c) => c.parts.length).join(","));
   if (!newContents.length) return reply("没有识别到文字内容。", [], tag);
+  if (fileUnsupported && !fileParts.length) return reply("暂不支持 " + fileUnsupported.name + " 这种格式的文件，目前支持 PDF、图片、音视频和文本类文件。", [], tag);
 
   const payload = {
     systemInstruction: { parts: [{ text: [IDENTITY, structured ? structuredPrompt() : STYLES[args.STYLE], args.PROMPT].concat(system).filter(Boolean).join("\n") }] },
