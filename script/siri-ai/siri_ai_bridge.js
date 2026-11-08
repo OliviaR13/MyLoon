@@ -1,5 +1,5 @@
 /*
- * Siri AI Bridge  v2.2.0
+ * Siri AI Bridge  v2.3.0
  *
  * 将 Siri 请求转换为通用 AI API 请求（Gemini / OpenAI / Anthropic / OpenAI 兼容接口），
  * 并按 Siri 兼容的 SSE 事件流返回。能力对齐 Siri to Gemini：
@@ -7,7 +7,7 @@
  * 不支持的输入会明确报错，不会放行给原始服务。
  */
 
-const VERSION = "2.2.0";
+const VERSION = "2.3.0";
 const TAG = "[siri_ai_bridge]";
 
 const BASE_DEFAULTS = {
@@ -33,6 +33,7 @@ const BUDGET_MS = 48000;
 const WATCHDOG_MS = 52000;
 const ATTEMPT_MS = 45000;
 const RETRY_MIN_MS = 12000;
+const MAX_WAIT_MS = 15000; // 限流时最多愿意等多久再重试；超过就直接告诉用户多久后再试
 
 /* ───────────── 参数 ───────────── */
 function readArgs() {
@@ -331,6 +332,21 @@ function loadImage(sid) {
 function todayLine() {
   const d = new Date();
   return "当前日期：" + d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日 星期" + "日一二三四五六"[d.getDay()] + "。涉及今天、明天、现在、最近等时间问题时，以这个日期为准。";
+}
+
+// 限流时服务商会告诉要等多久：Retry-After 响应头，Gemini 的 retryDelay，或错误信息里的 "try again in 1.2s"
+function retryDelayMs(j, resp) {
+  try {
+    const h = (resp && resp.headers) || {};
+    const ra = h["Retry-After"] || h["retry-after"] || h["Retry-after"];
+    if (ra && /^\d+(\.\d+)?$/.test(String(ra).trim())) return Math.ceil(parseFloat(ra) * 1000);
+    const d = (((j && j.error && j.error.details) || [])).find((x) => x && x.retryDelay);
+    if (d) { const m = /([\d.]+)s/.exec(String(d.retryDelay)); if (m) return Math.ceil(parseFloat(m[1]) * 1000); }
+    const msg = String((j && j.error && j.error.message) || "");
+    const m2 = /(?:retry|try again) in ([\d.]+)\s*(ms|s)/i.exec(msg);
+    if (m2) return Math.ceil(parseFloat(m2[1]) * (m2[2].toLowerCase() === "ms" ? 1 : 1000));
+  } catch (e) {}
+  return 0;
 }
 
 // 被拦截或没有回答时，用中文说明原因
@@ -689,6 +705,7 @@ function main() {
   let retriedTemp = false, retriedNet = false, retriedNoThink = false, retriedNoSearch = false;
 
   function attempt() {
+    if (finished) return; // 看门狗已经回复过了，不再发请求
     const timeout = Math.max(5000, Math.min(ATTEMPT_MS, remaining() - 2000));
     console.log(TAG + " POST via Loon config rules, timeout=" + timeout + "ms");
     $httpClient.post({ url: req.url, headers: req.headers, body: JSON.stringify(req.body), timeout }, (err, resp, data) => {
@@ -726,9 +743,20 @@ function main() {
         console.log(TAG + " retrying without search (HTTP " + status + ")");
         rebuild(); return attempt();
       }
-      if ((status === 429 || status >= 500) && !retriedTemp && remaining() > RETRY_MIN_MS) { retriedTemp = true; return attempt(); }
+      if ((status === 429 || status >= 500) && !retriedTemp) {
+        const wait = status === 429 ? (retryDelayMs(j, resp) || 1000) : 0;
+        if (wait > MAX_WAIT_MS) return reply("AI 服务限流了，请约 " + Math.ceil(wait / 1000) + " 秒后再试。", [], label);
+        if (remaining() > wait + RETRY_MIN_MS) {
+          retriedTemp = true;
+          if (wait > 0 && typeof setTimeout === "function") {
+            console.log(TAG + " retrying in " + wait + "ms");
+            return setTimeout(attempt, wait);
+          }
+          return attempt();
+        }
+      }
       let hint = "AI 服务出错了（" + status + "）：" + msg.slice(0, 100);
-      if (status === 429) hint = "AI 服务额度用完了或请求太频繁，请稍后再试。";
+      if (status === 429) hint = retryDelayMs(j, resp) ? "AI 服务限流了，请约 " + Math.ceil(retryDelayMs(j, resp) / 1000) + " 秒后再试。" : "AI 服务额度用完了或请求太频繁，请稍后再试。";
       else if (status === 404) hint = "找不到这个模型或接口，请检查插件里的模型名称和 API 地址。";
       else if (status === 401 || status === 403 || /API key/i.test(msg)) hint = "API Key 无效或没有权限，请检查插件里的 Key。";
       else if (/location is not supported/i.test(msg)) hint = "当前网络地区不支持该服务，请检查代理节点。";

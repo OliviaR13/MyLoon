@@ -1,5 +1,5 @@
 /*
- * Siri → Gemini 独立兼容层  v2.11.0
+ * Siri → Gemini 独立兼容层  v2.12.0
  *
  * 兼容 Siri 请求协议并由 Gemini API 独立处理，按 Siri 兼容的 SSE 事件流返回。
  * 不调用千问作为上游或备用服务；不支持的输入会明确报错，不会回落到千问。
@@ -8,7 +8,7 @@
  * 请在 Loon 日志里核对一次；时间预算见下方 BUDGET_MS / ATTEMPT_MS。
  */
 
-const VERSION = "2.11.0";
+const VERSION = "2.12.0";
 const TAG = "[qianwen_gemini]";
 
 const DEFAULTS = {
@@ -36,6 +36,7 @@ const BUDGET_MS = 48000;
 const WATCHDOG_MS = 52000;  // 看门狗：必须赶在 Loon 60 秒强杀脚本（并放行原请求给千问）之前本地回复
 const ATTEMPT_MS = 45000;   // 单次请求上限
 const RETRY_MIN_MS = 12000; // 剩余不足这么久就不再重试
+const MAX_WAIT_MS = 15000;  // 限流时最多愿意等多久再重试；超过就直接告诉用户多久后再试
 
 /* ───────────── 参数 ───────────── */
 function readArgs() {
@@ -59,6 +60,7 @@ function readArgs() {
     SEARCH: get("SEARCH") === "true",
     FAST: get("FAST") !== "false",
     HISTORY: (() => { const v = get("HISTORY"); if (v === "不带历史") return 0; const n = parseInt(v, 10); return isFinite(n) ? Math.max(0, Math.min(20, n)) : 6; })(),
+    MAX: (() => { const n = parseInt(get("MAX"), 10); return isFinite(n) ? Math.max(128, Math.min(8192, n)) : 0; })(), // 0 = 按回答风格自动
     STRICT: get("STRICT") !== "false",   // 隐私兜底：默认拦截该域名下除对话接口外的所有请求
   };
 }
@@ -362,6 +364,17 @@ function loadImage(sid) {
 function todayLine() {
   const d = new Date();
   return "当前日期：" + d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日 星期" + "日一二三四五六"[d.getDay()] + "。涉及今天、明天、现在、最近等时间问题时，以这个日期为准。";
+}
+
+// 限流时 Gemini 会告诉要等多久：error.details 里的 retryDelay，或错误信息里的 "retry in 12.3s"
+function retryDelayMs(j) {
+  try {
+    const d = (((j.error || {}).details) || []).find((x) => x && x.retryDelay);
+    if (d) { const m = /([\d.]+)s/.exec(String(d.retryDelay)); if (m) return Math.ceil(parseFloat(m[1]) * 1000); }
+    const m2 = /retry in ([\d.]+)s/i.exec((j.error && j.error.message) || "");
+    if (m2) return Math.ceil(parseFloat(m2[1]) * 1000);
+  } catch (e) {}
+  return 0;
 }
 
 // 被拦截或没有回答时，用中文说明原因
@@ -670,7 +683,7 @@ function main() {
   const payload = {
     systemInstruction: { parts: [{ text: [IDENTITY, structured ? structuredPrompt() : STYLES[args.STYLE], structured ? "" : todayLine(), args.PROMPT].concat(system).filter(Boolean).join("\n") }] },
     contents,
-    generationConfig: { maxOutputTokens: args.STYLE === "详细" ? 4096 : 2048 },
+    generationConfig: { maxOutputTokens: args.MAX || (args.STYLE === "详细" ? 4096 : 2048) },
   };
   // 快速模式：关闭/压低思考（仅 flash 系列支持；pro 无法关闭）
   if (args.FAST && /flash/i.test(args.MODEL) && !/pro/i.test(args.MODEL)) {
@@ -679,7 +692,7 @@ function main() {
       : { thinkingBudget: 0 };         // 2.5 用 thinkingBudget
   } else {
     // 思考会占用输出额度，放宽以免正文被截空
-    payload.generationConfig.maxOutputTokens = args.STYLE === "详细" ? 8192 : 4096;
+    payload.generationConfig.maxOutputTokens = Math.max(args.MAX, args.STYLE === "详细" ? 8192 : 4096);
   }
   if (structured) {
     payload.generationConfig.responseMimeType = "application/json";
@@ -702,6 +715,7 @@ function main() {
   let retriedNet = false;
   let retriedNoTools = false;
   function attempt() {
+    if (finished) return; // 看门狗已经回复过了，不再发请求
     const opts = {
       url,
       headers: { "Content-Type": "application/json", "x-goog-api-key": args.KEY },
@@ -758,9 +772,20 @@ function main() {
         return attempt();
       }
       // 临时性错误：重试一次
-      if ((status === 429 || status >= 500) && !retried5xx && remaining() > RETRY_MIN_MS) { retried5xx = true; return attempt(); }
+      if ((status === 429 || status >= 500) && !retried5xx) {
+        const wait = status === 429 ? (retryDelayMs(j) || 1000) : 0;
+        if (wait > MAX_WAIT_MS) return reply("Gemini 限流了，请约 " + Math.ceil(wait / 1000) + " 秒后再试。", [], tag);
+        if (remaining() > wait + RETRY_MIN_MS) {
+          retried5xx = true;
+          if (wait > 0 && typeof setTimeout === "function") {
+            console.log(TAG + " retrying in " + wait + "ms");
+            return setTimeout(attempt, wait);
+          }
+          return attempt();
+        }
+      }
       let hint = "Gemini 出错了（" + status + "），请稍后再试。";
-      if (status === 429) hint = "Gemini 的额度用完了或请求太频繁，请稍后再试。";
+      if (status === 429) hint = retryDelayMs(j) ? "Gemini 限流了，请约 " + Math.ceil(retryDelayMs(j) / 1000) + " 秒后再试。" : "Gemini 的额度用完了或请求太频繁，请稍后再试。";
       else if (status === 404) hint = "找不到这个模型，可能已下线，请在插件里换一个模型。";
       else if (/location is not supported/i.test(msg)) hint = "当前网络地区不支持 Gemini，请检查代理节点。";
       else if (status === 401 || status === 403 || /API key/i.test(msg)) hint = "API Key 无效或没有权限，请检查插件里的 Key。";
