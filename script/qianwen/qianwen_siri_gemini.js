@@ -1,5 +1,5 @@
 /*
- * Siri → Gemini 独立兼容层  v2.9.0
+ * Siri → Gemini 独立兼容层  v2.9.1
  *
  * 兼容 Siri 请求协议并由 Gemini API 独立处理，按 Siri 兼容的 SSE 事件流返回。
  * 不调用千问作为上游或备用服务；不支持的输入会明确报错，不会回落到千问。
@@ -8,11 +8,11 @@
  * 请在 Loon 日志里核对一次；时间预算见下方 BUDGET_MS / ATTEMPT_MS。
  */
 
-const VERSION = "2.9.0";
+const VERSION = "2.9.1";
 const TAG = "[qianwen_gemini]";
 
 const DEFAULTS = {
-  MODEL: "gemini-2.5-flash",
+  MODEL: "gemini-3.1-flash-lite",   // 2.5 系列对新用户已不可用（404），默认改用 3.1-flash-lite
   BASE: "https://generativelanguage.googleapis.com",
 };
 
@@ -371,6 +371,16 @@ function handleUpload(sidInUrl) {
   }
 }
 
+/* ───────────── 联网搜索额度保护 ─────────────
+ * Gemini 3 的 Google 搜索（接地）有单独额度，免费 Key 常为 0，会返回 429。
+ * 遇到 429 时自动去掉搜索重试，并在一段时间内不再带搜索，避免每次白白多等一次失败请求。 */
+const SEARCH_OFF_KEY = "siri_gemini_search_off";
+const SEARCH_COOLDOWN = 15 * 60 * 1000;
+const SEARCH_NOTE = "\n\n（联网搜索额度不足，这次没有联网。）";
+function searchCooling() {
+  try { return Number(fetchStore(SEARCH_OFF_KEY) || 0) > Date.now(); } catch (e) { return false; }
+}
+
 /* ───────────── 连续对话：会话历史（$persistentStore） ─────────────
  * 追问请求发往 /v1/sessions/{sid}/responses，且只带新一句话 + previous_choice_id，
  * 没有历史。所以首轮回复里用的 sess_/choice_ 由脚本生成并记下对话，追问时取回。 */
@@ -605,7 +615,11 @@ function main() {
     console.log(TAG + " structured output: " + [OUT.prop].concat(extraProps()).join("/") + (args.SEARCH ? " + google_search" : ""));
   }
   // 联网搜索：Gemini 3 系列支持「结构化输出 + Google Search」同时使用；不支持的模型会返回 400，下面会自动去掉搜索重试
-  if (args.SEARCH) payload.tools = [{ google_search: {} }];
+  let searchSkipped = false;
+  if (args.SEARCH) {
+    if (searchCooling()) { searchSkipped = true; console.log(TAG + " search quota recently exhausted, skipping google_search"); }
+    else payload.tools = [{ google_search: {} }];
+  }
 
   const url = args.BASE + "/v1beta/models/" + encodeURIComponent(args.MODEL) + ":generateContent";
   const startAt = Date.now();
@@ -653,6 +667,15 @@ function main() {
         delete payload.generationConfig.thinkingConfig;
         return attempt();
       }
+      // 搜索额度用完（429）：去掉搜索立即重试，并暂停带搜索一段时间
+      if (status === 429 && payload.tools && !retriedNoTools) {
+        retriedNoTools = true;
+        searchSkipped = true;
+        store(SEARCH_OFF_KEY, String(Date.now() + SEARCH_COOLDOWN));
+        console.log(TAG + " 429 with google_search (grounding quota exhausted?), retrying without search; search paused 15min");
+        delete payload.tools;
+        return attempt();
+      }
       // 结构化输出与搜索不能同时用（非 Gemini 3 系列）：去掉搜索重试一次
       if (status === 400 && structured && payload.tools && !retriedNoTools) {
         retriedNoTools = true;
@@ -662,7 +685,12 @@ function main() {
       }
       // 临时性错误：重试一次
       if ((status === 429 || status >= 500) && !retried5xx && remaining() > RETRY_MIN_MS) { retried5xx = true; return attempt(); }
-      return reply("Gemini 出错了（" + status + "），请稍后再试。", [], tag);
+      let hint = "Gemini 出错了（" + status + "），请稍后再试。";
+      if (status === 429) hint = "Gemini 的额度用完了或请求太频繁，请稍后再试。";
+      else if (status === 404) hint = "找不到这个模型，可能已下线，请在插件里换一个模型。";
+      else if (/location is not supported/i.test(msg)) hint = "当前网络地区不支持 Gemini，请检查代理节点。";
+      else if (status === 401 || status === 403 || /API key/i.test(msg)) hint = "API Key 无效或没有权限，请检查插件里的 Key。";
+      return reply(hint, [], tag);
     }
 
     const cand = (j.candidates || [])[0] || {};
@@ -700,7 +728,8 @@ function main() {
       .map((w) => ({ url: w.uri, title: w.title }));
     console.log(TAG + " Gemini response received (HTTP " + status + ")");
     try { recordTurn(SESSION.sid, SESSION.cid, SESSION.prev, userText, text); } catch (e) { console.log(TAG + " record turn failed: " + e); }
-    reply(text, cites, tag, extra);
+    // 搜索被跳过（额度不足）时，在普通回答末尾提示一句；写作工具的正文保持干净，只写日志
+    reply(searchSkipped && !structured ? text + SEARCH_NOTE : text, cites, tag, extra);
   }
 
   attempt();
