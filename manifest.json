@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-11-07T20:25:18.841770+00:00",
+  "generatedAt": "2026-11-08T04:16:20.106161+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -189,7 +189,7 @@
       "id": "qianwen_gemini",
       "name": "Siri to Gemini",
       "file": "plugin/qianwen_gemini.plugin",
-      "version": "2.8.4",
+      "version": "2.9.0",
       "author": "@OliviaR13",
       "category": "AI",
       "tags": [
@@ -205,7 +205,7 @@
       "date": "2026-11-08",
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Google.png",
-      "description": "将 Siri 请求交由 Google Gemini API 处理，并转换为兼容响应格式。支持文本对话、相机识图、写作工具、联网搜索及自定义模型，网络请求遵循 Loon 当前配置规则，不使用千问作为上游或备用服务。"
+      "description": "将 Siri 请求交由 Google Gemini API 处理，并转换为兼容响应格式。支持文本对话、相机识图、写作工具、文件问答（PDF、图片、音视频、文本）、联网搜索及自定义模型，网络请求遵循 Loon 当前配置规则，不使用千问作为上游或备用服务。"
     },
     {
       "id": "rednotebook_ip",
