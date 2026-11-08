@@ -1,25 +1,29 @@
 #!name = Siri AI Bridge
-#!desc = 将 Siri 请求转换为通用 AI API 请求，支持 Gemini、OpenAI、Anthropic 及 OpenAI 兼容接口，并将响应转换为 Siri 可识别格式。当前仅支持文本输入；网络请求遵循 Loon 当前配置规则。
+#!desc = 将 Siri 请求转换为通用 AI API 请求，支持 Gemini、OpenAI、Anthropic 及 OpenAI 兼容接口，并将响应转换为 Siri 可识别格式。支持文本对话、连续追问、相机识图、写作工具、文件问答（PDF、图片、文本；音视频仅 Gemini）及联网搜索（Gemini、Anthropic），网络请求遵循 Loon 当前配置规则。
 #!tag = AI,Siri,功能增强
 #!system = iOS
 #!loon_version = 3.2.4
 #!author = @OliviaR13
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/AI.png
-#!date = 2026-11-07
-#!version = 1.0.0
+#!date = 2026-11-08
+#!version = 2.0.0
 
 [Argument]
-PROVIDER = input,"openai_compatible",tag=服务商,desc=gemini / openai / anthropic / openai_compatible
-KEY = input,"",tag=API Key,desc=所选服务商的 API 密钥
-BASE = input,"",tag=API 地址,desc=填写服务商 API 根地址；OpenAI 兼容接口可填写含 /v1 的地址
-MODEL = input,"",tag=模型名称,desc=填写服务商支持的模型 ID
-PROMPT = input,"你是 Siri 的后台助手。请用简洁、口语化的中文回答，适合直接朗读；不要使用 Markdown、列表符号或表情。",tag=系统提示词,desc=控制回答风格
-SEARCH = switch,false,tag=联网搜索,desc=仅 Gemini 适配器支持 Google Search
-MAX = input,"2048",tag=最大输出 Token,desc=最大生成长度（128–8192）
+PROVIDER = select,"openai_compatible","gemini","openai","anthropic",tag=服务商,desc=openai_compatible 适用于 DeepSeek、通义、Kimi、OpenRouter 等兼容 OpenAI 的接口；其余为官方接口
+KEY = input,"",tag=API Key,desc=必填。所选服务商的 API 密钥（首尾空格会自动去除）
+BASE = input,"",tag=API 地址,desc=留空时 gemini / openai / anthropic 使用官方地址；openai_compatible 必填，可带 /v1。使用反向代理时填到域名即可
+MODEL = input,"",tag=模型名称,desc=必填。填写服务商支持的模型 ID，例如 gemini-2.5-flash、gpt-4o-mini、claude-sonnet-4-5
+STYLE = select,"简短口语","标准","详细",tag=回答风格,desc=用于 Siri 对话和识图：简短口语适合朗读；标准更完整；详细更长也更慢。写作工具不受影响
+PROMPT = input,"",tag=额外提示词（可选）,desc=追加在风格提示之后，对话和写作工具都会带上，例如「称呼我为小明」；留空即可
+SEARCH = switch,false,tag=联网搜索,desc=仅 Gemini（Google Search）和 Anthropic（web_search）支持，回复会变慢；额度不足或不可用时自动改为不联网并短暂暂停搜索
+FAST = switch,true,tag=快速模式,desc=压低模型思考深度以加快回复，目前仅对 Gemini flash 系列生效
+STRICT = switch,true,tag=隐私兜底,desc=开启后千问域名下除对话外的其他请求一律在本地拒绝，防止内容泄露；仅在 Siri 出现异常时再临时关闭
+MAX = input,"2048",tag=最大输出 Token,desc=最大生成长度（128–8192）。思考型模型可适当调大
 
 [Script]
-http-request ^https:\/\/prod-yabuli\.qianwen\.com\/v1\/sessions\/responses requires-body=true, timeout=60, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/siri-ai/siri_ai_bridge.js, argument=[{PROVIDER},{KEY},{BASE},{MODEL},{PROMPT},{SEARCH},{MAX}], tag=Siri AI Bridge
+http-request ^https:\/\/prod-yabuli\.qianwen\.com\/v1\/sessions(\/[^\/?]+)?\/files(\?.*)?$ requires-body=true, binary-body-mode=true, max-size=33554432, timeout=60, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/siri-ai/siri_ai_bridge.js, argument=[{PROVIDER},{KEY},{BASE},{MODEL},{STYLE},{PROMPT},{SEARCH},{FAST},{STRICT},{MAX}], tag=Siri AI Bridge 文件
+http-request ^https:\/\/prod-yabuli\.qianwen\.com\/(?!v1\/sessions(\/[^\/?]+)?\/files(\?|$)) requires-body=true, timeout=60, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/siri-ai/siri_ai_bridge.js, argument=[{PROVIDER},{KEY},{BASE},{MODEL},{STYLE},{PROMPT},{SEARCH},{FAST},{STRICT},{MAX}], tag=Siri AI Bridge
 
 [MitM]
 hostname = prod-yabuli.qianwen.com
