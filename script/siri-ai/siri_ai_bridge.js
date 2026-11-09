@@ -7,7 +7,7 @@
  * 不支持的输入会明确报错，不会放行给原始服务。
  */
 
-const VERSION = "3.0.0";
+const VERSION = "3.1.0";
 const TAG = "[siri_ai_bridge]";
 
 const BASE_DEFAULTS = {
@@ -71,7 +71,9 @@ function readArgs() {
   const prompt = get("PROMPT");
   return {
     provider,
-    key: (get("KEY") || "").replace(/\s+/g, ""),
+    // 支持填多个 Key（逗号、分号、空格或换行分隔），额度用完/失效时自动换下一个
+    keys: (get("KEY") || "").split(/[,，;；\s]+/).filter(Boolean),
+    key: "",
     base,
     model: (get("MODEL") || MODEL_DEFAULTS[provider] || "").replace(/^\/?models\//i, ""),
     style,
@@ -92,8 +94,17 @@ const uuid = () =>
     return (c === "x" ? r : (r & 3) | 8).toString(16);
   });
 
-function stripMd(t) {
-  return String(t || "")
+function stripMd(t, tidyList) {
+  let x = String(t || "");
+  // 朗读/显示场景：列表项各占一行，补上句末标点，编号改成「1、」，避免几条要点连成一串
+  if (tidyList) {
+    const endP = /[。！？；：，.!?;:、…）)」”]$/;
+    x = x.replace(/^[ \t]*(?:[-*+•]|\d+[.)、])[ \t]+(.+)$/gm, (m, c) => {
+      const num = /^[ \t]*(\d+)[.)、]/.exec(m);
+      return (num ? num[1] + "、" : "") + c.trim() + (endP.test(c.trim()) ? "" : "；");
+    });
+  }
+  return x
     .replace(/<think>[\s\S]*?<\/think>/gi, "")
     .replace(/```[\s\S]*?```/g, (m) => m.replace(/```\w*\n?/g, ""))
     .replace(/^\s{0,3}#{1,6}\s+/gm, "")
@@ -246,7 +257,13 @@ function latin1(buf, s, e) {
   for (let i = s; i < e; i += 8192) out += String.fromCharCode.apply(null, buf.subarray(i, Math.min(e, i + 8192)));
   return out;
 }
-function utf8dec(bin) { try { return decodeURIComponent(escape(bin)); } catch (e) { return bin; } }
+function utf8dec(bin) {
+  // 文本文件按字节截断时，末尾可能切在多字节字符中间；逐个去掉末尾的残字节再试，避免整段变成乱码
+  for (let cut = 0; cut <= 3 && cut < bin.length; cut++) {
+    try { return decodeURIComponent(escape(cut ? bin.slice(0, -cut) : bin)); } catch (e) {}
+  }
+  return bin;
+}
 function strBytes(str) { const b = new Uint8Array(str.length); for (let i = 0; i < str.length; i++) b[i] = str.charCodeAt(i) & 255; return b; }
 function parseMultipart(buf, ctype) {
   const m = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(ctype || "");
@@ -295,6 +312,9 @@ function saveFile(sid, rec) {
   const cur = (() => { try { return JSON.parse(fetchStore(FILE_KEY + sid) || "null"); } catch (e) { return null; } })() || { t: now, files: [] };
   cur.t = now;
   cur.files.push(rec);
+  // 同一会话的文件合计不超过约 12MB（各服务商单次请求大小有限），超出时丢弃最早的
+  const sz = (f) => (f.b64 ? f.b64.length : 0) + (f.text ? f.text.length : 0);
+  while (cur.files.length > 1 && cur.files.reduce((n, f) => n + sz(f), 0) > 12e6) cur.files.shift();
   if (!store(FILE_KEY + sid, JSON.stringify(cur))) throw new Error("persistent store write failed");
   idx = idx.filter((x) => x.sid !== sid);
   idx.push({ sid, t: now });
@@ -355,7 +375,7 @@ function todayLine() {
 }
 
 // 联网搜索「自动」模式：问题明显需要实时信息时才联网，其余不联网，保持快速
-const SEARCH_CUE = /(最新|最近|实时|刚刚|刚才|新闻|热搜|头条|天气|气温|下雨|下雪|空气质量|股价|股市|股票|汇率|币价|比特币|油价|金价|行情|比分|赛程|战绩|票房|上映|发布会|多少钱|售价|报价|价格|航班|车次|路况|限行|营业时间|谁赢了|获奖名单|更新了什么|latest|news|weather|price|score|stock)/i;
+const SEARCH_CUE = /(最新|最近(?:的)?(?:新闻|消息|动态|发生|怎么样)|实时|刚刚|刚才|新闻|热搜|头条|天气|气温|下雨|下雪|空气质量|股价|股市|股票|汇率|币价|比特币|油价|金价|行情|比分|赛程|战绩|票房|上映|发布会|多少钱|售价|报价|价格|航班|车次|路况|限行|营业时间|谁赢了|获奖名单|更新了什么|latest|news|weather|price|score|stock)/i;
 function needsSearch(text) { return SEARCH_CUE.test(String(text || "")); }
 
 // 限流时服务商会告诉要等多久：Retry-After 响应头，Gemini 的 retryDelay，或错误信息里的 "try again in 1.2s"
@@ -441,6 +461,8 @@ function handleUpload(sidInUrl) {
 }
 
 /* ───────────── 联网搜索额度保护 ───────────── */
+const KEY_IDX_STORE = "siri_bridge_key_idx";
+const FALLBACK_MODEL = "gemini-flash-latest"; // Gemini 主模型过载时的备用模型
 const SEARCH_OFF_KEY = "siri_bridge_search_off";
 const SEARCH_COOLDOWN = 15 * 60 * 1000;
 const SEARCH_NOTE = "\n\n（联网搜索不可用，这次没有联网。）";
@@ -453,11 +475,13 @@ const SESS_TTL = 3600 * 1000;
 const MAX_SESS = 12;
 const MAX_TURNS = 20;
 const SEND_CHARS = 20000; // 每次请求最多带给模型的历史字数（超出先丢最早的）
-const MAX_CHARS = 60000;
+const MAX_CHARS = 30000; // 每次最多带 SEND_CHARS，存太多没有意义
 let SESSION = { sid: null, cid: null, follow: false, prev: null };
 
+let sessMemo = null; // 一次请求里会读两次（取历史、记新一轮），只解析一次
 function loadSessions() {
-  try { const r = fetchStore(STORE_KEY); return r ? JSON.parse(r) || {} : {}; } catch (e) { return {}; }
+  if (sessMemo) return sessMemo;
+  try { const r = fetchStore(STORE_KEY); return (sessMemo = r ? JSON.parse(r) || {} : {}); } catch (e) { return (sessMemo = {}); }
 }
 function saveSessions(all) {
   try {
@@ -509,8 +533,11 @@ function buildSSE(text, citations, model, extra) {
   s += ev(P + "added", { index: 0, choice: { output: [], id: cid, status: "incomplete" } });
   s += ev(P + "items[].added", { choice_index: 0, item: { type: "message", message: { role: "assistant", content: [] } }, index: 0 });
   s += ev(P + "items[].message.content[].added", { item_index: 0, choice_index: 0, index: 0, content: { text: { annotations: [], value: "" }, type: "text" } });
-  for (let i = 0; i < value.length; i += 60) {
-    s += ev(P + "items[].message.content[].text.value.delta", { item_index: 0, choice_index: 0, content_index: 0, delta: value.slice(i, i + 60) });
+  for (let i = 0, n; i < value.length; i = n) {
+    n = Math.min(value.length, i + 60);
+    const c = value.charCodeAt(n - 1);
+    if (n < value.length && c >= 0xd800 && c <= 0xdbff) n++; // 不要把 emoji 等代理对从中间切开
+    s += ev(P + "items[].message.content[].text.value.delta", { item_index: 0, choice_index: 0, content_index: 0, delta: value.slice(i, n) });
   }
   s += ev(P + "items[].message.content[].text.value.done", { item_index: 0, choice_index: 0, content_index: 0, value });
   annotations.forEach((a, i) => { s += ev(P + "items[].message.content[].text.annotations[].added", { annotation: a, item_index: 0, choice_index: 0, content_index: 0, index: i }); });
@@ -561,6 +588,8 @@ function buildGemini(a, system, msgs, structured, searchOn) {
       role: x.role === "assistant" ? "model" : "user",
       parts: x.parts.map((p) => p.t !== undefined ? { text: p.t } : p.img ? { inlineData: { mimeType: p.img.mime, data: p.img.b64 } } : { inlineData: { mimeType: p.file.mime, data: p.file.b64 } }),
     })),
+    // 默认安全过滤偶尔会误拦医疗、法律等正常问题：只拦截高风险内容
+    safetySettings: ["HARASSMENT", "HATE_SPEECH", "SEXUALLY_EXPLICIT", "DANGEROUS_CONTENT"].map((c) => ({ category: "HARM_CATEGORY_" + c, threshold: "BLOCK_ONLY_HIGH" })),
     generationConfig: gc,
   };
   if (searchOn) body.tools = [{ google_search: {} }];
@@ -674,6 +703,7 @@ function main() {
     if (sch && sch.properties && jsch.content_property && sch.properties[jsch.content_property]) OUT = { prop: jsch.content_property, props: sch.properties };
   } catch (e) {}
 
+  a.key = a.keys[0] || "";
   if (!a.key) return reply("请先在 Loon 插件参数里填写 API Key。", [], label);
   if (!a.model) return reply("使用 OpenAI 兼容接口时需要填写模型名称。", [], label);
   if (!a.base) return reply("请先在 Loon 插件参数里填写 API 地址。", [], label);
@@ -730,7 +760,31 @@ function main() {
 
   const startAt = Date.now();
   const remaining = () => BUDGET_MS - (Date.now() - startAt);
-  let retriedTemp = false, retriedNet = false, retriedNoThink = false, retriedNoSearch = false, retriedModel = false;
+  let retriedTemp = false, retriedNet = false, retriedNoThink = false, retriedNoSearch = false, retriedModel = false, retriedFallback = false;
+  // 多 Key：记住上次可用的那个，失效/限流时依次换下一个
+  let keyIdx = 0, keysTried = 0;
+  if (a.keys.length > 1) { const st = parseInt(fetchStore(KEY_IDX_STORE), 10); if (isFinite(st) && st >= 0) keyIdx = st % a.keys.length; }
+  a.key = a.keys[keyIdx];
+  if (keyIdx !== 0) rebuild(); // 请求要用上次可用的那个 Key
+  function nextKey() {
+    if (keysTried >= a.keys.length - 1) return false;
+    keysTried++; keyIdx = (keyIdx + 1) % a.keys.length; a.key = a.keys[keyIdx];
+    console.log(TAG + " switching to API key #" + (keyIdx + 1) + "/" + a.keys.length);
+    rebuild();
+    return true;
+  }
+  // 模型降级（仅 Gemini）：同一模型重试后仍然过载/限流，换备用模型再试一次
+  function tryFallback() {
+    if (a.provider !== "gemini" || retriedFallback || remaining() < RETRY_MIN_MS) return false;
+    const fb = a.model !== FALLBACK_MODEL ? FALLBACK_MODEL : MODEL_DEFAULTS.gemini;
+    if (fb === a.model) return false;
+    retriedFallback = true;
+    console.log(TAG + " model " + a.model + " overloaded/limited, falling back to " + fb);
+    a.model = fb; label = fb;
+    rebuild();
+    attempt();
+    return true;
+  }
 
   function attempt() {
     if (finished) return; // 看门狗已经回复过了，不再发请求
@@ -773,6 +827,10 @@ function main() {
       if (status === 400 && a.provider === "gemini" && thinkOn && /think/i.test(msg) && !retriedNoThink) {
         retriedNoThink = true; thinkOn = false; rebuild(); return attempt();
       }
+      // Key 限流/失效：有多个 Key 时换下一个立即重试
+      if (a.keys.length > 1 && ((status === 429 && !searchOn) || status === 401 || status === 403 || (status === 400 && /API key/i.test(msg))) && nextKey()) {
+        return attempt();
+      }
       // 搜索额度用完/不支持：去掉搜索重试，并暂停带搜索一段时间
       if (searchOn && (status === 429 || status === 400) && !retriedNoSearch) {
         retriedNoSearch = true; searchOn = false; searchSkipped = true;
@@ -782,6 +840,7 @@ function main() {
       }
       if ((status === 429 || status >= 500) && !retriedTemp) {
         const wait = status === 429 ? (retryDelayMs(j, resp) || 1000) : 0;
+        if (wait > MAX_WAIT_MS && tryFallback()) return;
         if (wait > MAX_WAIT_MS) return reply("AI 服务限流了，请约 " + Math.ceil(wait / 1000) + " 秒后再试。", [], label);
         if (remaining() > wait + RETRY_MIN_MS) {
           retriedTemp = true;
@@ -792,6 +851,7 @@ function main() {
           return attempt();
         }
       }
+      if ((status === 429 || status >= 500) && tryFallback()) return;
       let hint = "AI 服务出错了（" + status + "）：" + msg.slice(0, 100);
       if (status === 429) hint = retryDelayMs(j, resp) ? "AI 服务限流了，请约 " + Math.ceil(retryDelayMs(j, resp) / 1000) + " 秒后再试。" : "AI 服务额度用完了或请求太频繁，请稍后再试。";
       else if (status === 404) hint = "找不到这个模型或接口，请检查插件里的模型名称和 API 地址。";
@@ -817,14 +877,15 @@ function main() {
         rawText = typeof jo[OUT.prop] === "string" ? jo[OUT.prop] : rawText;
       } catch (e) { console.log(TAG + " structured parse failed, using raw text"); }
     }
-    const text = stripMd(rawText);
+    const text = stripMd(rawText, !structured);
     if (!text) {
-      if (r.finish === "MAX_TOKENS") return reply("这个问题思考过久没来得及回答，请换个问法，或在插件里开启快速模式、调大最大输出。", [], label);
+      if (r.finish === "MAX_TOKENS") return reply("这个问题思考过久没来得及回答，请换个问法，或把问题说得更简短一些。", [], label);
       const why = r.block || r.finish || "空回复";
       return reply(BLOCK_TEXT[why] || ("AI 没有给出回答（" + why + "），请再试一次。"), [], label);
     }
     const us = j.usageMetadata || j.usage || {};
     console.log(TAG + " response received (HTTP " + status + ", " + (Date.now() - startAt) + "ms), tokens: input=" + (us.promptTokenCount || us.input_tokens || us.prompt_tokens || "?") + ", cached=" + (us.cachedContentTokenCount || us.cache_read_input_tokens || 0) + ", output=" + (us.candidatesTokenCount || us.output_tokens || us.completion_tokens || "?"));
+    if (a.keys.length > 1) store(KEY_IDX_STORE, String(keyIdx));
     try { recordTurn(SESSION.sid, SESSION.cid, SESSION.prev, userText, text); } catch (e) { console.log(TAG + " record turn failed: " + e); }
     reply(searchSkipped && !structured ? text + SEARCH_NOTE : text, r.cites, label, extra);
   }
