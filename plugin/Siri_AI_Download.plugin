@@ -1,0 +1,28 @@
+#!name = Siri AI 资源下载分流
+#!desc = 适用于 iOS 27.3 beta 通过 GestaltX 开启 Siri AI 后的依赖与模型下载：将系统更新 / MobileAsset 资源目录（gdmf、mesu、xp.apple.com）、软件更新分发域名（swscan、swdist、swcdn、updates.cdn-apple.com、appldnld）、iCloud 设置接口与 Apple 下载 CDN（aaplimg.com、cdn-apple.com）统一走 PROXY 策略。本插件只做网络分流，不修改设备信息，需配合 GestaltX 或 gester 使用。安装后请在插件详情页的「代理指向的策略」中选择美国节点或美国策略组，未选择时默认使用全局策略的第一个节点。使用时需要将系统地区设为美国，系统语言与 Siri 语言设为 English，商店登录美区账号，修改后重启手机。域名列表为推测，若下载仍停滞，请在 Loon 的请求日志中查看实际走过的 Apple 域名并补充。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前。Siri 与 ChatGPT 相关分流请使用 Siri ChatGPT 分流插件。
+#!tag = 代理分流
+#!author = OliviaR13
+#!version = 1.0.0
+#!date = 2026-11-10
+#!homepage = https://www.github.com/OliviaR13
+#!icon = https://www.google.com/s2/favicons?sz=128&domain=apple.com
+
+[Rule]
+# 系统更新 / MobileAsset 资源目录
+DOMAIN,gdmf.apple.com,PROXY
+DOMAIN,mesu.apple.com,PROXY
+DOMAIN,xp.apple.com,PROXY
+
+# 软件更新分发
+DOMAIN-SUFFIX,swscan.apple.com,PROXY
+DOMAIN-SUFFIX,swdist.apple.com,PROXY
+DOMAIN-SUFFIX,swcdn.apple.com,PROXY
+DOMAIN-SUFFIX,updates.cdn-apple.com,PROXY
+DOMAIN-SUFFIX,appldnld.apple.com,PROXY
+
+# iCloud 设置接口
+DOMAIN,setup.icloud.com,PROXY
+
+# Apple 下载 CDN
+DOMAIN-SUFFIX,aaplimg.com,PROXY
+DOMAIN-SUFFIX,cdn-apple.com,PROXY
