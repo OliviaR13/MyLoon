@@ -1,0 +1,32 @@
+#!name = Meta AI Muse 自选节点
+#!desc = 将 Meta AI / Muse（meta.ai 网页版、Meta AI App、Muse App、开发者 API 以及登录所需的 Facebook / Instagram 账号域名、图片与视频 CDN）相关域名统一走 PROXY 策略，并屏蔽 QUIC 让连接回落 TCP 更稳定。安装后请在插件详情页的「代理指向的策略」中选择用于代理的策略组或节点，未选择时默认使用全局策略的第一个节点。Meta AI 目前优先面向美国地区开放，建议选择美国节点。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前，否则规则可能被提前匹配而失效。
+#!tag = 代理分流
+#!author = OliviaR13
+#!version = 1.0.0
+#!date = 2026-11-09
+#!homepage = https://www.github.com/OliviaR13
+#!icon = https://www.google.com/s2/favicons?sz=128&domain=meta.ai
+
+[Rule]
+# Meta 使用 QUIC（UDP 443）时代理容易不稳定：屏蔽后自动回落到 TCP
+AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,meta.ai)),REJECT
+AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,facebook.com)),REJECT
+AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,fbcdn.net)),REJECT
+AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,instagram.com)),REJECT
+AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,cdninstagram.com)),REJECT
+
+# Meta AI / Muse 主站、开发者 API（dev.meta.ai、ai.meta.com 等均包含在内）
+DOMAIN-SUFFIX,meta.ai,PROXY
+DOMAIN-SUFFIX,meta.com,PROXY
+
+# 账号登录与接口（用 Facebook / Instagram 账号登录，graph.facebook.com 等）
+DOMAIN-SUFFIX,facebook.com,PROXY
+DOMAIN-SUFFIX,facebook.net,PROXY
+DOMAIN-SUFFIX,fb.com,PROXY
+DOMAIN-SUFFIX,fb.me,PROXY
+DOMAIN-SUFFIX,fbsbx.com,PROXY
+DOMAIN-SUFFIX,instagram.com,PROXY
+
+# 图片 / 视频 / 静态资源 CDN
+DOMAIN-SUFFIX,fbcdn.net,PROXY
+DOMAIN-SUFFIX,cdninstagram.com,PROXY
