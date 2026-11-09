@@ -7,24 +7,39 @@
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://www.google.com/s2/favicons?sz=128&domain=chatgpt.com
 
+
 [Rule]
-# Apple Intelligence / Siri 后端
+# Siri / Apple Intelligence
 DOMAIN,guzzoni.apple.com,PROXY
+DOMAIN,siri.apple.com,PROXY
+DOMAIN-SUFFIX,siri.apple.com,PROXY
 DOMAIN-SUFFIX,smoot.apple.com,PROXY
-DOMAIN-KEYWORD,siri,PROXY
 
-# Apple 定位与服务网关
+# Apple Intelligence 资格与定位服务
+DOMAIN,gspe1-ssl.ls.apple.com,PROXY
 DOMAIN-SUFFIX,ls.apple.com,PROXY
-DOMAIN,gateway.icloud.com,PROXY
-DOMAIN,apps.mzstatic.com,PROXY
 
-# OpenAI 登录与服务
+# Apple Relay / Private Cloud Compute
+DOMAIN-SUFFIX,apple-relay.apple.com,PROXY
+DOMAIN-SUFFIX,apple-relay.cloudflare.com,PROXY
+DOMAIN-SUFFIX,apple-relay.fastly-edge.com,PROXY
+DOMAIN-SUFFIX,apple-relay.akamaized.net,PROXY
+DOMAIN-SUFFIX,apple-relay.mask.apple-dns.net,PROXY
+DOMAIN,cp4.cloudflare.com,PROXY
+
+# iCloud Gateway
+DOMAIN,gateway.icloud.com,PROXY
+
+# Apple 服务资源
+DOMAIN,aapps.mzstatic.com,PROXY
+
+# OpenAI / ChatGPT
 DOMAIN-SUFFIX,openai.com,PROXY
 DOMAIN-SUFFIX,chatgpt.com,PROXY
 DOMAIN-SUFFIX,oaistatic.com,PROXY
 DOMAIN-SUFFIX,oaiusercontent.com,PROXY
 
-# 验证服务
-DOMAIN-SUFFIX,arkoselabs.com,PROXY
+# 登录验证
 DOMAIN-SUFFIX,auth0.com,PROXY
+DOMAIN-SUFFIX,arkoselabs.com,PROXY
 
