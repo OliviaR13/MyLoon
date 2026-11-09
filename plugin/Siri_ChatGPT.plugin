@@ -7,20 +7,29 @@
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://www.google.com/s2/favicons?sz=128&domain=chatgpt.com
 
-[General]
-real-ip = guzzoni.apple.com, siri.apple.com, *.siri.apple.com
-
 [Rule]
-# Siri 核心域名：必须直连，不能走代理 / Fake-IP
-DOMAIN,guzzoni.apple.com,DIRECT
-DOMAIN-SUFFIX,siri.apple.com,DIRECT
-
-# Apple 资格校验：走美区节点
-DOMAIN,gspe1-ssl.ls.apple.com,PROXY
-DOMAIN-KEYWORD,apple-relay,PROXY
-
-# OpenAI / ChatGPT：走美区节点
+# OpenAI 核心服务
 DOMAIN-SUFFIX,openai.com,PROXY
 DOMAIN-SUFFIX,chatgpt.com,PROXY
+
+# 登录与账户认证
+DOMAIN,auth0.openai.com,PROXY
+DOMAIN-SUFFIX,auth.openai.com,PROXY
+DOMAIN,setup.auth.openai.com,PROXY
+
+# 静态资源与文件服务
 DOMAIN-SUFFIX,oaistatic.com,PROXY
 DOMAIN-SUFFIX,oaiusercontent.com,PROXY
+
+# 人机验证
+DOMAIN-SUFFIX,arkoselabs.com,PROXY
+
+# Apple 与 ChatGPT 集成相关域名
+DOMAIN,humb.apple.com,PROXY
+
+# 功能配置与遥测
+DOMAIN-SUFFIX,oaistatsig.com,PROXY
+DOMAIN-SUFFIX,statsigapi.net,PROXY
+DOMAIN-SUFFIX,featuregates.org,PROXY
+DOMAIN,o207216.ingest.sentry.io,PROXY
+DOMAIN,o33249.ingest.sentry.io,PROX
