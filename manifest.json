@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-11-09T07:42:33.071856+00:00",
+  "generatedAt": "2026-11-09T07:47:25.733547+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -231,7 +231,7 @@
       "id": "siri_ai_bridge",
       "name": "Siri AI Bridge",
       "file": "plugin/siri_ai_bridge.plugin",
-      "version": "3.0.1",
+      "version": "3.1.0",
       "author": "@OliviaR13",
       "category": "AI",
       "tags": [
@@ -242,12 +242,12 @@
       "mitm": true,
       "script": true,
       "args": true,
-      "rule": false,
+      "rule": true,
       "proxy": false,
-      "date": "2026-11-08",
+      "date": "2026-11-09",
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/AI.png",
-      "description": "将 Siri 请求转换为通用 AI API 请求，支持 Gemini、OpenAI、Anthropic 及 OpenAI 兼容接口，并将响应转换为 Siri 可识别格式。支持文本对话、连续追问、相机识图、写作工具、文件问答（PDF、图片、文本；音视频仅 Gemini）及联网搜索（Gemini、Anthropic），网络请求遵循 Loon 当前配置规则。"
+      "description": "将 Siri 请求转换为通用 AI API 请求，支持 Gemini、OpenAI、Anthropic 及 OpenAI 兼容接口，并将响应转换为 Siri 可识别格式。同时拦截千问 App 的统计上报。支持文本对话、连续追问、相机识图、写作工具、文件问答（PDF、图片、文本；音视频仅 Gemini）及联网搜索（Gemini、Anthropic），网络请求遵循 Loon 当前配置规则。"
     },
     {
       "id": "weibo",
