@@ -6,8 +6,8 @@
 #!author = @OliviaR13
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Google.png
-#!date = 2026-11-08
-#!version = 3.0.1
+#!date = 2026-11-09
+#!version = 3.1.0
 
 [Argument]
 KEY = input,"",tag=Gemini API Key,desc=必填。在 aistudio.google.com/apikey 创建后粘贴，首尾空格会自动去除
@@ -19,7 +19,7 @@ BASE = input,"https://generativelanguage.googleapis.com",tag=API 地址（可选
 
 [Script]
 http-request ^https:\/\/prod-yabuli\.qianwen\.com\/v1\/sessions(\/[^\/?]+)?\/files(\?.*)?$ requires-body=true, binary-body-mode=true, max-size=33554432, timeout=60, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/qianwen/qianwen_siri_gemini.js, argument=[{KEY},{MODEL},{PROMPT},{SEARCH},{CUSTOM_MODEL},{BASE}], tag=Siri to Gemini 文件上传
-http-request ^https:\/\/prod-yabuli\.qianwen\.com\/(?!v1\/sessions(\/[^\/?]+)?\/files(\?|$)) requires-body=true, timeout=60, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/qianwen/qianwen_siri_gemini.js, argument=[{KEY},{MODEL},{PROMPT},{SEARCH},{CUSTOM_MODEL},{BASE}], tag=Siri to Gemini 对话请求
+http-request ^https:\/\/prod-yabuli\.qianwen\.com\/(?!v1\/sessions(\/[^\/?]+)?\/files(\?|$)) requires-body=true, max-size=33554432, timeout=60, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/qianwen/qianwen_siri_gemini.js, argument=[{KEY},{MODEL},{PROMPT},{SEARCH},{CUSTOM_MODEL},{BASE}], tag=Siri to Gemini 对话请求
 
 [MitM]
 hostname = prod-yabuli.qianwen.com

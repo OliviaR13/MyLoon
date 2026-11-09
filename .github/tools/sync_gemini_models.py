@@ -4,7 +4,8 @@
 - 数据来源：Gemini API  GET /v1beta/models（需要仓库 Secret：GEMINI_API_KEY）
 - 只保留：支持 generateContent、名字以 gemini- 开头、版本 >= 2.5 的文本/多模态对话模型
 - 排除：tts / image / live / audio / transcribe / embedding / 带日期的快照 / 实验版等；正式版已出时不再保留同名 -preview
-- 稳定排序：已有选项保持原顺序（第一个是默认值），新模型追加在末尾，下线的模型移除
+- 稳定排序：已有选项保持原顺序（第一个是默认值），新模型按版本号从小到大追加在末尾，下线的模型移除
+- 精简：每个系列（flash-lite / flash / pro）只保留最新的 KEEP_PER_FAMILY 个版本，名称带 latest 的别名始终保留
 - 出错或数据异常时不改动任何文件（退出码 0），不会把下拉清空
 """
 import json
@@ -29,6 +30,7 @@ DATED = re.compile(r"(-\d{3}$|-\d{4}$|-\d{2}-\d{4}$|-\d{2}-\d{2}$)")  # -001 / -
 LATEST_ALIASES = {"gemini-flash-latest", "gemini-flash-lite-latest", "gemini-pro-latest"}
 MIN_VERSION = (2, 5)
 MAX_OPTIONS = 20
+KEEP_PER_FAMILY = 4  # 每个系列保留最新几个版本；旧版本由 -latest 别名覆盖，且新用户常常已不可用
 
 
 def fetch_models():
@@ -53,6 +55,31 @@ def version_of(name):
     return (int(m.group(1)), int(m.group(2) or 0)) if m else None
 
 
+def family_of(name):
+    for fam in ("flash-lite", "flash", "pro"):
+        if re.search(rf"-{fam}(?:-|$)", name):
+            return fam
+    return "other"
+
+
+def sort_key(name):
+    # 按版本号数值排序（避免字符串排序把 3.10 排到 3.5 前面）；同版本时正式版排在 preview 前
+    return (version_of(name) or (0, 0), name.endswith("-preview"), name)
+
+
+def trim_families(names):
+    """别名全部保留；其余按系列只留最新 KEEP_PER_FAMILY 个版本。"""
+    keep = {n for n in names if n in LATEST_ALIASES}
+    groups = {}
+    for n in names:
+        if n not in keep:
+            groups.setdefault(family_of(n), []).append(n)
+    for items in groups.values():
+        items.sort(key=sort_key, reverse=True)
+        keep.update(items[:KEEP_PER_FAMILY])
+    return keep
+
+
 def pick(models):
     out = []
     for m in models:
@@ -72,7 +99,7 @@ def pick(models):
     out = set(out)
     # 正式版已发布时，去掉同名的 -preview 版本（如 gemini-3.1-flash-lite-preview）
     out = {n for n in out if not (n.endswith("-preview") and n[: -len("-preview")] in out)}
-    return sorted(out)
+    return sorted(out, key=sort_key)
 
 
 def parse_current(text):
@@ -95,8 +122,10 @@ def main():
     text = PLUGIN.read_text(encoding="utf-8")
     m, current = parse_current(text)
 
-    kept = [x for x in current if x in fresh]      # 保持原顺序，移除已下线
-    added = [x for x in fresh if x not in kept]    # 新模型按字母序追加
+    keep_set = trim_families(fresh)
+    default = current[0] if current else None       # 第一个选项是默认值，只要还在线就一直保留在首位
+    kept = [x for x in current if x in keep_set or x == default and x in fresh]  # 保持原顺序，移除已下线/过旧
+    added = [x for x in fresh if x in keep_set and x not in kept]                # 新模型按版本号追加
     new = (kept + added)[:MAX_OPTIONS]
     if not new:
         print("::warning::结果为空，保持原样")

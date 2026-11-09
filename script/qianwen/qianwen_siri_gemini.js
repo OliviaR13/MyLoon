@@ -1,5 +1,5 @@
 /*
- * Siri → Gemini 独立兼容层  v3.0.0
+ * Siri → Gemini 独立兼容层  v3.1.0
  *
  * 兼容 Siri 请求协议并由 Gemini API 独立处理，按 Siri 兼容的 SSE 事件流返回。
  * 不调用千问作为上游或备用服务；不支持的输入会明确报错，不会回落到千问。
@@ -8,7 +8,7 @@
  * 请在 Loon 日志里核对一次；时间预算见下方 BUDGET_MS / ATTEMPT_MS。
  */
 
-const VERSION = "3.0.0";
+const VERSION = "3.1.0";
 const TAG = "[qianwen_gemini]";
 
 const DEFAULTS = {
@@ -120,11 +120,6 @@ function shapeOf(v, depth) {
   return "{" + Object.keys(v).map((k) => k + ":" + shapeOf(v[k], depth + 1)).join(",") + "}";
 }
 
-function stripTrigger(t) {
-  const r = cleanTrigger(t);
-  return r || t; // 去掉后为空就保留原文
-}
-
 /* ───────────── 输出结构：跟随请求里的 response_format ─────────────
  * 相机/普通对话: content + summary + isRequestingUserInput
  * 写作工具(compose): body + refinements(三条改写建议)
@@ -226,7 +221,7 @@ function toGemini(body, contentProp) {
       continue;
     }
     const role = m.role === "assistant" ? "model" : "user";
-    if (role === "user") text = stripTrigger(text);
+    if (role === "user") text = cleanTrigger(text) || text; // 去掉触发词后为空就保留原文
     // 历史里的助手回复是 JSON 字符串，取出正文再给 Gemini
     if (role === "model") {
       try {
@@ -272,7 +267,13 @@ function latin1(buf, s, e) {
   for (let i = s; i < e; i += 8192) out += String.fromCharCode.apply(null, buf.subarray(i, Math.min(e, i + 8192)));
   return out;
 }
-function utf8dec(bin) { try { return decodeURIComponent(escape(bin)); } catch (e) { return bin; } }
+function utf8dec(bin) {
+  // 文本文件按字节截断时，末尾可能切在多字节字符中间；逐个去掉末尾的残字节再试，避免整段变成乱码
+  for (let cut = 0; cut <= 3 && cut < bin.length; cut++) {
+    try { return decodeURIComponent(escape(cut ? bin.slice(0, -cut) : bin)); } catch (e) {}
+  }
+  return bin;
+}
 function strBytes(str) { const b = new Uint8Array(str.length); for (let i = 0; i < str.length; i++) b[i] = str.charCodeAt(i) & 255; return b; }
 
 function parseMultipart(buf, ctype) {
@@ -324,6 +325,9 @@ function saveFile(sid, rec) {
   const cur = (() => { try { return JSON.parse(fetchStore(FILE_KEY + sid) || "null"); } catch (e) { return null; } })() || { t: now, files: [] };
   cur.t = now;
   cur.files.push(rec);
+  // 同一会话的文件合计不超过约 12MB（Gemini 单次请求内联数据上限约 20MB），超出时丢弃最早的
+  const sz = (f) => (f.b64 ? f.b64.length : 0) + (f.text ? f.text.length : 0);
+  while (cur.files.length > 1 && cur.files.reduce((n, f) => n + sz(f), 0) > 12e6) cur.files.shift();
   if (!store(FILE_KEY + sid, JSON.stringify(cur))) throw new Error("persistent store write failed");
   idx = idx.filter((x) => x.sid !== sid);
   idx.push({ sid, t: now });
@@ -385,7 +389,7 @@ function todayLine() {
 }
 
 // 联网搜索「自动」模式：问题明显需要实时信息时才联网，其余不联网，保持快速
-const SEARCH_CUE = /(最新|最近|实时|刚刚|刚才|新闻|热搜|头条|天气|气温|下雨|下雪|空气质量|股价|股市|股票|汇率|币价|比特币|油价|金价|行情|比分|赛程|战绩|票房|上映|发布会|多少钱|售价|报价|价格|航班|车次|路况|限行|营业时间|谁赢了|获奖名单|更新了什么|latest|news|weather|price|score|stock)/i;
+const SEARCH_CUE = /(最新|最近(?:的)?(?:新闻|消息|动态|发生|怎么样)|实时|刚刚|刚才|新闻|热搜|头条|天气|气温|下雨|下雪|空气质量|股价|股市|股票|汇率|币价|比特币|油价|金价|行情|比分|赛程|战绩|票房|上映|发布会|多少钱|售价|报价|价格|航班|车次|路况|限行|营业时间|谁赢了|获奖名单|更新了什么|latest|news|weather|price|score|stock)/i;
 function needsSearch(text) { return SEARCH_CUE.test(String(text || "")); }
 
 // 限流时 Gemini 会告诉要等多久：error.details 里的 retryDelay，或错误信息里的 "retry in 12.3s"
@@ -483,15 +487,17 @@ const SESS_TTL = 3600 * 1000;   // 会话保留 1 小时
 const MAX_SESS = 12;            // 最多保留的会话数
 const MAX_TURNS = 20;           // 每个会话最多保留的轮数
 const SEND_CHARS = 20000;       // 每次请求最多带给模型的历史字数（超出先丢最早的）
-const MAX_CHARS = 60000;        // 每个会话历史最大字数
+const MAX_CHARS = 30000;        // 每个会话历史最大字数（每次最多带 SEND_CHARS，存太多没有意义）
 let SESSION = { sid: null, cid: null, follow: false, prev: null };
 
+let sessMemo = null; // 一次请求里会读两次（取历史、记新一轮），只解析一次
 function loadSessions() {
+  if (sessMemo) return sessMemo;
   try {
-    if (typeof $persistentStore === "undefined") return {};
+    if (typeof $persistentStore === "undefined") return (sessMemo = {});
     const r = $persistentStore.read(STORE_KEY);
-    return r ? JSON.parse(r) || {} : {};
-  } catch (e) { return {}; }
+    return (sessMemo = r ? JSON.parse(r) || {} : {});
+  } catch (e) { return (sessMemo = {}); }
 }
 function saveSessions(all) {
   try {
@@ -571,9 +577,12 @@ function buildSSE(text, citations, model, extra) {
   s += ev(P + "items[].message.content[].added", {
     item_index: 0, choice_index: 0, index: 0, content: { text: { annotations: [], value: "" }, type: "text" },
   });
-  for (let i = 0; i < value.length; i += 60) {
+  for (let i = 0, n; i < value.length; i = n) {
+    n = Math.min(value.length, i + 60);
+    const c = value.charCodeAt(n - 1);
+    if (n < value.length && c >= 0xd800 && c <= 0xdbff) n++; // 不要把 emoji 等代理对从中间切开
     s += ev(P + "items[].message.content[].text.value.delta", {
-      item_index: 0, choice_index: 0, content_index: 0, delta: value.slice(i, i + 60),
+      item_index: 0, choice_index: 0, content_index: 0, delta: value.slice(i, n),
     });
   }
   s += ev(P + "items[].message.content[].text.value.done", {
@@ -691,7 +700,12 @@ function main() {
     }
   }
   const prefixParts = fileParts.concat(imgParts);
-  const contents = (prefixParts.length ? [{ role: "user", parts: prefixParts }] : []).concat(hist, newContents);
+  const contents = hist.concat(newContents);
+  // 文件/图片并入第一条用户消息（保持前缀稳定以利用 Gemini 的隐式缓存），避免出现连续两条 user
+  if (prefixParts.length) {
+    if (contents[0] && contents[0].role === "user") contents[0].parts = prefixParts.concat(contents[0].parts);
+    else contents.unshift({ role: "user", parts: prefixParts });
+  }
   // 本轮用户输入（用于存档，不存图片本身）
   const lastUser = newContents.filter((c) => c.role === "user").slice(-1)[0];
   const userText = lastUser
@@ -795,6 +809,7 @@ function main() {
       if (status === 400 && /think/i.test(msg) && !retriedNoThink && payload.generationConfig.thinkingConfig) {
         retriedNoThink = true;
         delete payload.generationConfig.thinkingConfig;
+        payload.generationConfig.maxOutputTokens = Math.max(payload.generationConfig.maxOutputTokens, args.STYLE === "详细" ? 8192 : 4096);
         return attempt();
       }
       // 搜索额度用完（429）：去掉搜索立即重试，并暂停带搜索一段时间
@@ -806,10 +821,10 @@ function main() {
         delete payload.tools;
         return attempt();
       }
-      // 结构化输出与搜索不能同时用（非 Gemini 3 系列）：去掉搜索重试一次
-      if (status === 400 && structured && payload.tools && !retriedNoTools) {
+      // 模型不支持搜索，或不支持「搜索 + 结构化输出」同用（非 Gemini 3 系列）：去掉搜索重试一次
+      if (status === 400 && payload.tools && !retriedNoTools) {
         retriedNoTools = true;
-        console.log(TAG + " model does not support search + structured output, retrying without search");
+        console.log(TAG + " model does not support search" + (structured ? " + structured output" : "") + ", retrying without search");
         delete payload.tools;
         return attempt();
       }
@@ -862,7 +877,7 @@ function main() {
     }
     const text = stripMd(rawText);
     if (!text) {
-      if (cand.finishReason === "MAX_TOKENS") return reply("这个问题思考过久没来得及回答，请换个问法，或在插件里开启快速模式。", [], tag);
+      if (cand.finishReason === "MAX_TOKENS") return reply("这个问题思考过久没来得及回答，请换个问法，或把问题说得更简短一些。", [], tag);
       const why = (j.promptFeedback && j.promptFeedback.blockReason) || cand.finishReason || "空回复";
       return reply(BLOCK_TEXT[why] || ("Gemini 没有给出回答（" + why + "），请再试一次。"), [], tag);
     }
