@@ -8,28 +8,23 @@
 #!icon = https://www.google.com/s2/favicons?sz=128&domain=chatgpt.com
 
 [Rule]
-# OpenAI 核心服务
+# Apple Intelligence / Siri 后端
+DOMAIN,guzzoni.apple.com,PROXY
+DOMAIN-SUFFIX,smoot.apple.com,PROXY
+DOMAIN-KEYWORD,siri,PROXY
+
+# Apple 定位与服务网关
+DOMAIN-SUFFIX,ls.apple.com,PROXY
+DOMAIN,gateway.icloud.com,PROXY
+DOMAIN,apps.mzstatic.com,PROXY
+
+# OpenAI 登录与服务
 DOMAIN-SUFFIX,openai.com,PROXY
 DOMAIN-SUFFIX,chatgpt.com,PROXY
-
-# 登录与账户认证
-DOMAIN,auth0.openai.com,PROXY
-DOMAIN-SUFFIX,auth.openai.com,PROXY
-DOMAIN,setup.auth.openai.com,PROXY
-
-# 静态资源与文件服务
 DOMAIN-SUFFIX,oaistatic.com,PROXY
 DOMAIN-SUFFIX,oaiusercontent.com,PROXY
 
-# 人机验证
+# 验证服务
 DOMAIN-SUFFIX,arkoselabs.com,PROXY
+DOMAIN-SUFFIX,auth0.com,PROXY
 
-# Apple 与 ChatGPT 集成相关域名
-DOMAIN,humb.apple.com,PROXY
-
-# 功能配置与遥测
-DOMAIN-SUFFIX,oaistatsig.com,PROXY
-DOMAIN-SUFFIX,statsigapi.net,PROXY
-DOMAIN-SUFFIX,featuregates.org,PROXY
-DOMAIN,o207216.ingest.sentry.io,PROXY
-DOMAIN,o33249.ingest.sentry.io,PROX
