@@ -1,5 +1,5 @@
 /*
- * Siri → Gemini 独立兼容层  v3.1.0
+ * Siri → Gemini 独立兼容层  v3.2.0
  *
  * 兼容 Siri 请求协议并由 Gemini API 独立处理，按 Siri 兼容的 SSE 事件流返回。
  * 不调用千问作为上游或备用服务；不支持的输入会明确报错，不会回落到千问。
@@ -8,7 +8,7 @@
  * 请在 Loon 日志里核对一次；时间预算见下方 BUDGET_MS / ATTEMPT_MS。
  */
 
-const VERSION = "3.1.0";
+const VERSION = "3.2.0";
 const TAG = "[qianwen_gemini]";
 
 const DEFAULTS = {
@@ -68,7 +68,8 @@ function readArgs() {
   };
   const style = STYLES[get("STYLE")] ? get("STYLE") : "简短口语";
   return {
-    KEY: (get("KEY") || "").replace(/\s+/g, ""),
+    // 支持填多个 Key（逗号、分号、空格或换行分隔），额度用完/失效时自动换下一个
+    KEYS: (get("KEY") || "").split(/[,，;；\s]+/).filter(Boolean),
     MODEL: (get("CUSTOM_MODEL") || get("MODEL") || DEFAULTS.MODEL).replace(/^\/?models\//i, ""),
     STYLE: style,
     BASE: (get("BASE") || DEFAULTS.BASE).replace(/\/+$/, "").replace(/\/v1(beta)?$/i, ""),
@@ -91,8 +92,17 @@ const uuid = () =>
   });
 
 // Siri 是朗读/纯文本展示，去掉 Markdown 标记
-function stripMd(t) {
-  return String(t)
+function stripMd(t, tidyList) {
+  let x = String(t);
+  // 朗读/显示场景：列表项各占一行，补上句末标点，编号改成「1、」，避免几条要点连成一串
+  if (tidyList) {
+    const endP = /[。！？；：，.!?;:、…）)」”]$/;
+    x = x.replace(/^[ \t]*(?:[-*+•]|\d+[.)、])[ \t]+(.+)$/gm, (m, c) => {
+      const num = /^[ \t]*(\d+)[.)、]/.exec(m);
+      return (num ? num[1] + "、" : "") + c.trim() + (endP.test(c.trim()) ? "" : "；");
+    });
+  }
+  return x
     .replace(/```[\s\S]*?```/g, (m) => m.replace(/```\w*\n?/g, ""))
     .replace(/^\s{0,3}#{1,6}\s+/gm, "")
     .replace(/(\*\*|__)(.+?)\1/g, "$2")
@@ -472,6 +482,8 @@ function handleUpload(sidInUrl) {
 /* ───────────── 联网搜索额度保护 ─────────────
  * Gemini 3 的 Google 搜索（接地）有单独额度，免费 Key 常为 0，会返回 429。
  * 遇到 429 时自动去掉搜索重试，并在一段时间内不再带搜索，避免每次白白多等一次失败请求。 */
+const KEY_IDX_STORE = "siri_gemini_key_idx";
+const FALLBACK_MODEL = "gemini-flash-latest"; // 主模型过载时的备用模型
 const SEARCH_OFF_KEY = "siri_gemini_search_off";
 const SEARCH_COOLDOWN = 15 * 60 * 1000;
 const SEARCH_NOTE = "\n\n（联网搜索额度不足，这次没有联网。）";
@@ -672,7 +684,7 @@ function main() {
     }
   } catch (e) {}
   // Key 检查放在输出结构确定之后，这样写作工具的报错也能按 body 字段显示
-  if (!args.KEY) return reply("还没有填写 Gemini API Key，请先在 Loon 插件参数里填写。", [], tag);
+  if (!args.KEYS.length) return reply("还没有填写 Gemini API Key，请先在 Loon 插件参数里填写。", [], tag);
   const structured = extraProps().length > 0;
   SESSION.prev = body.previous_choice_id || null;
   const { contents: newContents, system, unsupported, hasImage } = toGemini(body, OUT.prop);
@@ -722,6 +734,8 @@ function main() {
   const payload = {
     systemInstruction: { parts: [{ text: [IDENTITY, structured ? structuredPrompt() : STYLES[args.STYLE], structured ? "" : todayLine(), args.PROMPT].concat(system).filter(Boolean).join("\n") }] },
     contents,
+    // 默认安全过滤偶尔会误拦医疗、法律等正常问题：只拦截高风险内容
+    safetySettings: ["HARASSMENT", "HATE_SPEECH", "SEXUALLY_EXPLICIT", "DANGEROUS_CONTENT"].map((c) => ({ category: "HARM_CATEGORY_" + c, threshold: "BLOCK_ONLY_HIGH" })),
     generationConfig: { maxOutputTokens: args.MAX || (args.STYLE === "详细" ? 4096 : 2048) },
   };
   // 按当前模型设置思考与输出长度（换模型回退时会再调用一次）
@@ -760,11 +774,35 @@ function main() {
   let retriedNet = false;
   let retriedNoTools = false;
   let retriedModel = false;
+  let retriedFallback = false;
+  // 多 Key：记住上次可用的那个，失效/限流时依次换下一个
+  let keyIdx = 0, keysTried = 0;
+  if (args.KEYS.length > 1) { const st = parseInt(fetchStore(KEY_IDX_STORE), 10); if (isFinite(st) && st >= 0) keyIdx = st % args.KEYS.length; }
+  function nextKey() {
+    if (keysTried >= args.KEYS.length - 1) return false;
+    keysTried++; keyIdx = (keyIdx + 1) % args.KEYS.length;
+    console.log(TAG + " switching to API key #" + (keyIdx + 1) + "/" + args.KEYS.length);
+    return true;
+  }
+  // 模型降级：同一个模型重试后仍然过载/限流，就换一个备用模型再试一次（各模型额度和负载是分开的）
+  function tryFallback() {
+    if (retriedFallback || remaining() < RETRY_MIN_MS) return false;
+    const fb = args.MODEL !== FALLBACK_MODEL ? FALLBACK_MODEL : DEFAULTS.MODEL;
+    if (fb === args.MODEL) return false;
+    retriedFallback = true;
+    console.log(TAG + " model " + args.MODEL + " overloaded/limited, falling back to " + fb);
+    args.MODEL = fb;
+    tag = "Gemini·" + args.MODEL;
+    url = args.BASE + "/v1beta/models/" + encodeURIComponent(args.MODEL) + ":generateContent";
+    applyModelConfig();
+    attempt();
+    return true;
+  }
   function attempt() {
     if (finished) return; // 看门狗已经回复过了，不再发请求
     const opts = {
       url,
-      headers: { "Content-Type": "application/json", "x-goog-api-key": args.KEY },
+      headers: { "Content-Type": "application/json", "x-goog-api-key": args.KEYS[keyIdx] },
       body: JSON.stringify(payload),
       timeout: Math.max(5000, Math.min(ATTEMPT_MS, remaining() - 2000)),
     };
@@ -812,6 +850,10 @@ function main() {
         payload.generationConfig.maxOutputTokens = Math.max(payload.generationConfig.maxOutputTokens, args.STYLE === "详细" ? 8192 : 4096);
         return attempt();
       }
+      // Key 限流/失效：有多个 Key 时换下一个立即重试
+      if (args.KEYS.length > 1 && ((status === 429 && !payload.tools) || status === 401 || status === 403 || (status === 400 && /API key/i.test(msg))) && nextKey()) {
+        return attempt();
+      }
       // 搜索额度用完（429）：去掉搜索立即重试，并暂停带搜索一段时间
       if (status === 429 && payload.tools && !retriedNoTools) {
         retriedNoTools = true;
@@ -831,6 +873,7 @@ function main() {
       // 临时性错误：重试一次
       if ((status === 429 || status >= 500) && !retried5xx) {
         const wait = status === 429 ? (retryDelayMs(j) || 1000) : 0;
+        if (wait > MAX_WAIT_MS) { if (tryFallback()) return; }
         if (wait > MAX_WAIT_MS) return reply("Gemini 限流了，请约 " + Math.ceil(wait / 1000) + " 秒后再试。", [], tag);
         if (remaining() > wait + RETRY_MIN_MS) {
           retried5xx = true;
@@ -841,6 +884,7 @@ function main() {
           return attempt();
         }
       }
+      if ((status === 429 || status >= 500) && tryFallback()) return;
       let hint = "Gemini 出错了（" + status + "），请稍后再试。";
       if (status === 429) hint = retryDelayMs(j) ? "Gemini 限流了，请约 " + Math.ceil(retryDelayMs(j) / 1000) + " 秒后再试。" : "Gemini 的额度用完了或请求太频繁，请稍后再试。";
       else if (status === 404) hint = "找不到这个模型，可能已下线，请在插件里换一个模型。";
@@ -875,7 +919,7 @@ function main() {
         console.log(TAG + " structured parse failed, using raw text");
       }
     }
-    const text = stripMd(rawText);
+    const text = stripMd(rawText, !structured);
     if (!text) {
       if (cand.finishReason === "MAX_TOKENS") return reply("这个问题思考过久没来得及回答，请换个问法，或把问题说得更简短一些。", [], tag);
       const why = (j.promptFeedback && j.promptFeedback.blockReason) || cand.finishReason || "空回复";
@@ -889,6 +933,7 @@ function main() {
       .map((w) => ({ url: w.uri, title: w.title }));
     const um = j.usageMetadata || {};
     console.log(TAG + " Gemini response received (HTTP " + status + ", " + (Date.now() - startAt) + "ms), tokens: input=" + (um.promptTokenCount || "?") + ", cached=" + (um.cachedContentTokenCount || 0) + ", thinking=" + (um.thoughtsTokenCount || 0) + ", output=" + (um.candidatesTokenCount || "?"));
+    if (args.KEYS.length > 1) store(KEY_IDX_STORE, String(keyIdx));
     try { recordTurn(SESSION.sid, SESSION.cid, SESSION.prev, userText, text); } catch (e) { console.log(TAG + " record turn failed: " + e); }
     // 搜索被跳过（额度不足）时，在普通回答末尾提示一句；写作工具的正文保持干净，只写日志
     reply(searchSkipped && !structured ? text + SEARCH_NOTE : text, cites, tag, extra);
