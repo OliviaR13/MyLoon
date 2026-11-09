@@ -1,5 +1,5 @@
 #!name = Siri to Gemini
-#!desc = 将 Siri 请求交由 Google Gemini API 处理，并转换为兼容响应格式。支持文本对话、连续追问、相机识图、写作工具、文件问答（PDF、图片、音视频、文本）、联网搜索及自定义模型，网络请求遵循 Loon 当前配置规则，不使用千问作为上游或备用服务。
+#!desc = 将 Siri 请求交由 Google Gemini API 处理，并转换为兼容响应格式。支持文本对话、连续追问、相机识图、写作工具、文件问答（PDF、图片、音视频、文本）、联网搜索及自定义模型，网络请求遵循 Loon 当前配置规则，不使用千问作为上游或备用服务，并拦截千问 App 的统计上报。
 #!tag = AI,Siri,功能增强
 #!system = iOS
 #!loon_version = 3.2.4
@@ -7,7 +7,7 @@
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Google.png
 #!date = 2026-11-09
-#!version = 3.2.0
+#!version = 3.3.0
 
 [Argument]
 KEY = input,"",tag=Gemini API Key,desc=必填。在 aistudio.google.com/apikey 创建后粘贴。可以填多个 Key，用英文逗号分隔，某个 Key 额度用完或失效时会自动换下一个
@@ -20,6 +20,9 @@ BASE = input,"https://generativelanguage.googleapis.com",tag=API 地址（可选
 [Script]
 http-request ^https:\/\/prod-yabuli\.qianwen\.com\/v1\/sessions(\/[^\/?]+)?\/files(\?.*)?$ requires-body=true, binary-body-mode=true, max-size=33554432, timeout=60, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/qianwen/qianwen_siri_gemini.js, argument=[{KEY},{MODEL},{PROMPT},{SEARCH},{CUSTOM_MODEL},{BASE}], tag=Siri to Gemini 文件上传
 http-request ^https:\/\/prod-yabuli\.qianwen\.com\/(?!v1\/sessions(\/[^\/?]+)?\/files(\?|$)) requires-body=true, max-size=33554432, timeout=60, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/qianwen/qianwen_siri_gemini.js, argument=[{KEY},{MODEL},{PROMPT},{SEARCH},{CUSTOM_MODEL},{BASE}], tag=Siri to Gemini 对话请求
+
+[Rule]
+DOMAIN,px.wpk.qianwen.com,REJECT
 
 [MitM]
 hostname = prod-yabuli.qianwen.com
