@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-11-09T07:32:41.014405+00:00",
+  "generatedAt": "2026-11-09T07:39:00.457837+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -189,7 +189,7 @@
       "id": "qianwen_gemini",
       "name": "Siri to Gemini",
       "file": "plugin/qianwen_gemini.plugin",
-      "version": "3.1.0",
+      "version": "3.2.0",
       "author": "@OliviaR13",
       "category": "AI",
       "tags": [
