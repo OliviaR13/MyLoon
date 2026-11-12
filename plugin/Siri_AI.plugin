@@ -1,0 +1,67 @@
+#!name = Siri AI 分流
+#!desc = 为通过 GestaltX 或 Erosion-CN 开启 Siri AI（Apple Intelligence）的 iPhone 做网络分流，合并原「Siri ChatGPT 分流」与「Siri AI 资源下载分流」：① Siri / Apple Intelligence 核心与资格校验（guzzoni、smoot、api-siri-prod、seed.siri、ls.apple.com、wps.apple.com）；② Apple Relay 与 iCloud 网关（apple-relay、mask-api、gateway、probe、metrics、setup）；③ ChatGPT 扩展（OpenAI、ChatGPT 及登录验证域名）；④ 模型与依赖下载（gdmf、mesu、xp、swscan、swdist、swcdn、updates.cdn-apple.com、appldnld、aaplimg.com、cdn-apple.com）。以上全部走 PROXY 策略，本插件只做分流，不修改设备信息。适用系统：iOS / iPadOS 27.0–27.2、27.3 beta 1；iOS 26.x 无法写入 MobileGestalt，不适用。使用前请将系统地区设为美国，系统语言与 Siri 语言设为 English，商店登录美区账号。安装后请在插件详情页的「代理指向的策略」中选择稳定的美国节点或美国策略组，未选择时默认使用全局策略的第一个节点，不要使用香港或大陆出口，也不要频繁切换。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前，并关闭 iRingo / NSRingo 等会劫持 Siri 请求的 MITM 插件。导入后请重启 Loon 并重启手机。下载域名列表为推测，若模型下载仍停滞，请在 Loon 请求日志中查看实际走过的 Apple 域名并补充。
+#!tag = 代理分流
+#!system = iOS
+#!author = OliviaR13
+#!version = 1.0.0
+#!date = 2026-11-12
+#!homepage = https://www.github.com/OliviaR13
+#!icon = https://www.google.com/s2/favicons?sz=128&domain=apple.com
+
+[Rule]
+# ① Siri / Apple Intelligence 核心
+DOMAIN-SUFFIX,siri.apple.com,PROXY
+DOMAIN,guzzoni.apple.com,PROXY
+DOMAIN-SUFFIX,smoot.apple.com,PROXY
+DOMAIN,api-siri-prod.apple.com,PROXY
+DOMAIN,seed.siri.apple.com,PROXY
+
+# ① Apple Intelligence 资格与定位校验（ls.apple.com 已包含 gspe1-ssl）
+DOMAIN-SUFFIX,ls.apple.com,PROXY
+DOMAIN,wps.apple.com,PROXY
+
+# ② Apple Relay / Private Cloud Compute
+DOMAIN-SUFFIX,apple-relay.apple.com,PROXY
+DOMAIN-SUFFIX,apple-relay.cloudflare.com,PROXY
+DOMAIN-SUFFIX,apple-relay.fastly-edge.com,PROXY
+DOMAIN-SUFFIX,apple-relay.akamaized.net,PROXY
+DOMAIN-SUFFIX,apple-relay.mask.apple-dns.net,PROXY
+DOMAIN,apple-carry-relay.cloudflare.com,PROXY
+DOMAIN,cp4.cloudflare.com,PROXY
+DOMAIN,mask-api.icloud.com,PROXY
+DOMAIN,mask-api.fe2.apple-dns.net,PROXY
+
+# ② iCloud 网关 / 探测 / 统计 / 设置接口
+DOMAIN,gateway.icloud.com,PROXY
+DOMAIN,probe.icloud.com,PROXY
+DOMAIN,metrics.icloud.com,PROXY
+DOMAIN,setup.icloud.com,PROXY
+
+# ② Apple 服务资源
+DOMAIN,aapps.mzstatic.com,PROXY
+
+# ③ OpenAI / ChatGPT
+DOMAIN-SUFFIX,openai.com,PROXY
+DOMAIN-SUFFIX,chatgpt.com,PROXY
+DOMAIN-SUFFIX,oaistatic.com,PROXY
+DOMAIN-SUFFIX,oaiusercontent.com,PROXY
+
+# ③ 登录验证
+DOMAIN-SUFFIX,auth0.com,PROXY
+DOMAIN-SUFFIX,arkoselabs.com,PROXY
+
+# ④ 系统更新 / MobileAsset 资源目录
+DOMAIN,gdmf.apple.com,PROXY
+DOMAIN,mesu.apple.com,PROXY
+DOMAIN,xp.apple.com,PROXY
+
+# ④ 软件更新分发
+DOMAIN-SUFFIX,swscan.apple.com,PROXY
+DOMAIN-SUFFIX,swdist.apple.com,PROXY
+DOMAIN-SUFFIX,swcdn.apple.com,PROXY
+DOMAIN-SUFFIX,updates.cdn-apple.com,PROXY
+DOMAIN-SUFFIX,appldnld.apple.com,PROXY
+
+# ④ Apple 下载 CDN
+DOMAIN-SUFFIX,aaplimg.com,PROXY
+DOMAIN-SUFFIX,cdn-apple.com,PROXY
