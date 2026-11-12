@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-11-12T09:04:47.142024+00:00",
+  "generatedAt": "2026-11-12T15:59:13.728470+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -46,9 +46,9 @@
       "description": "将 Meta AI / Muse（meta.ai 网页版、Meta AI App、Muse App、开发者 API 以及登录所需的 Facebook / Instagram 账号域名、图片与视频 CDN）相关域名统一走 PROXY 策略，并屏蔽 QUIC 让连接回落 TCP 更稳定。安装后请在插件详情页的「代理指向的策略」中选择用于代理的策略组或节点，未选择时默认使用全局策略的第一个节点。Meta AI 目前优先面向美国地区开放，建议选择美国节点。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前，否则规则可能被提前匹配而失效。"
     },
     {
-      "id": "Siri_AI_Download",
-      "name": "Siri AI 资源下载分流",
-      "file": "plugin/Siri_AI_Download.plugin",
+      "id": "Siri_AI",
+      "name": "Siri AI 分流",
+      "file": "plugin/Siri_AI.plugin",
       "version": "1.0.0",
       "author": "OliviaR13",
       "category": "代理分流",
@@ -60,30 +60,10 @@
       "args": false,
       "rule": true,
       "proxy": true,
-      "date": "2026-11-10",
+      "date": "2026-11-12",
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://www.google.com/s2/favicons?sz=128&domain=apple.com",
-      "description": "适用于 iOS 27.3 beta 通过 GestaltX 开启 Siri AI 后的依赖与模型下载：将系统更新 / MobileAsset 资源目录（gdmf、mesu、xp.apple.com）、软件更新分发域名（swscan、swdist、swcdn、updates.cdn-apple.com、appldnld）、iCloud 设置接口与 Apple 下载 CDN（aaplimg.com、cdn-apple.com）统一走 PROXY 策略。本插件只做网络分流，不修改设备信息，需配合 GestaltX 或 gester 使用。安装后请在插件详情页的「代理指向的策略」中选择美国节点或美国策略组，未选择时默认使用全局策略的第一个节点。使用时需要将系统地区设为美国，系统语言与 Siri 语言设为 English，商店登录美区账号，修改后重启手机。域名列表为推测，若下载仍停滞，请在 Loon 的请求日志中查看实际走过的 Apple 域名并补充。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前。Siri 与 ChatGPT 相关分流请使用 Siri ChatGPT 分流插件。"
-    },
-    {
-      "id": "Siri_ChatGPT",
-      "name": "Siri ChatGPT 分流",
-      "file": "plugin/Siri_ChatGPT.plugin",
-      "version": "1.1.0",
-      "author": "OliviaR13",
-      "category": "代理分流",
-      "tags": [
-        "代理分流"
-      ],
-      "mitm": false,
-      "script": false,
-      "args": false,
-      "rule": true,
-      "proxy": true,
-      "date": "2026-11-11",
-      "homepage": "https://www.github.com/OliviaR13",
-      "icon": "https://www.google.com/s2/favicons?sz=128&domain=chatgpt.com",
-      "description": "为 Siri 的 ChatGPT 扩展做网络分流：Siri / Apple Intelligence 核心域名（guzzoni、smoot、api-siri-prod、seed.siri）、Apple 资格与定位校验（gspe1-ssl.ls.apple.com、wps.apple.com）、Apple Relay 与 iCloud 网关（含 mask-api、probe、metrics）以及 OpenAI / ChatGPT 域名统一走 PROXY 策略。安装后请在插件详情页的「代理指向的策略」中选择美国节点或美国策略组，未选择时默认使用全局策略的第一个节点；节点需为稳定的美区出口，不要使用香港或大陆出口，也不要频繁切换。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前，并关闭 iRingo / NSRingo 等会劫持 Siri 请求的 MITM 插件。导入后请重启 Loon 并手动重启手机。"
+      "description": "为通过 GestaltX 或 Erosion-CN 开启 Siri AI（Apple Intelligence）的 iPhone 做网络分流，合并原「Siri ChatGPT 分流」与「Siri AI 资源下载分流」：① Siri / Apple Intelligence 核心与资格校验（guzzoni、smoot、api-siri-prod、seed.siri、ls.apple.com、wps.apple.com）；② Apple Relay 与 iCloud 网关（apple-relay、mask-api、gateway、probe、metrics、setup）；③ ChatGPT 扩展（OpenAI、ChatGPT 及登录验证域名）；④ 模型与依赖下载（gdmf、mesu、xp、swscan、swdist、swcdn、updates.cdn-apple.com、appldnld、aaplimg.com、cdn-apple.com）。以上全部走 PROXY 策略，本插件只做分流，不修改设备信息。适用系统：iOS / iPadOS 27.0–27.2、27.3 beta 1；iOS 26.x 无法写入 MobileGestalt，不适用。使用前请将系统地区设为美国，系统语言与 Siri 语言设为 English，商店登录美区账号。安装后请在插件详情页的「代理指向的策略」中选择稳定的美国节点或美国策略组，未选择时默认使用全局策略的第一个节点，不要使用香港或大陆出口，也不要频繁切换。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前，并关闭 iRingo / NSRingo 等会劫持 Siri 请求的 MITM 插件。导入后请重启 Loon 并重启手机。下载域名列表为推测，若模型下载仍停滞，请在 Loon 请求日志中查看实际走过的 Apple 域名并补充。"
     },
     {
       "id": "Spotify",
@@ -308,27 +288,6 @@
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/AI.png",
       "description": "将 Siri 请求转换为通用 AI API 请求，支持 Gemini、OpenAI、Anthropic 及 OpenAI 兼容接口，并将响应转换为 Siri 可识别格式。同时拦截千问 App 的统计上报。支持文本对话、连续追问、相机识图、写作工具、文件问答（PDF、图片、文本；音视频仅 Gemini）及联网搜索（Gemini、Anthropic），网络请求遵循 Loon 当前配置规则。"
-    },
-    {
-      "id": "siri_apple_capture",
-      "name": "Siri Apple Capture",
-      "file": "plugin/siri_apple_capture.plugin",
-      "version": "1.0.0",
-      "author": "@OliviaR13",
-      "category": "Siri",
-      "tags": [
-        "Siri",
-        "调试"
-      ],
-      "mitm": true,
-      "script": true,
-      "args": false,
-      "rule": false,
-      "proxy": false,
-      "date": "2026-11-12",
-      "homepage": "https://www.github.com/OliviaR13",
-      "icon": "https://www.google.com/s2/favicons?sz=128&domain=apple.com",
-      "description": "抓包辅助（只读，不改流量）：为 guzzoni.apple.com、smoot.apple.com、api-siri-prod.apple.com 开启 MITM，并把 Siri / Apple Intelligence 扩展（如 ChatGPT）的请求与响应摘要写入 Loon 日志，用于分析接口格式。Apple 域名可能有证书固定，开启后 Siri 若无法使用属正常现象，抓完请立即关闭本插件。"
     },
     {
       "id": "weibo",
