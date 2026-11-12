@@ -1,0 +1,17 @@
+#!name = Siri Apple Capture
+#!desc = 抓包辅助（只读，不改流量）：为 guzzoni.apple.com、smoot.apple.com、api-siri-prod.apple.com 开启 MITM，并把 Siri / Apple Intelligence 扩展（如 ChatGPT）的请求与响应摘要写入 Loon 日志，用于分析接口格式。Apple 域名可能有证书固定，开启后 Siri 若无法使用属正常现象，抓完请立即关闭本插件。
+#!tag = Siri,调试
+#!system = iOS
+#!loon_version = 3.2.4
+#!author = @OliviaR13
+#!homepage = https://www.github.com/OliviaR13
+#!icon = https://www.google.com/s2/favicons?sz=128&domain=apple.com
+#!date = 2026-11-12
+#!version = 1.0.0
+
+[Script]
+http-request ^https:\/\/(guzzoni|smoot|api-siri-prod)\.apple\.com\/ requires-body=true, binary-body-mode=true, max-size=1048576, timeout=10, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/siri-ai/siri_apple_capture.js, tag=Siri Apple 抓包(请求)
+http-response ^https:\/\/(guzzoni|smoot|api-siri-prod)\.apple\.com\/ requires-body=true, binary-body-mode=true, max-size=1048576, timeout=10, script-path=https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/siri-ai/siri_apple_capture.js, tag=Siri Apple 抓包(响应)
+
+[MitM]
+hostname = guzzoni.apple.com, smoot.apple.com, api-siri-prod.apple.com
