@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-11-11T09:20:53.596932+00:00",
+  "generatedAt": "2026-11-12T09:04:47.142024+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -308,6 +308,27 @@
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/AI.png",
       "description": "将 Siri 请求转换为通用 AI API 请求，支持 Gemini、OpenAI、Anthropic 及 OpenAI 兼容接口，并将响应转换为 Siri 可识别格式。同时拦截千问 App 的统计上报。支持文本对话、连续追问、相机识图、写作工具、文件问答（PDF、图片、文本；音视频仅 Gemini）及联网搜索（Gemini、Anthropic），网络请求遵循 Loon 当前配置规则。"
+    },
+    {
+      "id": "siri_apple_capture",
+      "name": "Siri Apple Capture",
+      "file": "plugin/siri_apple_capture.plugin",
+      "version": "1.0.0",
+      "author": "@OliviaR13",
+      "category": "Siri",
+      "tags": [
+        "Siri",
+        "调试"
+      ],
+      "mitm": true,
+      "script": true,
+      "args": false,
+      "rule": false,
+      "proxy": false,
+      "date": "2026-11-12",
+      "homepage": "https://www.github.com/OliviaR13",
+      "icon": "https://www.google.com/s2/favicons?sz=128&domain=apple.com",
+      "description": "抓包辅助（只读，不改流量）：为 guzzoni.apple.com、smoot.apple.com、api-siri-prod.apple.com 开启 MITM，并把 Siri / Apple Intelligence 扩展（如 ChatGPT）的请求与响应摘要写入 Loon 日志，用于分析接口格式。Apple 域名可能有证书固定，开启后 Siri 若无法使用属正常现象，抓完请立即关闭本插件。"
     },
     {
       "id": "weibo",
