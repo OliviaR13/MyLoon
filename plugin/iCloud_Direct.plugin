@@ -1,0 +1,20 @@
+#!name = iCloud 直连
+#!desc = 将 iCloud 照片、云盘、备份与同步相关域名设为 DIRECT 直连，不经过代理节点，避免后台同步消耗节点流量。请将本插件放在其他代理规则和 FINAL 之前；与「Siri AI 分流」同时使用时，请放在它之后。
+#!tag = 直连分流
+#!system = iOS
+#!author = OliviaR13
+#!version = 1.0.0
+#!date = 2026-11-16
+#!homepage = https://www.github.com/OliviaR13
+#!icon = https://www.google.com/s2/favicons?sz=128&domain=icloud.com
+
+[Rule]
+# iCloud 照片 / 云盘 / 备份的大流量内容服务器（如 hkhkg2.icloud-content.com）
+DOMAIN-SUFFIX,icloud-content.com,DIRECT
+
+# iCloud 主域名与国区域名
+DOMAIN-SUFFIX,icloud.com,DIRECT
+DOMAIN-SUFFIX,icloud.com.cn,DIRECT
+
+# CloudKit（iCloud 数据同步接口）
+DOMAIN-SUFFIX,apple-cloudkit.com,DIRECT
