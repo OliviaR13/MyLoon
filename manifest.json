@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-11-18T14:36:17.364325+00:00",
+  "generatedAt": "2026-11-18T14:38:33.953580+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -27,9 +27,9 @@
     },
     {
       "id": "Meta_AI",
-      "name": "Meta AI Muse 自选节点",
+      "name": "Meta AI / Muse / Instagram 自选节点",
       "file": "plugin/Meta_AI.plugin",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "author": "OliviaR13",
       "category": "代理分流",
       "tags": [
@@ -41,9 +41,9 @@
       "rule": true,
       "proxy": true,
       "date": "2026-11-18",
-      "homepage": "https://www.github.com/OliviaR13",
+      "homepage": "https://github.com/OliviaR13/MyLoon",
       "icon": "https://www.google.com/s2/favicons?sz=128&domain=meta.ai",
-      "description": "将 Meta AI / Muse、Meta 账号登录及相关 CDN 请求统一交给 PROXY 策略，并仅对这些域名拦截 QUIC，避免 UDP/QUIC 绕过代理。PROXY 使用你在 Loon 中为插件映射的策略组；实际出口地区由节点出口 IP 及 Meta 的 IP 地理库决定。本插件不能伪装或修改出口 IP 的地理位置。"
+      "description": "将 Meta AI、Muse、Meta / Instagram 登录认证及关联 CDN 流量统一交给 PROXY 策略。PROXY 需在 Loon 插件映射中指定策略组；登录地理位置由 Meta 识别到的实际出口 IP 决定。"
     },
     {
       "id": "Siri_AI",
