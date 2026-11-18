@@ -3,7 +3,7 @@
   "description": "OliviaR13 的 Loon 插件合集与一键安装盒子",
   "repository": "https://github.com/OliviaR13/MyLoon",
   "rawBase": "https://raw.githubusercontent.com/OliviaR13/MyLoon/main/",
-  "generatedAt": "2026-11-18T12:47:06.850817+00:00",
+  "generatedAt": "2026-11-18T14:36:17.364325+00:00",
   "plugins": [
     {
       "id": "Gemini",
@@ -29,7 +29,7 @@
       "id": "Meta_AI",
       "name": "Meta AI Muse 自选节点",
       "file": "plugin/Meta_AI.plugin",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": "OliviaR13",
       "category": "代理分流",
       "tags": [
@@ -43,7 +43,7 @@
       "date": "2026-11-18",
       "homepage": "https://www.github.com/OliviaR13",
       "icon": "https://www.google.com/s2/favicons?sz=128&domain=meta.ai",
-      "description": "将 Meta AI / Muse 相关域名统一走 PROXY，并屏蔽这些域名的 QUIC（UDP 443），避免直连或 QUIC 回落把真实 IP 露给 Meta。除原有的 meta.ai、meta.com、Facebook / Instagram 登录与 CDN 外，补上 Muse 本体 muse.ai、个人 VM 网关 metaaivm.com，以及客户端里出现的 Hatch / OHTTP 域名。等候名单由服务端按出口地区判定（页面里的 isGeoGated、resolvedDestination 只是展示），改响应不能获得资格。请在插件详情选择已开放地区的节点（公开报道包括美国、加拿大、日本、新加坡、墨西哥、澳大利亚）；机房 IP 仍可能被拒绝。未选择时用全局策略的第一个节点。请放在 GEOIP,CN,DIRECT 之前，否则规则可能被提前匹配而失效。"
+      "description": "将 Meta AI / Muse、Meta 账号登录及相关 CDN 请求统一交给 PROXY 策略，并仅对这些域名拦截 QUIC，避免 UDP/QUIC 绕过代理。PROXY 使用你在 Loon 中为插件映射的策略组；实际出口地区由节点出口 IP 及 Meta 的 IP 地理库决定。本插件不能伪装或修改出口 IP 的地理位置。"
     },
     {
       "id": "Siri_AI",
