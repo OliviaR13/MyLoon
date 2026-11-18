@@ -121,6 +121,10 @@
             <span>Google 登录</span>
           </button>
         </div>
+        <div class="row" id="passkeyRow">
+          <label class="row-text" for="passkeyName"><span>通行密钥</span><span class="sub" id="passkeySub">正在检查通行密钥登录是否可用</span><input class="passkey-input" id="passkeyName" autocomplete="username webauthn" placeholder="点这里用通行密钥登录" aria-label="通行密钥"></label>
+          <button class="btn btn-ghost" id="passkeyBtn" type="button" disabled>登录</button>
+        </div>
         <div class="row" id="accountRow" hidden>
           <span class="acct"><img id="acctAvatar" alt="" width="26" height="26" referrerpolicy="no-referrer" hidden><span class="acct-letter" id="acctLetter" hidden></span><span class="acct-id"><span id="acctName"></span><span class="sub" id="acctMeta" hidden></span></span></span>
           <!-- 退出登录的内联确认：第一次点按钮变成「确认退出」、左边展开「取消」，见 js/account.js 与 styles/sheet-settings.css -->
@@ -128,6 +132,17 @@
             <button class="btn btn-ghost confirm-cancel" id="logoutCancel" type="button" tabindex="-1" aria-hidden="true">取消</button>
             <button class="btn btn-ghost" id="logoutBtn" type="button">退出登录</button>
           </span>
+        </div>
+      </div>
+
+      <div id="passkeySection" hidden>
+        <h3 class="group-title">通行密钥</h3>
+        <div class="group">
+          <div id="passkeyList"></div>
+          <div class="row">
+            <span class="row-text"><span>添加通行密钥</span><span class="sub" id="passkeyAddSub">添加后，可以用这台设备的指纹、面容或锁屏密码登录这个账号</span></span>
+            <button class="btn btn-ghost" id="passkeyAdd" type="button">添加</button>
+          </div>
         </div>
       </div>
 
@@ -225,7 +240,7 @@
       </div>
       <h3 class="group-title privacy-title">隐私说明</h3>
       <p class="group-foot privacy">MyLoon 不接入网站统计分析，不追踪用户行为，也不主动收集浏览记录等个人信息。</p>
-      <p class="group-foot privacy">未登录时，收藏与设置仅保存在当前浏览器中。GitHub 登录只读取公开用户名和头像，不申请其他权限，也不保存访问令牌。Google 登录只读取姓名、头像和已验证的邮箱，用来显示已登录状态，同样不保存 Google 的访问令牌。</p>
+      <p class="group-foot privacy">未登录时，收藏与设置仅保存在当前浏览器中。GitHub 登录只读取公开用户名和头像，不申请其他权限，也不保存访问令牌。Google 登录只读取姓名、头像和已验证的邮箱，用来显示已登录状态，同样不保存 Google 的访问令牌。通行密钥只在服务器保存公钥和签名计数器，不保存生物特征。</p>
       <p class="group-foot privacy">登录后，收藏及已启用同步的偏好设置将与账号 ID 关联并保存至云端，用于跨设备同步。</p>
       <p class="group-foot privacy">人机验证由 Cloudflare Turnstile 提供。</p>
       <p class="group-foot privacy"><a href="./privacy.html">完整隐私政策</a> · <a href="./terms.html">使用条款</a></p>

@@ -1,6 +1,8 @@
-/* GitHub / Google 账号与云端同步（/api/me、/api/logout、/api/auth/google）：
+/* GitHub / Google / 通行密钥与云端同步（/api/me、/api/logout、/api/auth/google、/api/auth/passkey）：
    支持收藏逐项时间戳（Tombstone CRDT）合并，以及外观、插件卡片、设置页偏好三组独立时间戳同步。
-   没配 Google 客户端时，Google 按钮保持停用，浏览和安装不受影响。 */
+   没配 Google 客户端或 PASSKEYS 时，对应按钮保持停用，浏览和安装不受影响。 */
+
+import { conditionalPasskeyAvailable, loginPasskey, passkeySupported, registerPasskey } from "./passkey.js";
 
 import { SYNC_KEYS, LEGACY_AT, TOMBSTONE_TTL, SORT_KEY, LOGIN_HINT_KEY } from "./config.js";
 import { $id, setSwitch, lsGet, lsSet, lsRemove, confirmable } from "./dom.js";
@@ -39,6 +41,8 @@ export function initAccount() {
   let lastSyncAt = 0;
   let pushWarned = false;
   let syncing = false;
+  let passkeyEnabled = false;
+  let passkeyAbort = null;
 
   const setHint = (on) => (on ? lsSet(LOGIN_HINT_KEY, "1") : lsRemove(LOGIN_HINT_KEY));
   const ownMaster = () => lsGet(SYNC_KEYS.master) !== "0";
@@ -101,6 +105,10 @@ export function initAccount() {
     const m = ownMaster();
     $id("loginRow").hidden = !!user;
     $id("googleRow").hidden = !!user;
+    const passkeyRow = $id("passkeyRow");
+    if (passkeyRow) passkeyRow.hidden = !!user;
+    const passkeySection = $id("passkeySection");
+    if (passkeySection) passkeySection.hidden = !user || !passkeyEnabled;
     $id("accountRow").hidden = !user;
     const head = $id("headAcct");
     if (head) head.hidden = !user;
@@ -376,6 +384,129 @@ export function initAccount() {
     if (!btn || btn.disabled) return;
     location.assign("/api/auth/google");
   });
+
+  const passkeyToast = (err) => {
+    if (!err || err.name === "NotAllowedError" || err.name === "AbortError") return;
+    if (err.code === "passkeys_not_configured") return toast(err.detail || "通行密钥尚未配置，不影响浏览和安装");
+    if (err.code === "too_many") return toast("最多添加 8 把通行密钥");
+    toast("通行密钥没有通过，请重试");
+  };
+
+  async function refreshPasskeys() {
+    const btn = $id("passkeyBtn");
+    const sub = $id("passkeySub");
+    const add = $id("passkeyAdd");
+    try {
+      const res = await api("GET", "/api/auth/passkey");
+      const data = await res.json();
+      passkeyEnabled = data.enabled === true;
+      if (btn) btn.disabled = !passkeyEnabled || !passkeySupported();
+      if (add) add.disabled = !passkeyEnabled || !passkeySupported();
+      if (sub) {
+        sub.textContent = !passkeyEnabled
+          ? "尚未配置，不影响浏览和安装"
+          : passkeySupported()
+            ? "用已添加的通行密钥登录，无需输入账号"
+            : "当前浏览器不支持通行密钥";
+      }
+      const list = $id("passkeyList");
+      if (list) {
+        list.replaceChildren();
+        const creds = data.credentials || [];
+        if (!creds.length) {
+          const empty = document.createElement("div");
+          empty.className = "row";
+          empty.innerHTML = '<span class="row-text"><span>还没有通行密钥</span><span class="sub">添加后才能用通行密钥登录</span></span>';
+          list.append(empty);
+        }
+        for (const c of creds) {
+          const row = document.createElement("div");
+          row.className = "row";
+          const text = document.createElement("span");
+          text.className = "row-text";
+          const title = document.createElement("span");
+          title.textContent = "通行密钥";
+          const when = document.createElement("span");
+          when.className = "sub";
+          const at = Number(c.createdAt);
+          when.textContent = Number.isFinite(at) && at > 0 ? "添加于 " + new Date(at).toLocaleDateString() : "已添加";
+          text.append(title, when);
+          const remove = document.createElement("button");
+          remove.className = "btn btn-ghost";
+          remove.type = "button";
+          remove.textContent = "移除";
+          remove.addEventListener("click", async () => {
+            remove.disabled = true;
+            try {
+              const del = await fetch("/api/auth/passkey/" + encodeURIComponent(c.id), { method: "DELETE", credentials: "same-origin", headers: { accept: "application/json" } });
+              if (!del.ok) throw new Error();
+              toast("已移除这把通行密钥");
+              await refreshPasskeys();
+            } catch {
+              remove.disabled = false;
+              toast("移除失败，请重试");
+            }
+          });
+          row.append(text, remove);
+          list.append(row);
+        }
+      }
+    } catch {
+      passkeyEnabled = false;
+      if (btn) btn.disabled = true;
+      if (sub) sub.textContent = "暂时无法连接登录服务，不影响浏览和安装";
+    }
+    renderAccount();
+    if (!user && passkeyEnabled) startConditional();
+  }
+
+  async function afterPasskeyLogin() {
+    passkeyAbort?.abort();
+    await pullSession();
+    toast("已使用通行密钥登录");
+  }
+
+  async function startConditional() {
+    if (user || !passkeyEnabled || !await conditionalPasskeyAvailable()) return;
+    passkeyAbort?.abort();
+    passkeyAbort = new AbortController();
+    try {
+      await loginPasskey({ mediation: "conditional", signal: passkeyAbort.signal });
+      await afterPasskeyLogin();
+    } catch (err) {
+      if (err?.name === "AbortError" || err?.name === "NotAllowedError") return;
+    }
+  }
+
+  $id("passkeyBtn")?.addEventListener("click", async () => {
+    const btn = $id("passkeyBtn");
+    if (!btn || btn.disabled) return;
+    passkeyAbort?.abort();
+    btn.disabled = true;
+    try {
+      await loginPasskey();
+      await afterPasskeyLogin();
+    } catch (err) {
+      passkeyToast(err);
+    } finally {
+      btn.disabled = !passkeyEnabled || !passkeySupported();
+    }
+  });
+
+  $id("passkeyAdd")?.addEventListener("click", async () => {
+    const btn = $id("passkeyAdd");
+    if (!btn || btn.disabled) return;
+    btn.disabled = true;
+    try {
+      await registerPasskey();
+      toast("已添加通行密钥");
+      await refreshPasskeys();
+    } catch (err) {
+      passkeyToast(err);
+    } finally {
+      btn.disabled = !passkeyEnabled || !passkeySupported();
+    }
+  });
   $id("headAcct")?.addEventListener("click", () => $id("settingsBtn")?.click());
 
   async function loadGoogle() {
@@ -416,6 +547,7 @@ export function initAccount() {
     setHint(false);
     renderAccount();
     toast("已退出登录，本地收藏与设置已保留");
+    refreshPasskeys();
   });
 
   async function initSession() {
@@ -440,6 +572,10 @@ export function initAccount() {
       }
       history.replaceState(null, "", location.pathname);
     }
+    await pullSession();
+  }
+
+  async function pullSession() {
     try {
       const res = await api("GET", "/api/me");
       if (!res.ok) throw new Error();
@@ -458,5 +594,5 @@ export function initAccount() {
 
   refreshSeen();
   loadGoogle();
-  initSession();
+  initSession().finally(() => refreshPasskeys());
 }
