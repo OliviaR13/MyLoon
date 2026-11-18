@@ -45,7 +45,6 @@
 - [工作原理](#工作原理)
 - [常见问题](#常见问题)
 - [隐私](#隐私)
-- [使用 Google 登录](#使用-google-登录)
 - [安装统计](#安装统计)
 - [仓库结构](#仓库结构)
 - [自动化](#自动化)
@@ -71,7 +70,7 @@ MyLoon 是一组面向 Loon 的规则与脚本插件，覆盖三类场景：
 
 1. 用系统浏览器打开 [Loon Box](https://olivia-loon-box.pages.dev/)（微信内置浏览器无法唤起 Loon）。
 2. 完成人机验证，找到插件后点击「安装」。
-3. 可选：登录 GitHub 或 Google，在多设备间同步收藏与界面偏好。不登录也可以浏览和安装。
+3. 可选：登录 GitHub 或 Google，在多设备间同步收藏与界面偏好。
 
 ### 手动添加
 
@@ -136,54 +135,10 @@ https://raw.githubusercontent.com/OliviaR13/MyLoon/main/plugin/<文件名>.plugi
 - 不接入第三方统计分析，不追踪用户，不收集浏览记录。
 - 点「安装」时，会给该插件的安装次数加一（只存插件 ID、日期和累计次数）。为了同一个人一天内不重复计数，会把 IP 与插件 ID 加盐哈希后临时保存，次日清理；不保存 IP 本身，也不与账号关联。
 - 未登录时，收藏与偏好仅保存在本机浏览器。
-- 登录可以用 GitHub 或 Google。GitHub 只读取公开用户名和头像；Google 只读取姓名、头像和已验证的邮箱。两边都不保存访问令牌。登录状态是 30 天有效的签名 Cookie。
-- GitHub 和 Google 是两套账号，收藏和设置不会合并。
-- 登录后，收藏与已开启同步的偏好按账号 ID 存于 Cloudflare D1（没绑定 D1 时退回 KV），用于多设备同步。Google 账号的 ID 会加上 `google:` 前缀，避免和 GitHub 的数字 ID 撞车。
+- 登录可以通过 GitHub 或 Google，两者都只读取公开资料（用户名、头像），不保存访问令牌；登录状态为 30 天有效的签名 Cookie。
+- 完整说明见 [隐私政策](https://olivia-loon-box.pages.dev/privacy.html)。
+- 登录后，收藏与已开启同步的偏好按账号 ID 存于 Cloudflare D1（没绑定 D1 时退回 KV），用于多设备同步。
 - 人机验证由 Cloudflare Turnstile 提供。
-
-## 使用 Google 登录
-
-设置 → 账号里有「Google 登录」。登录后，页面右上角和账号一行会显示 Google 头像和名字，可以退出。不登录也能搜索插件、点「安装」唤起 Loon。
-
-登录从本站跳到 Google，授权后回到 Pages Function `/api/auth/google/callback`。函数用客户端密钥换取 ID Token，再用 Google 公布的证书核对签名、签发者、受众（必须是本站的客户端 ID）和有效期，通过后写入和 GitHub 登录同一枚签名 Cookie。Google 的访问令牌用完即丢，不会进仓库，也不会进浏览器之外的日志。
-
-没配下面的变量时，按钮保持灰色，说明「尚未配置」，插件列表和安装按钮照常使用。
-
-### 1. 在 Google Cloud Console 创建 OAuth 客户端
-
-1. 打开 [Google Cloud Console](https://console.cloud.google.com/) → 选择或新建一个项目。
-2. 「API 和服务」→「OAuth 同意屏幕」。用户类型选**外部**。应用名称填 `Loon Box`，用户支持电子邮件填你自己的邮箱。范围保持默认的 `openid`、`email`、`profile`，不要再加别的敏感范围。
-3. 应用在「测试」状态时，只有「测试用户」里的 Google 账号能登录。自己先用的话，把账号加进测试用户；要对所有访客开放，把发布状态改成「生产环境」。这里只用非敏感范围，一般不需要 Google 审核。
-4. 「API 和服务」→「凭据」→「创建凭据」→「OAuth 客户端 ID」。应用类型选 **Web 应用**，名称填 `Loon Box`。
-5. **已获授权的 JavaScript 来源**（Authorized JavaScript origins）逐条添加。只写协议和主机，不要路径，末尾不要斜杠：
-   - `https://olivia-loon-box.pages.dev`
-   - 绑了自定义域名再加一条，例如 `https://box.example.com`
-   - 本地调试再加 `http://localhost:8788` 和 `http://localhost`
-6. **已获授权的重定向 URI**（Authorized redirect URIs）逐条添加。必须和下面完全一致，差一个斜杠 Google 都会拒绝（`redirect_uri_mismatch`）：
-   - `https://olivia-loon-box.pages.dev/api/auth/google/callback`
-   - 自定义域名同理：`https://box.example.com/api/auth/google/callback`
-   - 本地：`http://localhost:8788/api/auth/google/callback`
-7. 创建后复制**客户端 ID**（形如 `1234567890-abc.apps.googleusercontent.com`）和**客户端密钥**。密钥只放在 Cloudflare，不要写进仓库、issue 或截图。
-
-预览部署的域名每次都不一样（`https://<hash>.olivia-loon-box.pages.dev`）。只在正式站登录的话，配上面的生产地址即可；预览环境也要登录，就把那个预览来源和对应的 `/api/auth/google/callback` 再各加一条。
-
-### 2. 在 Cloudflare Pages 设置环境变量
-
-Pages 项目 → **Settings** → **Variables and Secrets**。生产环境要填；预览环境如果也要登录，同样填一份。
-
-| 变量 | 类型 | 必填 | 说明 |
-|---|---|---|---|
-| `GOOGLE_CLIENT_ID` | Plaintext（纯文本） | 是 | 上一步的客户端 ID |
-| `GOOGLE_CLIENT_SECRET` | Secret（加密） | 是 | 上一步的客户端密钥。只在服务端换票时使用 |
-| `SESSION_SECRET` | Secret（加密） | 是 | 登录 Cookie 的签名密钥。GitHub 登录已经设过的话沿用同一个，换掉会把现有登录全部登出 |
-
-三个都要有，按钮才会亮。只配了客户端 ID、没配密钥或 `SESSION_SECRET` 时，页面仍会打开，Google 登录保持停用。
-
-保存后重新部署一次（Deployments 里对最新的一次 Retry deployment）。只改变量不会作用到已经跑着的函数。
-
-### 3. 确认
-
-用浏览器打开 [Loon Box](https://olivia-loon-box.pages.dev/) → 设置 → 账号，点「Google 登录」，选一个 Google 账号并同意。回到首页后右上角出现头像，设置里能看到名字和邮箱，点「退出登录」可以登出。不登录时，搜索、收藏（只存在这台设备）和「安装」都还能用。
 
 ## 安装统计
 
@@ -210,8 +165,8 @@ Pages 项目 → **Settings** → **Variables and Secrets**。生产环境要填
 | [`plugin/`](plugin/) | Loon 插件（16 款） |
 | [`script/`](script/) | 插件所用脚本 |
 | [`box/`](box/) | Loon Box 前端（原生 HTML / CSS / ES Modules） |
-| [`functions/`](functions/) | Cloudflare Pages Functions：清单接口、GitHub / Google 登录、云端同步、人机验证、安装统计 |
-| [`tests/`](tests/) | 云端同步与 Google 登录的测试（`node --test tests/sync.test.mjs tests/sync-d1.test.mjs tests/google-auth.test.mjs`） |
+| [`functions/`](functions/) | Cloudflare Pages Functions：清单接口、GitHub OAuth、云端同步、人机验证、安装统计 |
+| [`tests/`](tests/) | 云端同步的测试，含并发场景（`node --test tests/sync.test.mjs tests/sync-d1.test.mjs`） |
 | [`db/`](db/) | 安装统计的 D1 表结构（函数会自动建表，仅供参考） |
 | [`icon/`](icon/) | 图标资源 |
 | [`manifest.json`](manifest.json) | 插件清单，由 Actions 自动生成，请勿手动编辑 |

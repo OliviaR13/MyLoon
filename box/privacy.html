@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f6f4ef" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#12110f" media="(prefers-color-scheme: dark)">
+  <meta name="description" content="OliviaR13's Loon Box 隐私政策：本机收藏、安装次数、GitHub 与 Google 登录，以及云端同步。">
+  <link rel="icon" href="./icon.png" type="image/png">
+  <title>隐私政策 · OliviaR13's Loon Box</title>
+  <script>(function(d){var s={};try{s=JSON.parse(localStorage.getItem("myloon_box_settings")||"{}")}catch(e){}
+    if(s.theme==="light"||s.theme==="dark")d.dataset.theme=s.theme})(document.documentElement)</script>
+  <link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="./styles/base.css">
+  <style>
+    .doc{user-select:text;-webkit-user-select:text}
+    .doc a{user-select:text;-webkit-user-select:text}
+    .doc h2{font-size:16px;font-weight:650;letter-spacing:-.02em;margin:28px 0 8px}
+    .doc p,.doc li{font-size:14.5px;line-height:1.7}
+    .doc p{margin:0 0 10px}
+    .doc ul{margin:0 0 10px;padding-left:1.25em}
+    .doc li{margin:4px 0}
+    .doc .lede{color:var(--muted)}
+    .doc code{font-family:var(--mono);font-size:.92em}
+    .head a{display:flex;flex:none;text-decoration:none;border-radius:var(--r-md)}
+    .head a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="head">
+      <a href="./" aria-label="返回首页"><img class="logo" src="./icon.png" alt="" width="44" height="44"></a>
+      <div class="head-text">
+        <h1><span class="h1-eyebrow">OliviaR13's</span>隐私政策</h1>
+        <p>最后更新：2026-11-18</p>
+      </div>
+    </header>
+
+    <article class="doc">
+      <p class="lede">这份说明只讲 <a href="./">Loon Box</a> 网页（<a href="https://olivia-loon-box.pages.dev/">olivia-loon-box.pages.dev</a>）会碰到哪些数据。插件文件在 Loon 里怎么运行，不在这里。不登录也可以搜索、收藏和安装。</p>
+
+      <h2>不登录时存在这台浏览器里的数据</h2>
+      <p>收藏、排序和界面设置写在当前浏览器的 localStorage 里，不会因为你没登录就上传。包括：</p>
+      <ul>
+        <li>收藏了哪些插件，以及每条收藏的修改时间。</li>
+        <li>主题、是否显示简介、版本、分类、紧凑列表、置顶收藏、减少动画，以及设置页是否默认全屏。</li>
+        <li>排序方式。</li>
+        <li>启动页是否关闭、是否看过新手引导、全屏时单列还是双列。这三项只在本机，登录后也不会同步。</li>
+        <li>云端同步的开关，以及是否关掉过登录提示。</li>
+        <li>当天已经上报过安装次数的插件，用来避免同一天重复计数。</li>
+      </ul>
+      <p>搜索词只在当前页面里过滤列表，不会发给服务器。人机验证通过的时间会记在 sessionStorage 里，关掉标签页就没有了。</p>
+
+      <h2>安装次数</h2>
+      <p>点「安装」时，如果站点配置了统计（Cloudflare D1），会给这个插件的当天次数加一。存下来的是插件 ID、日期和累计次数。记的是点过按钮，不是 Loon 里是否真的装上。</p>
+      <p>为了同一个访客同一天对同一个插件只计一次，服务器会把 IP、插件 ID 和日期加盐做 SHA-256，只保存这个哈希，不保存 IP 本身，也不和登录账号关联。过了当天的哈希会在之后的访问里删掉，不长期保留。没有配置统计时，不记录。</p>
+
+      <h2>人机验证</h2>
+      <p>打开插件列表前，首页会加载 Cloudflare Turnstile（<code>challenges.cloudflare.com</code>）做一次人机验证。通过之后，服务器发一枚大约 30 分钟的签名 Cookie（<code>mlb_verified</code>，只对 <code>/api</code> 生效），这段时间里不用重复验证。验证令牌本身不保存。这一页不加载 Turnstile。</p>
+
+      <h2>GitHub 登录</h2>
+      <p>登录是可选的。选 GitHub 时，页面会跳到 GitHub 授权，只读取公开用户名和数字 ID。头像由浏览器按用户名向 <code>github.com</code> 请求公开头像来显示，不写入 Cookie，也不另存一份图片。访问令牌只用来读这一次用户名，读完即丢，不保存在 Cookie、仓库或日志里。登录 Cookie 里留下的是账号 ID、用户名和过期时间。</p>
+
+      <h2>Google 登录</h2>
+      <p>选 Google 时，授权范围是 <code>openid</code>、<code>email</code>、<code>profile</code>，也就是账号标识、姓名、头像和邮箱。换票时拿到的访问令牌不保存。ID Token 会用 Google 公布的证书核对签名、签发者、受众和有效期，核对完就丢掉，不保存原文。</p>
+      <p>登录 Cookie 里留下的是：账号 ID（前面加 <code>google:</code>，免得和 GitHub 的数字 ID 撞车）、名字、已验证的邮箱，以及头像网址。头像网址只接受 Google 自己的图片地址（<code>https</code> 的 <code>googleusercontent.com</code>）。GitHub 和 Google 是两套账号，收藏和设置不会合并。</p>
+
+      <h2>登录 Cookie</h2>
+      <p>登录状态是一枚 HMAC 签名的 Cookie，名字是 <code>mlb_session</code>，带 HttpOnly、Secure、SameSite=Lax，30 天有效。授权过程中还有两枚大约 10 分钟的临时 Cookie（<code>mlb_state</code>、<code>mlb_pkce</code>），用完即删。没配好对应的登录时，登录按钮保持停用，浏览和安装不受影响。</p>
+
+      <h2>云端同步存在哪里</h2>
+      <p>登录之后，自动同步默认是开着的，可以在设置里关掉。总开关打开时，收藏会同步；外观（主题、减少动画）、插件卡片（显示项、紧凑模式、收藏置顶、排序）和设置页偏好（默认是否全屏）可以分别关闭。关掉的项目只留在这台设备。</p>
+      <p>这些数据按账号 ID 存在 Cloudflare D1。没有绑定 D1 时，改存 Cloudflare KV。两者都没配置时，同步不会成功，数据仍只在本机。多台设备改了同一项时，以较新的那一次为准。取消收藏后，云端会留一条「已取消」记录，大约 90 天，用来合并各台设备，之后不再保留。</p>
+      <p>不同步的还有：启动页开关、全屏单列或双列、新手引导是否看过。</p>
+
+      <h2>不出售，也没有广告和访问统计</h2>
+      <p>上面这些数据不出售，也不提供给广告或数据分析服务。页面里没有广告脚本，也没有访问统计（没有 Google Analytics、Plausible 这一类）。</p>
+      <p>会联系到的外部服务只有这些：Cloudflare，用来托管网站、做人机验证，以及在你登录并打开同步之后存放收藏和设置；你点了登录之后的 GitHub 或 Google；已经登录时，用来显示头像的图片地址。插件卡片上的图标来自插件清单里填写的图片链接，不是用来追踪访客的。</p>
+
+      <h2>退出和删除</h2>
+      <ul>
+        <li>退出登录：设置 → 账号 → 退出登录。这会删掉登录 Cookie。这台浏览器里的收藏和设置还在。</li>
+        <li>恢复默认设置：把外观和显示项恢复默认。如果开着同步，这些设置会按同步规则写回云端。收藏不会被清掉。</li>
+        <li>取消收藏：在插件卡片上取消。开着同步时，云端会记成已取消。</li>
+        <li>清掉本机数据：在浏览器里清除 <a href="https://olivia-loon-box.pages.dev/">olivia-loon-box.pages.dev</a> 的网站数据，localStorage 和 Cookie 会一起去掉。</li>
+        <li>已经同步到云端的收藏和设置：站内没有单独的删除按钮，退出登录也不会删掉它们。需要删除的话，请开一个 <a href="https://github.com/OliviaR13/MyLoon/issues">GitHub issue</a>。</li>
+      </ul>
+
+      <h2>联系</h2>
+      <p>问题或删除请求：<a href="https://github.com/OliviaR13/MyLoon/issues">github.com/OliviaR13/MyLoon/issues</a>。</p>
+      <p>最后更新：2026-11-18。</p>
+    </article>
+
+    <footer class="foot"><a href="./">返回首页</a> · <a href="https://github.com/OliviaR13/MyLoon">GitHub</a> · <a href="https://github.com/OliviaR13/MyLoon/blob/main/LICENSE">版权与许可</a></footer>
+  </main>
+</body>
+</html>
