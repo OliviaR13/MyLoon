@@ -136,7 +136,7 @@ https://raw.githubusercontent.com/OliviaR13/MyLoon/main/plugin/<文件名>.plugi
 - 点「安装」时，会给该插件的安装次数加一（只存插件 ID、日期和累计次数）。为了同一个人一天内不重复计数，会把 IP 与插件 ID 加盐哈希后临时保存，次日清理；不保存 IP 本身，也不与账号关联。
 - 未登录时，收藏与偏好仅保存在本机浏览器。
 - 登录可以通过 GitHub 或 Google，两者都只读取公开资料（用户名、头像），不保存访问令牌；登录状态为 30 天有效的签名 Cookie。
-- 完整说明见 [隐私政策](https://olivia-loon-box.pages.dev/privacy.html)。
+- 完整说明见 [隐私政策](https://olivia-loon-box.pages.dev/privacy.html)、[使用条款](https://olivia-loon-box.pages.dev/terms.html)。
 - 登录后，收藏与已开启同步的偏好按账号 ID 存于 Cloudflare D1（没绑定 D1 时退回 KV），用于多设备同步。
 - 人机验证由 Cloudflare Turnstile 提供。
 
