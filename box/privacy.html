@@ -79,6 +79,9 @@
       <p>选 Google 时，授权范围是 <code>openid</code>、<code>email</code>、<code>profile</code>，也就是账号标识、姓名、头像和邮箱。换票时拿到的访问令牌不保存。ID Token 会用 Google 公布的证书核对签名、签发者、受众和有效期，核对完就丢掉，不保存原文。</p>
       <p>登录 Cookie 里留下的是：账号 ID（前面加 <code>google:</code>，免得和 GitHub 的数字 ID 撞车）、名字、已验证的邮箱，以及头像网址。头像网址只接受 Google 自己的图片地址（<code>https</code> 的 <code>googleusercontent.com</code>）。邮箱和姓名只出现在这枚 Cookie 和你自己的页面里，不会写进云端同步的数据。GitHub 和 Google 是两套账号，收藏和设置不会合并。</p>
 
+      <h2>通行密钥</h2>
+      <p>已用 GitHub 或 Google 登录后，可以在设置里再添加通行密钥，之后用它登录同一个账号。服务器只保存这把密钥的公钥、凭证 ID 和签名计数器，用来核对是不是这台设备。指纹、面容和锁屏密码只留在设备上，不会上传。这些公钥存在单独的 Cloudflare KV（绑定名 <code>PASSKEYS</code>）。没绑定这个 KV 时，通行密钥登录保持停用，浏览和安装不受影响。</p>
+
       <h2>登录 Cookie</h2>
       <p>登录状态是一枚 HMAC 签名的 Cookie，名字是 <code>mlb_session</code>，带 HttpOnly、Secure、SameSite=Lax，30 天有效。签名只防篡改，内容没有加密，你在自己的浏览器里能看到，所以不要把这枚 Cookie 发给别人。授权过程中还有两枚大约 10 分钟的临时 Cookie（<code>mlb_state</code>、<code>mlb_pkce</code>），用完即删。没配好对应的登录时，登录按钮保持停用，浏览和安装不受影响。</p>
 
