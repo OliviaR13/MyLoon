@@ -50,6 +50,10 @@
         <p>OliviaR13's Loon Library</p>
       </div>
       <button class="btn btn-ghost" id="refreshBtn" type="button" disabled aria-label="刷新清单">刷新</button>
+      <button class="head-acct" id="headAcct" type="button" hidden aria-label="账号">
+        <img id="headAvatar" alt="" width="32" height="32" referrerpolicy="no-referrer" hidden>
+        <span class="head-letter" id="headLetter" hidden></span>
+      </button>
       <button class="btn btn-ghost btn-icon" id="settingsBtn" type="button" aria-label="设置" aria-haspopup="dialog">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
       </button>
@@ -110,8 +114,15 @@
           <span class="row-text"><span>GitHub 账号</span><span class="sub" id="loginSub">登录后，收藏和设置可以在多台设备间同步</span></span>
           <a class="btn btn-primary" id="loginBtn" href="/api/auth/login">立即登录</a>
         </div>
+        <div class="row" id="googleRow">
+          <span class="row-text"><span>Google 账号</span><span class="sub" id="googleSub">正在检查 Google 登录是否可用</span></span>
+          <button class="btn btn-google" id="googleBtn" type="button" disabled>
+            <svg class="g-logo" viewBox="0 0 48 48" width="16" height="16" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 8 3.1l5.7-5.7C34.2 6.1 29.4 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 12 24 12c3.1 0 5.8 1.2 8 3.1l5.7-5.7C34.2 6.1 29.4 4 24 4 16.3 4 9.6 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 10-2 13.6-5.2l-6.3-5.3C29.2 35.1 26.7 36 24 36c-5.3 0-9.7-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-1.1 3.2-3.5 5.7-6.7 7.1l6.3 5.3C37.4 41.2 44 36 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
+            <span>Google 登录</span>
+          </button>
+        </div>
         <div class="row" id="accountRow" hidden>
-          <span class="acct"><img id="acctAvatar" alt="" width="26" height="26"><span id="acctName"></span></span>
+          <span class="acct"><img id="acctAvatar" alt="" width="26" height="26" referrerpolicy="no-referrer" hidden><span class="acct-letter" id="acctLetter" hidden></span><span class="acct-id"><span id="acctName"></span><span class="sub" id="acctMeta" hidden></span></span></span>
           <!-- 退出登录的内联确认：第一次点按钮变成「确认退出」、左边展开「取消」，见 js/account.js 与 styles/sheet-settings.css -->
           <span class="confirm" id="logoutConfirm">
             <button class="btn btn-ghost confirm-cancel" id="logoutCancel" type="button" tabindex="-1" aria-hidden="true">取消</button>
@@ -214,7 +225,7 @@
       </div>
       <h3 class="group-title privacy-title">隐私说明</h3>
       <p class="group-foot privacy">MyLoon 不接入网站统计分析，不追踪用户行为，也不主动收集浏览记录等个人信息。</p>
-      <p class="group-foot privacy">未登录时，收藏与设置仅保存在当前浏览器中。登录通过 GitHub 授权完成，仅读取公开用户名和头像，不申请其他 GitHub 权限，也不保存 GitHub 访问令牌。</p>
+      <p class="group-foot privacy">未登录时，收藏与设置仅保存在当前浏览器中。GitHub 登录只读取公开用户名和头像，不申请其他权限，也不保存访问令牌。Google 登录只读取姓名、头像和已验证的邮箱，用来显示已登录状态，同样不保存 Google 的访问令牌。</p>
       <p class="group-foot privacy">登录后，收藏及已启用同步的偏好设置将与账号 ID 关联并保存至云端，用于跨设备同步。</p>
       <p class="group-foot privacy">人机验证由 Cloudflare Turnstile 提供。</p>
       </div>

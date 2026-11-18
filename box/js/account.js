@@ -1,5 +1,6 @@
-/* GitHub 账号与云端同步（/api/me、/api/logout）：
-   支持收藏逐项时间戳（Tombstone CRDT）合并，以及外观、插件卡片、设置页偏好三组独立时间戳同步。 */
+/* GitHub / Google 账号与云端同步（/api/me、/api/logout、/api/auth/google）：
+   支持收藏逐项时间戳（Tombstone CRDT）合并，以及外观、插件卡片、设置页偏好三组独立时间戳同步。
+   没配 Google 客户端时，Google 按钮保持停用，浏览和安装不受影响。 */
 
 import { SYNC_KEYS, LEGACY_AT, TOMBSTONE_TTL, SORT_KEY, LOGIN_HINT_KEY } from "./config.js";
 import { $id, setSwitch, lsGet, lsSet, lsRemove, confirmable } from "./dom.js";
@@ -75,10 +76,34 @@ export function initAccount() {
     n.textContent = lastSyncAt ? "已同步 · " + hhmm(lastSyncAt) : "已同步";
   }
 
+  function paintAvatar(img, letter, user) {
+    if (!img || !letter) return;
+    const label = (user.provider === "google" ? user.name || user.login : user.login) || "?";
+    const src = user.provider === "google"
+      ? (user.picture || "")
+      : (user.login ? "https://github.com/" + encodeURIComponent(user.login) + ".png?size=64" : "");
+    const showLetter = () => {
+      img.hidden = true;
+      img.removeAttribute("src");
+      letter.hidden = false;
+      letter.textContent = Array.from(String(label).trim())[0] || "?";
+    };
+    img.onerror = showLetter;
+    if (!src) { showLetter(); return; }
+    letter.hidden = true;
+    img.hidden = false;
+    img.referrerPolicy = "no-referrer";
+    img.alt = "";
+    img.src = src;
+  }
+
   function renderAccount() {
     const m = ownMaster();
     $id("loginRow").hidden = !!user;
+    $id("googleRow").hidden = !!user;
     $id("accountRow").hidden = !user;
+    const head = $id("headAcct");
+    if (head) head.hidden = !user;
     $id("syncSection").hidden = !user;
     if (user) $id("loginSub").textContent = "登录后，收藏和设置可以在多台设备间同步";
     setSwitch($id("syncMasterSwitch"), m);
@@ -95,8 +120,16 @@ export function initAccount() {
       ? "收藏会始终同步。外观、插件卡片和设置页偏好可以分别关闭，关闭后只保存在这台设备。如果多台设备修改了同一项，以最后一次修改为准。"
       : "云端同步已关闭：收藏和设置只保存在这台设备，不会上传，也不会读取云端的内容。";
     if (user) {
-      $id("acctName").textContent = user.login;
-      $id("acctAvatar").src = "https://github.com/" + encodeURIComponent(user.login) + ".png?size=48";
+      const google = user.provider === "google";
+      $id("acctName").textContent = google ? (user.name || user.login) : user.login;
+      const meta = $id("acctMeta");
+      if (meta) {
+        meta.hidden = false;
+        meta.textContent = google ? (user.email ? "Google · " + user.email : "Google") : "GitHub";
+      }
+      paintAvatar($id("acctAvatar"), $id("acctLetter"), user);
+      paintAvatar($id("headAvatar"), $id("headLetter"), user);
+      if (head) head.setAttribute("aria-label", "已登录：" + (google ? (user.name || user.email || "Google") : user.login) + "，打开账号设置");
     }
     refreshSync();
   }
@@ -338,6 +371,32 @@ export function initAccount() {
   });
   document.addEventListener("click", (e) => { if (asking() && !logoutBox.contains(e.target)) askLogout(false); });
 
+  $id("googleBtn")?.addEventListener("click", () => {
+    const btn = $id("googleBtn");
+    if (!btn || btn.disabled) return;
+    location.assign("/api/auth/google");
+  });
+  $id("headAcct")?.addEventListener("click", () => $id("settingsBtn")?.click());
+
+  async function loadGoogle() {
+    const btn = $id("googleBtn");
+    const sub = $id("googleSub");
+    if (!btn || !sub) return;
+    try {
+      const res = await api("GET", "/api/auth/google");
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      const on = data.enabled === true;
+      btn.disabled = !on;
+      sub.textContent = on
+        ? "使用 Google 账号登录，收藏和设置可以在多台设备间同步"
+        : "尚未配置，不影响浏览和安装";
+    } catch {
+      btn.disabled = true;
+      sub.textContent = "暂时无法连接登录服务，不影响浏览和安装";
+    }
+  }
+
   logoutBtn?.addEventListener("click", async () => {
     if (!asking()) { askLogout(true); return; }
     askLogout(false);
@@ -360,10 +419,25 @@ export function initAccount() {
   });
 
   async function initSession() {
-    const err = new URLSearchParams(location.search).get("login_error");
-    if (err) {
-      const msg = { denied: "这个 GitHub 账号没有登录权限", state: "登录已过期，请重试", config: "登录功能尚未配置" }[err] || "GitHub 登录失败，请重试";
-      toast(msg);
+    const q = new URLSearchParams(location.search);
+    const err = q.get("login_error");
+    const logged = q.get("login");
+    if (err || logged) {
+      if (err) {
+        const msg = {
+          denied: "这个 GitHub 账号没有登录权限",
+          state: "登录已过期，请重试",
+          config: "登录功能尚未配置",
+          google_config: "Google 登录尚未配置，浏览和安装不受影响",
+          google_state: "Google 登录已过期，请重试",
+          google_denied: "已取消 Google 登录",
+          google_exchange: "无法完成 Google 登录，请重试",
+          google_verify: "Google 身份校验没有通过，请重试",
+        }[err] || (String(err).startsWith("google") ? "Google 登录失败，请重试" : "GitHub 登录失败，请重试");
+        toast(msg);
+      } else if (logged === "google") {
+        toast("已使用 Google 账号登录");
+      }
       history.replaceState(null, "", location.pathname);
     }
     try {
@@ -383,5 +457,6 @@ export function initAccount() {
   }
 
   refreshSeen();
+  loadGoogle();
   initSession();
 }
