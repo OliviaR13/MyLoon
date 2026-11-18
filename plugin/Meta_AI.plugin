@@ -1,65 +1,64 @@
 #!name = Meta AI Muse 自选节点
-#!desc = 将 Meta AI / Muse 相关域名统一走 PROXY，并屏蔽这些域名的 QUIC（UDP 443），避免直连或 QUIC 回落把真实 IP 露给 Meta。除原有的 meta.ai、meta.com、Facebook / Instagram 登录与 CDN 外，补上 Muse 本体 muse.ai、个人 VM 网关 metaaivm.com，以及客户端里出现的 Hatch / OHTTP 域名。等候名单由服务端按出口地区判定（页面里的 isGeoGated、resolvedDestination 只是展示），改响应不能获得资格。请在插件详情选择已开放地区的节点（公开报道包括美国、加拿大、日本、新加坡、墨西哥、澳大利亚）；机房 IP 仍可能被拒绝。未选择时用全局策略的第一个节点。请放在 GEOIP,CN,DIRECT 之前，否则规则可能被提前匹配而失效。
+#!desc = 将 Meta AI / Muse、Meta 账号登录及相关 CDN 请求统一交给 PROXY 策略，并仅对这些域名拦截 QUIC，避免 UDP/QUIC 绕过代理。PROXY 使用你在 Loon 中为插件映射的策略组；实际出口地区由节点出口 IP 及 Meta 的 IP 地理库决定。本插件不能伪装或修改出口 IP 的地理位置。
 #!tag = 代理分流
 #!author = OliviaR13
-#!version = 1.1.0
+#!version = 1.2.0
 #!date = 2026-11-18
 #!homepage = https://www.github.com/OliviaR13
 #!icon = https://www.google.com/s2/favicons?sz=128&domain=meta.ai
 
 [Rule]
-# QUIC（UDP 443）不走代理时会把真实 IP 直接暴露给 Meta，屏蔽后连接回落 TCP
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,muse.ai)),REJECT
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,metaaivm.com)),REJECT
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,meta.ai)),REJECT
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,meta.com)),REJECT
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,atmeta.com)),REJECT
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,metaaiusercontent.com)),REJECT
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,ecto1usercontent.com)),REJECT
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN,hatch.ecto1.ai)),REJECT
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN,node.hatch.one)),REJECT
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,customer.prod.willow606.com)),REJECT
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN,meta-agents-apps.workers.dev)),REJECT
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN,meta-ohttp-relay-prod.fastly-edge.com)),REJECT
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN,meta-ohttp-relay-dev.fastly-edge.com)),REJECT
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN,meta-ohttp-config-prod.fastly-edge.com)),REJECT
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN,meta.privacy-gateway.cloudflare.com)),REJECT
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN,meta.hpke-keys.privacy-gateway.cloudflare.com)),REJECT
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,facebook.com)),REJECT
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,facebook.net)),REJECT
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,fb.com)),REJECT
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,fb.me)),REJECT
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,fbsbx.com)),REJECT
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,fbcdn.net)),REJECT
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,instagram.com)),REJECT
-AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,cdninstagram.com)),REJECT
+# 仅拦截 Meta 相关域名的 QUIC，促使客户端回落到 TCP；不影响其他应用的 QUIC
+AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,muse.ai)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,metaaivm.com)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,meta.ai)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,meta.com)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,atmeta.com)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,metaaiusercontent.com)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,ecto1usercontent.com)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN,hatch.ecto1.ai)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN,node.hatch.one)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,customer.prod.willow606.com)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN,meta-agents-apps.workers.dev)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN,meta-ohttp-relay-prod.fastly-edge.com)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN,meta-ohttp-relay-dev.fastly-edge.com)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN,meta-ohttp-config-prod.fastly-edge.com)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN,meta.privacy-gateway.cloudflare.com)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN,meta.hpke-keys.privacy-gateway.cloudflare.com)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,facebook.com)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,facebook.net)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,fb.com)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,fb.me)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,fbsbx.com)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,fbcdn.net)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,instagram.com)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,cdninstagram.com)),REJECT
 
-# Muse 本体与个人 VM。muse.ai 承载登录、/api/hatch 与会话页；
-# hatch.metaaivm.com 以及各 VM 的 *.metaaivm.com 是网关和媒体
+# Meta AI / Muse 服务本体
+DOMAIN-SUFFIX,meta.ai,PROXY
 DOMAIN-SUFFIX,muse.ai,PROXY
 DOMAIN-SUFFIX,metaaivm.com,PROXY
-DOMAIN-SUFFIX,meta.ai,PROXY
 
-# 账号、Graph 与 Meta 内容域名（auth.meta.com、graph.meta.com 等已含在 meta.com）
+# Meta 账号、身份验证与用户内容
 DOMAIN-SUFFIX,meta.com,PROXY
 DOMAIN-SUFFIX,atmeta.com,PROXY
 DOMAIN-SUFFIX,metaaiusercontent.com,PROXY
 DOMAIN-SUFFIX,ecto1usercontent.com,PROXY
 
-# 客户端里单独出现的 Hatch 网关与节点，不扩大到整个父域
+# Muse Hatch 网关、工作节点
 DOMAIN,hatch.ecto1.ai,PROXY
 DOMAIN,node.hatch.one,PROXY
 DOMAIN-SUFFIX,customer.prod.willow606.com,PROXY
 DOMAIN,meta-agents-apps.workers.dev,PROXY
 
-# Muse 的 OHTTP / 隐私中继。父域是 Fastly 和 Cloudflare，只匹配这几个主机
+# Muse OHTTP / 隐私中继（只匹配实际使用的主机，不代理整个 Fastly / Cloudflare 父域）
 DOMAIN,meta-ohttp-relay-prod.fastly-edge.com,PROXY
 DOMAIN,meta-ohttp-relay-dev.fastly-edge.com,PROXY
 DOMAIN,meta-ohttp-config-prod.fastly-edge.com,PROXY
 DOMAIN,meta.privacy-gateway.cloudflare.com,PROXY
 DOMAIN,meta.hpke-keys.privacy-gateway.cloudflare.com,PROXY
 
-# 账号登录（Facebook / Instagram；graph.facebook.com 等已含在内）
+# Facebook / Instagram 登录与账号关联
 DOMAIN-SUFFIX,facebook.com,PROXY
 DOMAIN-SUFFIX,facebook.net,PROXY
 DOMAIN-SUFFIX,fb.com,PROXY
@@ -67,6 +66,6 @@ DOMAIN-SUFFIX,fb.me,PROXY
 DOMAIN-SUFFIX,fbsbx.com,PROXY
 DOMAIN-SUFFIX,instagram.com,PROXY
 
-# 图片 / 视频 / 静态资源 CDN
+# 图片、视频与静态资源 CDN
 DOMAIN-SUFFIX,fbcdn.net,PROXY
 DOMAIN-SUFFIX,cdninstagram.com,PROXY
