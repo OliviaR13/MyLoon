@@ -1,6 +1,6 @@
 // Cloudflare Pages Function：POST /api/manifest
 // 1. 带令牌：调用 Turnstile siteverify 校验，通过后返回清单，并下发一个 30 分钟有效的签名 Cookie。
-// 2. 不带令牌：只要验证 Cookie 或 GitHub 登录 Cookie 有效（签名正确且未过期）就直接返回清单。
+// 2. 不带令牌：只要验证 Cookie 或登录 Cookie（GitHub / Google，签名正确且未过期）有效就直接返回清单。
 // 需要的环境变量（Pages 项目 → Settings → Variables and Secrets）：
 //   TURNSTILE_SECRET     Turnstile 小组件的 Secret key（设为 Secret；同时用作 Cookie 的签名密钥）
 //   TURNSTILE_HOSTNAMES  允许的前端域名，逗号分隔，例如 olivia-loon-box.pages.dev

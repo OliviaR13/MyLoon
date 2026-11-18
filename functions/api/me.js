@@ -2,6 +2,7 @@
 // 存储：优先 D1（绑定 MLB_DB，逐行「较新者胜」写入，并发安全）；没绑 D1 时退回 KV（绑定 MLB_KV）。
 // 两个都没绑时同步功能不可用，收藏和设置只保存在本机。
 import { getSession, json, sameOrigin } from "../_lib/auth.js";
+import { publicSessionUser } from "../_lib/google-auth.js";
 import { mergeFavMeta, mergeSettings } from "../_lib/sync-merge.js";
 import { loadFromD1, saveToD1, MAX_FAVS } from "../_lib/sync-store.js";
 
@@ -54,7 +55,7 @@ export async function onRequestGet({ request, env }) {
   } catch {
     return json({ error: "storage_error" }, 500);
   }
-  return json({ user: { id: user.id, login: user.login }, data });
+  return json({ user: publicSessionUser(user), data });
 }
 
 export async function onRequestPut({ request, env }) {

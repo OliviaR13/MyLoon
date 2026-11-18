@@ -15,7 +15,7 @@
    - js/verify-cells.js 人机验证等待时的四个格子，通过后融合成胶囊（Bencho One-time code）
    - js/manifest.js     Cloudflare Turnstile 人机验证与清单加载
    - js/settings.js     设置面板：主题、卡片显示项、全屏与双列布局、恢复默认设置
-   - js/account.js      GitHub 账号登录与收藏/偏好云端同步
+   - js/account.js      GitHub / Google 账号登录与收藏/偏好云端同步
    - js/pull.js         触屏下拉刷新 × 灵动岛动效 */
 
 import { els } from "./js/dom.js";

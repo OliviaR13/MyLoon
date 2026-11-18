@@ -50,8 +50,8 @@ html:has(.sheet[open],.tour[open]){overflow:hidden;padding-right:var(--page-sbw,
 .group{border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card);overflow:hidden}
 .row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;padding:10px 14px;font-size:15px}
 .row + .row{border-top:1px solid var(--line)}
-/* 登录行 hidden 时，相邻选择器仍会命中后面的账号行，导致卡片顶部多一条线 */
-#loginRow + #accountRow{border-top:0}
+/* 登录行 hidden 时，相邻选择器仍会命中后面的行，导致卡片顶部多一条线 */
+#googleRow + #accountRow{border-top:0}
 .row[hidden]{display:none}
 .row[data-off="true"]{opacity:.5}
 .row-text{display:grid;gap:2px;min-width:0;text-align:left}
@@ -75,8 +75,13 @@ html:has(.sheet[open],.tour[open]){overflow:hidden;padding-right:var(--page-sbw,
 .about-card img{flex:none;border-radius:var(--r-md);box-shadow:0 0 0 1px var(--line)}
 .about-card strong{font-size:15.5px;letter-spacing:-.01em}
 .acct{display:flex;align-items:center;gap:10px;min-width:0}
-.acct img{border-radius:50%;box-shadow:0 0 0 1px var(--line);background:var(--chip)}
-.acct span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.acct img{width:26px;height:26px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 1px var(--line);background:var(--chip)}
+.acct img[hidden]{display:none}
+.acct-letter{flex:none;display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--chip);box-shadow:0 0 0 1px var(--line);font-size:12px;font-weight:700;line-height:1}
+.acct-letter[hidden]{display:none}
+.acct-id{display:grid;gap:1px;min-width:0}
+#acctName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+#acctMeta{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* 退出登录的内联确认（借自 Bencho Confirm）：「取消」从按钮左边展开，按钮自己变成红色的确认，
    按钮底部一条细线烧尽 = 自动取消的倒计时。按钮本身的宽度不变（「退出登录」和「确认退出」一样宽），所以不会挪位置 */
 .confirm{display:inline-flex;align-items:center;flex:none}
