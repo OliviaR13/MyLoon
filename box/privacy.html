@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#f6f4ef" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#12110f" media="(prefers-color-scheme: dark)">
-  <meta name="description" content="OliviaR13's Loon Box 隐私政策：本机收藏、安装次数、GitHub 与 Google 登录，以及云端同步。">
+  <meta name="description" content="OliviaR13's Loon Box 隐私政策：本机数据、安装次数、人机验证、GitHub 与 Google 登录，以及云端同步。">
   <link rel="icon" href="./icon.png" type="image/png">
   <title>隐私政策 · OliviaR13's Loon Box</title>
   <script>(function(d){var s={};try{s=JSON.parse(localStorage.getItem("myloon_box_settings")||"{}")}catch(e){}
@@ -23,6 +23,8 @@
     .doc li{margin:4px 0}
     .doc .lede{color:var(--muted)}
     .doc code{font-family:var(--mono);font-size:.92em}
+    .doc .sum{margin:18px 0 0;padding:14px 16px 6px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card)}
+    .doc .sum h2{margin:0 0 6px;font-size:14px}
     .head a{display:flex;flex:none;text-decoration:none;border-radius:var(--r-md)}
     .head a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   </style>
@@ -40,6 +42,16 @@
     <article class="doc">
       <p class="lede">这份说明只讲 <a href="./">Loon Box</a> 网页（<a href="https://olivia-loon-box.pages.dev/">olivia-loon-box.pages.dev</a>）会碰到哪些数据。插件文件在 Loon 里怎么运行，不在这里。不登录也可以搜索、收藏和安装。</p>
 
+      <section class="sum" aria-label="要点">
+        <h2>要点</h2>
+        <ul>
+          <li>不登录时，收藏和设置只存在你这台浏览器里。</li>
+          <li>登录（GitHub 或 Google）只用来在多台设备之间同步收藏和界面偏好。云端存的是账号 ID、收藏和设置，不存邮箱、姓名和头像。</li>
+          <li>本站自己记下的统计只有安装次数，不保存 IP 本身。</li>
+          <li>不出售数据，没有广告，没有访问统计。</li>
+        </ul>
+      </section>
+
       <h2>不登录时存在这台浏览器里的数据</h2>
       <p>收藏、排序和界面设置写在当前浏览器的 localStorage 里，不会因为你没登录就上传。包括：</p>
       <ul>
@@ -53,30 +65,41 @@
       <p>搜索词只在当前页面里过滤列表，不会发给服务器。人机验证通过的时间会记在 sessionStorage 里，关掉标签页就没有了。</p>
 
       <h2>安装次数</h2>
-      <p>点「安装」时，如果站点配置了统计（Cloudflare D1），会给这个插件的当天次数加一。存下来的是插件 ID、日期和累计次数。记的是点过按钮，不是 Loon 里是否真的装上。</p>
-      <p>为了同一个访客同一天对同一个插件只计一次，服务器会把 IP、插件 ID 和日期加盐做 SHA-256，只保存这个哈希，不保存 IP 本身，也不和登录账号关联。过了当天的哈希会在之后的访问里删掉，不长期保留。没有配置统计时，不记录。</p>
+      <p>点「安装」时，如果站点配置了统计（Cloudflare D1），会给这个插件的当天次数加一。存下来的是插件 ID、日期和累计次数。记的是点过按钮，不是 Loon 里是否真的装上。页面上显示的「本周热度」「总安装量」就是这些汇总数字，不含任何个人信息。</p>
+      <p>为了同一个访客同一天对同一个插件只计一次，服务器会把 IP、插件 ID 和日期加盐做 SHA-256，只保存这个哈希，不保存 IP 本身，也不和登录账号关联。过了当天的哈希会在之后的安装请求里陆续清理，不是实时删除，所以可能多留几天。没有配置统计时，不记录。</p>
 
       <h2>人机验证</h2>
-      <p>打开插件列表前，首页会加载 Cloudflare Turnstile（<code>challenges.cloudflare.com</code>）做一次人机验证。通过之后，服务器发一枚大约 30 分钟的签名 Cookie（<code>mlb_verified</code>，只对 <code>/api</code> 生效），这段时间里不用重复验证。验证令牌本身不保存。这一页不加载 Turnstile。</p>
+      <p>打开插件列表前，首页会加载 Cloudflare Turnstile（<code>challenges.cloudflare.com</code>）做一次人机验证。服务器会把验证令牌和你的 IP 发给 Cloudflare 核对，核对完就丢，不保存。通过之后，服务器发一枚大约 30 分钟的签名 Cookie（<code>mlb_verified</code>，只对 <code>/api</code> 生效），这段时间里不用重复验证。已经登录且登录有效时，服务器也接受登录 Cookie 来代替验证。这一页不加载 Turnstile。</p>
+      <p>另外，服务器会读取浏览器的 User-Agent，判断是不是微信内置浏览器（它不能唤起 Loon），是的话只显示一页引导。这个判断不做记录。</p>
 
       <h2>GitHub 登录</h2>
       <p>登录是可选的。选 GitHub 时，页面会跳到 GitHub 授权，只读取公开用户名和数字 ID。头像由浏览器按用户名向 <code>github.com</code> 请求公开头像来显示，不写入 Cookie，也不另存一份图片。访问令牌只用来读这一次用户名，读完即丢，不保存在 Cookie、仓库或日志里。登录 Cookie 里留下的是账号 ID、用户名和过期时间。</p>
 
       <h2>Google 登录</h2>
       <p>选 Google 时，授权范围是 <code>openid</code>、<code>email</code>、<code>profile</code>，也就是账号标识、姓名、头像和邮箱。换票时拿到的访问令牌不保存。ID Token 会用 Google 公布的证书核对签名、签发者、受众和有效期，核对完就丢掉，不保存原文。</p>
-      <p>登录 Cookie 里留下的是：账号 ID（前面加 <code>google:</code>，免得和 GitHub 的数字 ID 撞车）、名字、已验证的邮箱，以及头像网址。头像网址只接受 Google 自己的图片地址（<code>https</code> 的 <code>googleusercontent.com</code>）。GitHub 和 Google 是两套账号，收藏和设置不会合并。</p>
+      <p>登录 Cookie 里留下的是：账号 ID（前面加 <code>google:</code>，免得和 GitHub 的数字 ID 撞车）、名字、已验证的邮箱，以及头像网址。头像网址只接受 Google 自己的图片地址（<code>https</code> 的 <code>googleusercontent.com</code>）。邮箱和姓名只出现在这枚 Cookie 和你自己的页面里，不会写进云端同步的数据。GitHub 和 Google 是两套账号，收藏和设置不会合并。</p>
 
       <h2>登录 Cookie</h2>
-      <p>登录状态是一枚 HMAC 签名的 Cookie，名字是 <code>mlb_session</code>，带 HttpOnly、Secure、SameSite=Lax，30 天有效。授权过程中还有两枚大约 10 分钟的临时 Cookie（<code>mlb_state</code>、<code>mlb_pkce</code>），用完即删。没配好对应的登录时，登录按钮保持停用，浏览和安装不受影响。</p>
+      <p>登录状态是一枚 HMAC 签名的 Cookie，名字是 <code>mlb_session</code>，带 HttpOnly、Secure、SameSite=Lax，30 天有效。签名只防篡改，内容没有加密，你在自己的浏览器里能看到，所以不要把这枚 Cookie 发给别人。授权过程中还有两枚大约 10 分钟的临时 Cookie（<code>mlb_state</code>、<code>mlb_pkce</code>），用完即删。没配好对应的登录时，登录按钮保持停用，浏览和安装不受影响。</p>
 
       <h2>云端同步存在哪里</h2>
       <p>登录之后，自动同步默认是开着的，可以在设置里关掉。总开关打开时，收藏会同步；外观（主题、减少动画）、插件卡片（显示项、紧凑模式、收藏置顶、排序）和设置页偏好（默认是否全屏）可以分别关闭。关掉的项目只留在这台设备。</p>
-      <p>这些数据按账号 ID 存在 Cloudflare D1。没有绑定 D1 时，改存 Cloudflare KV。两者都没配置时，同步不会成功，数据仍只在本机。多台设备改了同一项时，以较新的那一次为准。取消收藏后，云端会留一条「已取消」记录，大约 90 天，用来合并各台设备，之后不再保留。</p>
+      <p>这些数据按账号 ID 存在 Cloudflare D1。没有绑定 D1 时，改存 Cloudflare KV。两者都没配置时，同步不会成功，数据仍只在本机。每个账号最多保存 400 条收藏记录（含已取消的）。多台设备改了同一项时，以较新的那一次为准。取消收藏后，云端会留一条「已取消」记录，大约 90 天，用来合并各台设备，之后不再保留。</p>
       <p>不同步的还有：启动页开关、全屏单列或双列、新手引导是否看过。</p>
+
+      <h2>外部服务和第三方请求</h2>
+      <p>会联系到的外部服务只有这些：</p>
+      <ul>
+        <li>Cloudflare：托管网站、做人机验证，以及在你登录并打开同步之后存放收藏和设置。本站的代码没有额外记录访问日志；作为托管方，Cloudflare 可能按它自己的政策处理常规请求日志。</li>
+        <li>GitHub 或 Google：只有你点了对应的登录之后才会联系。</li>
+        <li>头像：已经登录时，浏览器会向 <code>github.com</code> 或 Google 的图片地址请求头像。</li>
+        <li>插件图标：来自插件清单里填写的图片链接，不是用来追踪访客的。图片所在的服务器能看到你的 IP 和浏览器信息。</li>
+        <li>安装：点「安装」会唤起 Loon，由 Loon 去 <code>raw.githubusercontent.com</code> 取插件文件。这个请求由 Loon 发出，不经过本站，适用 GitHub 的政策。</li>
+      </ul>
+      <p>字体是本站自己托管的，不向第三方字体服务请求。点页面里的外部链接（比如 GitHub 仓库）后，就由对方网站的政策管了。</p>
 
       <h2>不出售，也没有广告和访问统计</h2>
       <p>上面这些数据不出售，也不提供给广告或数据分析服务。页面里没有广告脚本，也没有访问统计（没有 Google Analytics、Plausible 这一类）。</p>
-      <p>会联系到的外部服务只有这些：Cloudflare，用来托管网站、做人机验证，以及在你登录并打开同步之后存放收藏和设置；你点了登录之后的 GitHub 或 Google；已经登录时，用来显示头像的图片地址。插件卡片上的图标来自插件清单里填写的图片链接，不是用来追踪访客的。</p>
 
       <h2>退出和删除</h2>
       <ul>
@@ -84,11 +107,14 @@
         <li>恢复默认设置：把外观和显示项恢复默认。如果开着同步，这些设置会按同步规则写回云端。收藏不会被清掉。</li>
         <li>取消收藏：在插件卡片上取消。开着同步时，云端会记成已取消。</li>
         <li>清掉本机数据：在浏览器里清除 <a href="https://olivia-loon-box.pages.dev/">olivia-loon-box.pages.dev</a> 的网站数据，localStorage 和 Cookie 会一起去掉。</li>
-        <li>已经同步到云端的收藏和设置：站内没有单独的删除按钮，退出登录也不会删掉它们。需要删除的话，请开一个 <a href="https://github.com/OliviaR13/MyLoon/issues">GitHub issue</a>。</li>
+        <li>已经同步到云端的收藏和设置：站内没有单独的删除按钮，退出登录也不会删掉它们。需要删除的话，请开一个 <a href="https://github.com/OliviaR13/MyLoon/issues">GitHub issue</a>，写明是 GitHub 还是 Google 账号即可。不要在 issue 里贴邮箱以外的敏感信息，issue 是公开的。</li>
       </ul>
 
+      <h2>政策变更</h2>
+      <p>这份说明会随功能一起更新。有改动时，页头和文末的「最后更新」日期会跟着变。继续使用本网站，就表示你接受更新后的内容。</p>
+
       <h2>联系</h2>
-      <p>问题或删除请求：<a href="https://github.com/OliviaR13/MyLoon/issues">github.com/OliviaR13/MyLoon/issues</a>。</p>
+      <p>问题或删除请求：<a href="https://github.com/OliviaR13/MyLoon/issues">github.com/OliviaR13/MyLoon/issues</a>。使用上的约定见 <a href="./terms.html">使用条款</a>。</p>
       <p>最后更新：2026-11-18。</p>
     </article>
 

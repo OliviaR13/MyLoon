@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#f6f4ef" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#12110f" media="(prefers-color-scheme: dark)">
-  <meta name="description" content="OliviaR13's Loon Box 使用条款：免费的个人项目，提供 Loon 插件链接和一键安装。">
+  <meta name="description" content="OliviaR13's Loon Box 使用条款：免费的个人项目，提供 Loon 插件链接和一键安装，按原样提供。">
   <link rel="icon" href="./icon.png" type="image/png">
   <title>使用条款 · OliviaR13's Loon Box</title>
   <script>(function(d){var s={};try{s=JSON.parse(localStorage.getItem("myloon_box_settings")||"{}")}catch(e){}
@@ -23,6 +23,8 @@
     .doc li{margin:4px 0}
     .doc .lede{color:var(--muted)}
     .doc code{font-family:var(--mono);font-size:.92em}
+    .doc .sum{margin:18px 0 0;padding:14px 16px 6px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card)}
+    .doc .sum h2{margin:0 0 6px;font-size:14px}
     .head a{display:flex;flex:none;text-decoration:none;border-radius:var(--r-md)}
     .head a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   </style>
@@ -40,23 +42,54 @@
     <article class="doc">
       <p class="lede">使用 <a href="./">Loon Box</a>（<a href="https://olivia-loon-box.pages.dev/">olivia-loon-box.pages.dev</a>）即表示你了解并同意下面这些约定。这是一个免费的个人项目，不是商业服务。</p>
 
+      <section class="sum" aria-label="要点">
+        <h2>要点</h2>
+        <ul>
+          <li>免费、按原样提供，不保证一直可用，也不保证适合你的用途。</li>
+          <li>安装插件前请自己看清它做什么，后果自己承担。</li>
+          <li>请合法、正常地使用，不要刷接口、绕过验证或干扰别人用。</li>
+          <li>登录是可选的，数据怎么处理见 <a href="./privacy.html">隐私政策</a>。</li>
+        </ul>
+      </section>
+
       <h2>这个网站提供什么</h2>
-      <p>Loon Box 提供 Loon 插件的链接，以及在浏览器里一键安装到 Loon 的入口。插件文件放在本仓库的 <code>plugin/</code> 目录，页面只负责列出它们并唤起 Loon。不登录也可以浏览和安装。</p>
+      <p>Loon Box 提供 Loon 插件的链接，以及在浏览器里一键安装到 Loon 的入口。插件文件放在本仓库的 <code>plugin/</code> 目录，页面只负责列出它们并唤起 Loon。不登录也可以浏览和安装。这是个人维护的项目，不提供技术支持，也不承诺回复或修复每一个问题。</p>
 
       <h2>插件按原样提供</h2>
-      <p>插件和这个网站按原样提供，没有任何明示或暗示的保证，包括适销性、对特定用途的适用性，以及不侵权。插件可能失效、过时，或和你的 Loon 版本、系统地区、网络环境不匹配。因安装或使用这些插件造成的结果，由你自己承担。</p>
+      <p>插件和这个网站按原样提供，没有任何明示或暗示的保证，包括适销性、对特定用途的适用性，以及不侵权。插件可能失效、过时，或和你的 Loon 版本、系统地区、网络环境不匹配。</p>
+      <p>有些插件会用到 MITM 或脚本，能读取、修改经过 Loon 的网络请求，也可能需要你安装并信任证书。安装前请看一下插件的说明和源码，确认它做什么、改哪些域名。不需要的就不要装，用过之后不想留着，也请在 Loon 里及时删掉。因安装或使用这些插件造成的结果，由你自己承担。</p>
 
       <h2>你的责任</h2>
       <p>你需要合法使用本网站和插件，并自行遵守所在地法律，以及插件所连接的第三方服务的条款。这些服务包括但不限于 Loon、Apple、Meta、Google、GitHub，以及各个插件规则里写到的网站。本项目不代表这些服务，也不能代替它们的许可。</p>
 
+      <h2>合理使用</h2>
+      <p>请不要做下面这些事：</p>
+      <ul>
+        <li>用脚本批量请求站点接口，或反复点「安装」来刷安装次数。</li>
+        <li>绕过、干扰人机验证和登录，或试图读取其他人的收藏和设置。</li>
+        <li>扫描、攻击本站，或影响其他人正常使用。</li>
+        <li>把本站和插件用于违法用途，或用来侵害他人权益。</li>
+      </ul>
+      <p>发现这类行为时，维护者可以限制相应的访问，不必事先通知。</p>
+
       <h2>登录是可选的</h2>
-      <p>可以用 GitHub 或 Google 登录，也可以不登录。登录只用于在多台设备之间同步收藏和界面偏好。不登录时，这些数据只留在当前浏览器。登录会读取的资料、保存的位置，以及如何退出，写在 <a href="./privacy.html">隐私政策</a> 里。</p>
+      <p>可以用 GitHub 或 Google 登录，也可以不登录。登录只用于在多台设备之间同步收藏和界面偏好。不登录时，这些数据只留在当前浏览器。登录会读取的资料、保存的位置，以及如何退出和删除，写在 <a href="./privacy.html">隐私政策</a> 里。你需要自己保管好所用账号，账号被盗用或被他人使用造成的后果，本项目不负责。</p>
 
-      <h2>可用性</h2>
-      <p>不保证网站、插件链接或一键安装随时可用。托管、人机验证或上游服务中断时，页面或安装可能失败。维护者可以随时修改、下线某个插件，或停止整个网站，不必事先通知。</p>
+      <h2>第三方服务和链接</h2>
+      <p>页面里可能出现指向 GitHub、插件作者或其他网站的链接，以及插件清单里引用的图标。这些内容由各自的所有者提供，本项目不控制，也不对其内容、可用性和隐私做法负责。</p>
 
-      <h2>版权</h2>
-      <p>除仓库 <a href="https://github.com/OliviaR13/MyLoon/blob/main/LICENSE">LICENSE</a> 里单独标明的第三方内容外，本仓库版权归 soobsessed 所有，保留所有权利。未经书面许可，不得复制、修改或用于商业服务。<code>script/spotify/</code> 下的文件来自其他作者，仍适用其原来的 MIT 许可。</p>
+      <h2>可用性和变更</h2>
+      <p>不保证网站、插件链接或一键安装随时可用。托管、人机验证或上游服务中断时，页面或安装可能失败。维护者可以随时修改、下线某个插件，或停止整个网站，不必事先通知。云端同步同样不保证数据永远在，重要的内容请自己留一份。</p>
+
+      <h2>责任限制</h2>
+      <p>在法律允许的范围内，维护者不对因使用或无法使用本网站和插件而产生的任何损失负责，包括但不限于账号被第三方服务限制、数据丢失、流量费用、设备或网络问题，以及间接损失。如果所在地的法律不允许排除某项责任，则只在法律要求的最小范围内承担。</p>
+
+      <h2>版权和商标</h2>
+      <p>除仓库 <a href="https://github.com/OliviaR13/MyLoon/blob/main/LICENSE">LICENSE</a> 里单独标明的第三方内容外，本仓库版权归 soobsessed 所有，保留所有权利。未经书面许可，不得复制、修改、发布、分发、转授权、出售，或用于商业服务。<code>script/spotify/</code> 下的文件来自其他作者，仍适用其原来的 MIT 许可。</p>
+      <p>Loon、Apple、Meta、Google、GitHub 等名称和商标归各自所有者，这里提到它们只是为了说明插件的用途，不代表与这些公司有任何关联或获得其认可。</p>
+
+      <h2>条款变更</h2>
+      <p>这份条款会随功能一起更新。有改动时，页头和文末的「最后更新」日期会跟着变。继续使用本网站，就表示你接受更新后的内容。</p>
 
       <h2>联系</h2>
       <p>问题请开一个 <a href="https://github.com/OliviaR13/MyLoon/issues">GitHub issue</a>。数据处理见 <a href="./privacy.html">隐私政策</a>。</p>
