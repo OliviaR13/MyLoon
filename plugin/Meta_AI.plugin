@@ -1,30 +1,22 @@
-#!name = Meta AI Muse 自选节点
-#!desc = 将 Meta AI / Muse、Meta 账号登录及相关 CDN 请求统一交给 PROXY 策略，并仅对这些域名拦截 QUIC，避免 UDP/QUIC 绕过代理。PROXY 使用你在 Loon 中为插件映射的策略组；实际出口地区由节点出口 IP 及 Meta 的 IP 地理库决定。本插件不能伪装或修改出口 IP 的地理位置。
+#!name = Meta AI / Muse / Instagram 自选节点
+#!desc = 将 Meta AI、Muse、Meta / Instagram 登录认证及关联 CDN 流量统一交给 PROXY 策略。PROXY 需在 Loon 插件映射中指定策略组；登录地理位置由 Meta 识别到的实际出口 IP 决定。
 #!tag = 代理分流
 #!author = OliviaR13
-#!version = 1.2.0
+#!version = 1.3.0
 #!date = 2026-11-18
-#!homepage = https://www.github.com/OliviaR13
+#!homepage = https://github.com/OliviaR13/MyLoon
 #!icon = https://www.google.com/s2/favicons?sz=128&domain=meta.ai
 
 [Rule]
-# 仅拦截 Meta 相关域名的 QUIC，促使客户端回落到 TCP；不影响其他应用的 QUIC
-AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,muse.ai)),REJECT
-AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,metaaivm.com)),REJECT
+# Meta / Instagram 相关 QUIC 回落；只匹配 Meta 域名，不影响其他应用
 AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,meta.ai)),REJECT
 AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,meta.com)),REJECT
-AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,atmeta.com)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,muse.ai)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,metaaivm.com)),REJECT
 AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,metaaiusercontent.com)),REJECT
-AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,ecto1usercontent.com)),REJECT
-AND,((PROTOCOL,QUIC),(DOMAIN,hatch.ecto1.ai)),REJECT
-AND,((PROTOCOL,QUIC),(DOMAIN,node.hatch.one)),REJECT
-AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,customer.prod.willow606.com)),REJECT
-AND,((PROTOCOL,QUIC),(DOMAIN,meta-agents-apps.workers.dev)),REJECT
-AND,((PROTOCOL,QUIC),(DOMAIN,meta-ohttp-relay-prod.fastly-edge.com)),REJECT
-AND,((PROTOCOL,QUIC),(DOMAIN,meta-ohttp-relay-dev.fastly-edge.com)),REJECT
-AND,((PROTOCOL,QUIC),(DOMAIN,meta-ohttp-config-prod.fastly-edge.com)),REJECT
-AND,((PROTOCOL,QUIC),(DOMAIN,meta.privacy-gateway.cloudflare.com)),REJECT
-AND,((PROTOCOL,QUIC),(DOMAIN,meta.hpke-keys.privacy-gateway.cloudflare.com)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,atmeta.com)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,llama.com)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,llamameta.net)),REJECT
 AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,facebook.com)),REJECT
 AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,facebook.net)),REJECT
 AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,fb.com)),REJECT
@@ -33,39 +25,56 @@ AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,fbsbx.com)),REJECT
 AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,fbcdn.net)),REJECT
 AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,instagram.com)),REJECT
 AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,cdninstagram.com)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,igcdn.com)),REJECT
+AND,((PROTOCOL,QUIC),(DOMAIN-SUFFIX,ig.me)),REJECT
 
-# Meta AI / Muse 服务本体
+# Meta AI / Llama 官方服务入口
+DOMAIN,ai.developer.meta.com,PROXY
+DOMAIN,ai.meta.com,PROXY
+DOMAIN,aidemos.meta.com,PROXY
+DOMAIN,developer.meta.com,PROXY
+DOMAIN,llama.developer.meta.com,PROXY
+DOMAIN,imagine.meta.com,PROXY
 DOMAIN-SUFFIX,meta.ai,PROXY
-DOMAIN-SUFFIX,muse.ai,PROXY
-DOMAIN-SUFFIX,metaaivm.com,PROXY
-
-# Meta 账号、身份验证与用户内容
 DOMAIN-SUFFIX,meta.com,PROXY
 DOMAIN-SUFFIX,atmeta.com,PROXY
+DOMAIN-SUFFIX,llama.com,PROXY
+DOMAIN-SUFFIX,llamameta.net,PROXY
 DOMAIN-SUFFIX,metaaiusercontent.com,PROXY
-DOMAIN-SUFFIX,ecto1usercontent.com,PROXY
+DOMAIN-SUFFIX,metaaivm.com,PROXY
+DOMAIN-SUFFIX,muse.ai,PROXY
 
-# Muse Hatch 网关、工作节点
+# Muse / Meta AI 辅助服务与媒体资源
+DOMAIN-SUFFIX,ecto1usercontent.com,PROXY
 DOMAIN,hatch.ecto1.ai,PROXY
 DOMAIN,node.hatch.one,PROXY
 DOMAIN-SUFFIX,customer.prod.willow606.com,PROXY
 DOMAIN,meta-agents-apps.workers.dev,PROXY
-
-# Muse OHTTP / 隐私中继（只匹配实际使用的主机，不代理整个 Fastly / Cloudflare 父域）
 DOMAIN,meta-ohttp-relay-prod.fastly-edge.com,PROXY
 DOMAIN,meta-ohttp-relay-dev.fastly-edge.com,PROXY
 DOMAIN,meta-ohttp-config-prod.fastly-edge.com,PROXY
 DOMAIN,meta.privacy-gateway.cloudflare.com,PROXY
 DOMAIN,meta.hpke-keys.privacy-gateway.cloudflare.com,PROXY
 
-# Facebook / Instagram 登录与账号关联
+# Meta / Facebook 登录、账户中心与认证
 DOMAIN-SUFFIX,facebook.com,PROXY
 DOMAIN-SUFFIX,facebook.net,PROXY
 DOMAIN-SUFFIX,fb.com,PROXY
 DOMAIN-SUFFIX,fb.me,PROXY
 DOMAIN-SUFFIX,fbsbx.com,PROXY
-DOMAIN-SUFFIX,instagram.com,PROXY
+DOMAIN-SUFFIX,accountkit.com,PROXY
+DOMAIN,connect.facebook.net,PROXY
+DOMAIN,graph.facebook.com,PROXY
 
-# 图片、视频与静态资源 CDN
-DOMAIN-SUFFIX,fbcdn.net,PROXY
+# Instagram 登录、会话、Graph API 与账户关联
+DOMAIN-SUFFIX,instagram.com,PROXY
 DOMAIN-SUFFIX,cdninstagram.com,PROXY
+DOMAIN-SUFFIX,igcdn.com,PROXY
+DOMAIN-SUFFIX,ig.me,PROXY
+DOMAIN,graph.instagram.com,PROXY
+DOMAIN,graph-fallback.instagram.com,PROXY
+DOMAIN,gateway.instagram.com,PROXY
+DOMAIN,i.instagram.com,PROXY
+
+# Meta / Instagram 图片、视频及静态 CDN
+DOMAIN-SUFFIX,fbcdn.net,PROXY
