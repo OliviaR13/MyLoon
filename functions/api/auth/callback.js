@@ -1,16 +1,25 @@
-// GET /api/auth/callback：GitHub 授权后回调，换取用户身份并下发登录 Cookie
+// GET /api/auth/callback：GitHub 授权后回调，换取用户身份并下发登录 Cookie。
 // GitHub 的访问令牌只用来读一次用户名，不保存。
-import { SESSION_TTL, cookie, getCookie, seal } from "../../_lib/auth.js";
+// 带了有效的 mlb_link 时，把这个 GitHub 账号绑到当前会话，不更换账号 ID。
+import { SESSION_TTL, clearCookie, cookie, getCookie, getSession, seal } from "../../_lib/auth.js";
+import { githubProfile, issueConflictToken, linkAccount, loginAccount, readLinkIntent, sessionAccountId, sessionPayload } from "../../_lib/accounts.js";
 
 export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  const clearState = cookie("mlb_state", "", { maxAge: 0, path: "/api/auth" });
-  const fail = (reason) => new Response(null, { status: 302, headers: { Location: "/?login_error=" + reason, "Set-Cookie": clearState } });
+  const fail = (reason) => {
+    const headers = new Headers({ Location: "/?login_error=" + reason, "cache-control": "no-store" });
+    headers.append("Set-Cookie", clearCookie("mlb_state", "/api/auth"));
+    headers.append("Set-Cookie", clearCookie("mlb_link", "/api/auth"));
+    return new Response(null, { status: 302, headers });
+  };
 
   if (!env.GITHUB_CLIENT_ID || !env.GITHUB_CLIENT_SECRET || !env.SESSION_SECRET) return fail("config");
   if (!code || !state || state !== getCookie(request, "mlb_state")) return fail("state");
+
+  const link = await readLinkIntent(request, env);
+  if (link.present && !link.valid) return fail("link_state");
 
   let accessToken;
   try {
@@ -38,13 +47,44 @@ export async function onRequestGet({ request, env }) {
     return fail("user");
   }
 
-  // 可选：ALLOWED_USERS 为空则任何 GitHub 账号都可登录
   const allowed = (env.ALLOWED_USERS || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
   if (allowed.length && !allowed.includes(String(user.login).toLowerCase())) return fail("denied");
 
-  const session = await seal({ id: user.id, login: user.login, exp: Math.floor(Date.now() / 1000) + SESSION_TTL }, env.SESSION_SECRET);
+  const profile = githubProfile(user);
+  if (!profile) return fail("user");
+
+  if (link.present) {
+    const session = await getSession(request, env);
+    if (!session || sessionAccountId(session) !== link.accountId) return fail("link_state");
+    try {
+      await linkAccount(env, session, profile);
+    } catch (err) {
+      if (err?.code === "conflict") {
+        let token = "";
+        try { token = await issueConflictToken(env, session, profile); } catch { token = ""; }
+        const pending = token ? "&pending=" + encodeURIComponent(token) : "";
+        return fail("link_conflict&provider=github" + pending);
+      }
+      if (err?.code === "already_linked") return fail("already_linked&provider=github");
+      if (err?.code === "accounts_not_configured") return fail("accounts_config");
+      return fail("storage");
+    }
+    const headers = new Headers({ Location: "/?login=linked_github", "cache-control": "no-store" });
+    headers.append("Set-Cookie", clearCookie("mlb_state", "/api/auth"));
+    headers.append("Set-Cookie", clearCookie("mlb_link", "/api/auth"));
+    return new Response(null, { status: 302, headers });
+  }
+
+  let accountId;
+  try {
+    accountId = await loginAccount(env, profile);
+  } catch {
+    return fail("storage");
+  }
+  const session = await seal(sessionPayload(accountId, profile), env.SESSION_SECRET);
   const headers = new Headers({ Location: "/", "cache-control": "no-store" });
-  headers.append("Set-Cookie", clearState);
+  headers.append("Set-Cookie", clearCookie("mlb_state", "/api/auth"));
+  headers.append("Set-Cookie", clearCookie("mlb_link", "/api/auth"));
   headers.append("Set-Cookie", cookie("mlb_session", session, { maxAge: SESSION_TTL }));
   return new Response(null, { status: 302, headers });
 }

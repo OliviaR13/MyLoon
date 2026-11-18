@@ -44,3 +44,47 @@ CREATE TABLE IF NOT EXISTS user_meta (
   uid        TEXT PRIMARY KEY,
   updated_at INTEGER
 );
+
+-- ============================================================================
+-- 账号与登录方式（同一个 D1）。函数第一次用到时会自动建表，这里供手动执行。
+-- 不需要搬迁收藏和设置：老用户的账号 ID 就是原来的会话 ID。
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS accounts (
+  id         TEXT PRIMARY KEY,
+  created_at INTEGER NOT NULL
+);
+
+-- kind：github / google。subject：GitHub 数字 ID，或 Google 的 sub。一个账号每种方式只保留一条。
+CREATE TABLE IF NOT EXISTS identities (
+  kind       TEXT    NOT NULL,
+  subject    TEXT    NOT NULL,
+  account_id TEXT    NOT NULL,
+  label      TEXT    NOT NULL DEFAULT '',
+  name       TEXT    NOT NULL DEFAULT '',
+  email      TEXT    NOT NULL DEFAULT '',
+  picture    TEXT    NOT NULL DEFAULT '',
+  linked_at  INTEGER NOT NULL,
+  PRIMARY KEY (kind, subject)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS identities_one_kind ON identities (account_id, kind);
+
+-- 绑定冲突时的一次性确认，大约 5 分钟。确认或过期之后就没有用了。
+CREATE TABLE IF NOT EXISTS pending_conflicts (
+  jti              TEXT PRIMARY KEY,
+  account_id       TEXT    NOT NULL,
+  other_account_id TEXT    NOT NULL,
+  kind             TEXT    NOT NULL,
+  subject          TEXT    NOT NULL,
+  label            TEXT    NOT NULL DEFAULT '',
+  name             TEXT    NOT NULL DEFAULT '',
+  email            TEXT    NOT NULL DEFAULT '',
+  picture          TEXT    NOT NULL DEFAULT '',
+  exp              INTEGER NOT NULL
+);
+
+-- 确认注销过的账号。旧会话 Cookie 碰到这里就失效，避免继续读到已删除的数据。
+CREATE TABLE IF NOT EXISTS deleted_accounts (
+  id         TEXT PRIMARY KEY,
+  deleted_at INTEGER NOT NULL
+);

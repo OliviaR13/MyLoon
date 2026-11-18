@@ -43,6 +43,10 @@ export function initAccount() {
   let syncing = false;
   let passkeyEnabled = false;
   let passkeyAbort = null;
+  let googleEnabled = false;
+  let accountsConfigured = false;
+  let linked = [];
+  let passkeyCreds = [];
 
   const setHint = (on) => (on ? lsSet(LOGIN_HINT_KEY, "1") : lsRemove(LOGIN_HINT_KEY));
   const ownMaster = () => lsGet(SYNC_KEYS.master) !== "0";
@@ -107,8 +111,8 @@ export function initAccount() {
     $id("googleRow").hidden = !!user;
     const passkeyRow = $id("passkeyRow");
     if (passkeyRow) passkeyRow.hidden = !!user;
-    const passkeySection = $id("passkeySection");
-    if (passkeySection) passkeySection.hidden = !user || !passkeyEnabled;
+    const manage = $id("accountManage");
+    if (manage) manage.hidden = !user;
     $id("accountRow").hidden = !user;
     const head = $id("headAcct");
     if (head) head.hidden = !user;
@@ -410,9 +414,11 @@ export function initAccount() {
             : "当前浏览器不支持通行密钥";
       }
       const list = $id("passkeyList");
+      passkeyCreds = data.credentials || [];
       if (list) {
         list.replaceChildren();
-        const creds = data.credentials || [];
+        const creds = passkeyCreds;
+        const last = linked.length + creds.length <= 1;
         if (!creds.length) {
           const empty = document.createElement("div");
           empty.className = "row";
@@ -434,17 +440,19 @@ export function initAccount() {
           const remove = document.createElement("button");
           remove.className = "btn btn-ghost";
           remove.type = "button";
-          remove.textContent = "移除";
+          remove.textContent = "解绑";
+          remove.disabled = !!user && last;
           remove.addEventListener("click", async () => {
             remove.disabled = true;
             try {
               const del = await fetch("/api/auth/passkey/" + encodeURIComponent(c.id), { method: "DELETE", credentials: "same-origin", headers: { accept: "application/json" } });
-              if (!del.ok) throw new Error();
-              toast("已移除这把通行密钥");
-              await refreshPasskeys();
-            } catch {
+              const body = await del.json().catch(() => ({}));
+              if (!del.ok) throw new Error(body.message || "");
+              toast("已解绑这把通行密钥");
+              await refreshAccounts();
+            } catch (err) {
               remove.disabled = false;
-              toast("移除失败，请重试");
+              toast(err.message || "解绑失败，请重试");
             }
           });
           row.append(text, remove);
@@ -456,6 +464,8 @@ export function initAccount() {
       if (btn) btn.disabled = true;
       if (sub) sub.textContent = "暂时无法连接登录服务，不影响浏览和安装";
     }
+    paintLinkRow("github", $id("linkGithubSub"), $id("linkGithubBtn"));
+    paintLinkRow("google", $id("linkGoogleSub"), $id("linkGoogleBtn"));
     renderAccount();
     if (!user && passkeyEnabled) startConditional();
   }
@@ -463,6 +473,7 @@ export function initAccount() {
   async function afterPasskeyLogin() {
     passkeyAbort?.abort();
     await pullSession();
+    await refreshAccounts();
     toast("已使用通行密钥登录");
   }
 
@@ -518,6 +529,7 @@ export function initAccount() {
       if (!res.ok) throw new Error("HTTP " + res.status);
       const data = await res.json();
       const on = data.enabled === true;
+      googleEnabled = on;
       btn.disabled = !on;
       sub.textContent = on
         ? "使用 Google 账号登录，收藏和设置可以在多台设备间同步"
@@ -540,6 +552,8 @@ export function initAccount() {
       return;
     }
     user = null;
+    linked = [];
+    accountsConfigured = false;
     dirty = false;
     settingsDirty.look = settingsDirty.cards = settingsDirty.panel = false;
     lastSyncAt = 0;
@@ -555,7 +569,10 @@ export function initAccount() {
     const err = q.get("login_error");
     const logged = q.get("login");
     if (err || logged) {
-      if (err) {
+      const pending = q.get("pending");
+      if (err === "link_conflict" && pending) {
+        openConflict(q.get("provider") === "google" ? "google" : "github", pending);
+      } else if (err) {
         const msg = {
           denied: "这个 GitHub 账号没有登录权限",
           state: "登录已过期，请重试",
@@ -565,10 +582,19 @@ export function initAccount() {
           google_denied: "已取消 Google 登录",
           google_exchange: "无法完成 Google 登录，请重试",
           google_verify: "Google 身份校验没有通过，请重试",
+          link_state: "绑定已过期，请重试",
+          accounts_config: "需要绑定 D1 或 KV 才能管理登录方式",
+          storage: "暂时无法保存登录方式，请重试",
+          link_conflict: q.get("provider") === "google" ? "该 Google 账号已绑定其他账号" : "该 GitHub 账号已绑定其他账号",
+          already_linked: q.get("provider") === "google" ? "这个账号已经绑定了 Google" : "这个账号已经绑定了 GitHub",
         }[err] || (String(err).startsWith("google") ? "Google 登录失败，请重试" : "GitHub 登录失败，请重试");
         toast(msg);
       } else if (logged === "google") {
         toast("已使用 Google 账号登录");
+      } else if (logged === "linked_google") {
+        toast("已绑定 Google 账号");
+      } else if (logged === "linked_github") {
+        toast("已绑定 GitHub 账号");
       }
       history.replaceState(null, "", location.pathname);
     }
@@ -592,7 +618,113 @@ export function initAccount() {
     }
   }
 
+  function openConflict(provider, token) {
+    const dialog = $id("conflictDialog");
+    const text = $id("conflictText");
+    const confirm = $id("conflictConfirm");
+    const cancel = $id("conflictCancel");
+    if (!dialog || !text || !confirm || !cancel || typeof dialog.showModal !== "function") {
+      toast(provider === "google" ? "该 Google 账号已绑定其他账号" : "该 GitHub 账号已绑定其他账号");
+      return;
+    }
+    const name = provider === "google" ? "Google" : "GitHub";
+    text.textContent = "该 " + name + " 账号已绑定另一个账号。是否注销那个账号，并把这个 " + name + " 登录转到当前账号？那个账号的同步数据会被永久删除。";
+    const close = () => { if (dialog.open) dialog.close(); };
+    cancel.onclick = close;
+    dialog.oncancel = (e) => { e.preventDefault(); close(); };
+    confirm.onclick = async () => {
+      confirm.disabled = true;
+      try {
+        const res = await fetch("/api/account/conflict", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { accept: "application/json", "content-type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.message || "这次确认已经失效，请重新绑定");
+        close();
+        toast("已注销另一个账号，并完成绑定");
+        await pullSession();
+        await refreshAccounts();
+      } catch (err) {
+        confirm.disabled = false;
+        toast(err.message || "这次确认已经失效，请重新绑定");
+      }
+    };
+    confirm.disabled = false;
+    dialog.showModal();
+  }
+
+  function paintLinkRow(kind, sub, btn) {
+    const row = linked.find((item) => item.kind === kind);
+    const last = linked.length + passkeyCreds.length <= 1;
+    if (!sub || !btn) return;
+    if (kind === "github") sub.textContent = row ? (row.login || "已绑定") : "未绑定";
+    else sub.textContent = row ? (row.email || row.name || "已绑定") : (googleEnabled ? "未绑定" : "尚未配置，不影响浏览和安装");
+    const unlink = !!row;
+    btn.textContent = unlink ? "解绑" : "绑定";
+    btn.dataset.mode = unlink ? "unlink" : "link";
+    btn.disabled = !accountsConfigured || (unlink ? last : kind === "google" && !googleEnabled);
+  }
+
+  async function refreshAccounts() {
+    const foot = $id("accountManageFoot");
+    if (!user) {
+      linked = [];
+      accountsConfigured = false;
+      await refreshPasskeys();
+      return;
+    }
+    try {
+      const res = await api("GET", "/api/account");
+      const data = await res.json();
+      if (!res.ok) throw new Error();
+      accountsConfigured = data.configured === true;
+      linked = data.identities || [];
+      if (foot) {
+        foot.textContent = accountsConfigured
+          ? "绑定后可以用其中任意一种方式登录，收藏和设置仍属于这个账号。已经绑在其他账号上的不会自动合并。"
+          : (data.message || "需要绑定 D1 或 KV 才能管理登录方式");
+      }
+    } catch {
+      accountsConfigured = false;
+      if (foot) foot.textContent = "暂时无法读取账号绑定，不影响浏览和安装";
+    }
+    paintLinkRow("github", $id("linkGithubSub"), $id("linkGithubBtn"));
+    paintLinkRow("google", $id("linkGoogleSub"), $id("linkGoogleBtn"));
+    await refreshPasskeys();
+  }
+
+  async function unlink(kind) {
+    const btn = $id(kind === "github" ? "linkGithubBtn" : "linkGoogleBtn");
+    if (btn) btn.disabled = true;
+    try {
+      const res = await fetch("/api/account/identities/" + kind, { method: "DELETE", credentials: "same-origin", headers: { accept: "application/json" } });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message || "解绑失败，请重试");
+      toast(kind === "google" ? "已解绑 Google" : "已解绑 GitHub");
+      await refreshAccounts();
+    } catch (err) {
+      toast(err.message || "解绑失败，请重试");
+      await refreshAccounts();
+    }
+  }
+
+  $id("linkGithubBtn")?.addEventListener("click", () => {
+    const btn = $id("linkGithubBtn");
+    if (!btn || btn.disabled) return;
+    if (btn.dataset.mode === "unlink") { unlink("github"); return; }
+    location.assign("/api/auth/login?intent=link");
+  });
+  $id("linkGoogleBtn")?.addEventListener("click", () => {
+    const btn = $id("linkGoogleBtn");
+    if (!btn || btn.disabled) return;
+    if (btn.dataset.mode === "unlink") { unlink("google"); return; }
+    location.assign("/api/auth/google?intent=link");
+  });
+
   refreshSeen();
   loadGoogle();
-  initSession().finally(() => refreshPasskeys());
+  initSession().finally(() => refreshAccounts());
 }

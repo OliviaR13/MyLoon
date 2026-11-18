@@ -1,4 +1,5 @@
 // 登录相关的公共函数：签名 Cookie、会话读取、JSON 响应
+import { isAccountDeleted } from "./account-tomb.js";
 const enc = new TextEncoder();
 const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64 = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
@@ -52,9 +53,14 @@ export const json = (body, status = 200, headers = {}) =>
     headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...headers },
   });
 
-// 当前登录用户：{ id, login } 或 null
-export const getSession = (request, env) =>
-  env.SESSION_SECRET ? unseal(getCookie(request, "mlb_session"), env.SESSION_SECRET) : Promise.resolve(null);
+// 当前登录用户：{ id, login } 或 null。被注销的账号不再算登录。
+export async function getSession(request, env) {
+  if (!env?.SESSION_SECRET) return null;
+  const user = await unseal(getCookie(request, "mlb_session"), env.SESSION_SECRET);
+  if (!user || user.id == null) return null;
+  if (await isAccountDeleted(env, String(user.id))) return null;
+  return user;
+}
 
 // 写操作要求同源，配合 SameSite=Lax 防止跨站请求
 export const sameOrigin = (request) => {

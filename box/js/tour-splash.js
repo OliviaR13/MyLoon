@@ -65,7 +65,7 @@ export const tour = (() => {
     const box = el("div", "tour-compare");
     [
       ["未登录", "收藏与设置仅保存在当前设备的浏览器中。"],
-      ["登录账号（可选）", "可用 GitHub、Google 或通行密钥登录。收藏及已开启同步的设置将随该账号保存，可在多台设备间共用。"],
+      ["登录账号（可选）", "可用 GitHub、Google 或通行密钥登录同一个账号。收藏及已开启同步的设置随这个账号保存，可在多台设备间共用。"],
     ].forEach(([t, text]) => {
       const c = el("div", "tour-compare-col");
       c.append(el("strong", "", t), el("span", "", text));

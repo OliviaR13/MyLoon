@@ -137,6 +137,7 @@ https://raw.githubusercontent.com/OliviaR13/MyLoon/main/plugin/<文件名>.plugi
 - 未登录时，收藏与偏好仅保存在本机浏览器。
 - 登录可以通过 GitHub 或 Google，两者都只读取公开资料（用户名、头像），不保存访问令牌；登录状态为 30 天有效的签名 Cookie。
 - 已登录后可以在设置里添加通行密钥，再用通行密钥登录同一个账号。
+- 同一个账号可以绑定 GitHub、Google 和通行密钥，原来的收藏和设置仍留在原来的账号 ID 下。
 - 完整说明见 [隐私政策](https://olivia-loon-box.pages.dev/privacy.html)、[使用条款](https://olivia-loon-box.pages.dev/terms.html)。
 - 登录后，收藏与已开启同步的偏好按账号 ID 存于 Cloudflare D1（没绑定 D1 时退回 KV），用于多设备同步。
 - 人机验证由 Cloudflare Turnstile 提供。
