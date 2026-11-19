@@ -132,4 +132,9 @@ button,a,.tab,.tile,.row-btn,.chip-filter,.star{-webkit-touch-callout:none;-webk
 .notice{padding:28px 18px;text-align:center;color:var(--muted)}
 .notice h2{color:var(--text);font-size:16px;margin-bottom:4px}
 .notice .btn{margin-top:12px}
-.foot{text-align:center;color:var(--muted);font-size:12.5px;margin-top:28px}
+.foot{margin-top:32px;padding:16px 16px 14px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card);text-align:start}
+.foot-brand{margin:0 0 10px;color:var(--text);font-size:13.5px;font-weight:650;letter-spacing:-.02em}
+.foot-nav{display:flex;flex-wrap:wrap;gap:8px 16px}
+.foot-nav a{padding:6px 0;color:var(--muted);font-size:12.5px;font-weight:600;line-height:1.4;text-decoration:none}
+@media (hover:hover){.foot-nav a:hover{color:var(--accent-text)}}
+.foot-nav a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
