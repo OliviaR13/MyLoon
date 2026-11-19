@@ -113,3 +113,13 @@ test("PUT：旧客户端（只有 favorites）仍能取消收藏", async () => {
   const { data } = await (await onRequestGet({ request: await req("GET"), env })).json();
   assert.deepEqual(data.favorites, ["a"]);
 });
+
+test("PUT（KV）：存储读写抛错时返回 storage_error，不泄露细节", async () => {
+  const bad = { get: async () => { throw new Error("kv secret detail"); }, put: async () => { throw new Error("kv secret detail"); } };
+  const env = { SESSION_SECRET: SECRET, MLB_KV: bad };
+  const res = await onRequestPut({ request: await req("PUT", { favMeta: { a: [Date.now(), 1] } }), env });
+  assert.equal(res.status, 500);
+  const text = await res.text();
+  assert.equal(JSON.parse(text).error, "storage_error");
+  assert.equal(text.includes("secret"), false);
+});
