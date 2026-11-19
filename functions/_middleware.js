@@ -16,6 +16,7 @@
 // 改主站的设计变量时，这里的 :root 也要跟着改。
 
 import { LOGO } from "./_lib/wechat-logo.js";
+import { applySecurityHeaders } from "./_lib/security-headers.js";
 
 const WECHAT = /MicroMessenger/i;
 const PASS_PREFIXES = ["/fonts/"];
@@ -246,7 +247,7 @@ main{animation:rise .5s var(--out-expo) backwards}
 </html>`;
 }
 
-export async function onRequest({ request, next }) {
+async function dispatch({ request, next }) {
   const { pathname } = new URL(request.url);
   if (PASS_PREFIXES.some((p) => pathname.startsWith(p))) return next();
   if (request.method !== "GET" && request.method !== "HEAD") return next();
@@ -263,4 +264,8 @@ export async function onRequest({ request, next }) {
       "x-robots-tag": "noindex",
     },
   });
+}
+
+export async function onRequest(ctx) {
+  return applySecurityHeaders(await dispatch(ctx), ctx.request);
 }
