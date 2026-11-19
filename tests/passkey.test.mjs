@@ -432,3 +432,19 @@ test("超过 8 把通行密钥时拒绝再添加", async () => {
   }
   await assert.rejects(() => putCredential(kv, { ...profile, credentialId: "k9", coseKey: "AA", alg: -7, signCount: 0, createdAt: 9 }), (err) => err.code === "too_many");
 });
+
+test("已有 8 把通行密钥时，注册选项直接返回 too_many，不再弹出验证", async () => {
+  const kv = memoryKv();
+  const env = envWith(kv);
+  const profile = { userId: "5", provider: "github", login: "dog", name: "", email: "", picture: "" };
+  for (let i = 0; i < 8; i++) {
+    await putCredential(kv, { ...profile, credentialId: "d" + i, coseKey: b64urlEncode(new Uint8Array([1])), alg: -7, signCount: 0, createdAt: i + 1 });
+  }
+  const cookie = await sessionCookie({ id: 5, login: "dog" });
+  const res = await registerOptions({
+    request: post(ORIGIN + "/api/auth/passkey/register/options", {}, cookie),
+    env,
+  });
+  assert.equal(res.status, 409);
+  assert.equal((await res.json()).error, "too_many");
+});

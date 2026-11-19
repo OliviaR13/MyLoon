@@ -602,3 +602,16 @@ serial("没有 D1 时用已有的 KV 保存绑定；两个都没有时登录仍�
   assert.match(denied.headers.get("Location"), /login_error=accounts_config$/);
   assert.equal(cookieValue(denied, "mlb_session"), "");
 });
+
+serial("GitHub 登录没配置时回到首页提示，不返回纯文本 500", async () => {
+  const { onRequestGet: loginStart } = await import("../functions/api/auth/login.js");
+  const res = await loginStart({ request: new Request(ORIGIN + "/api/auth/login"), env: {} });
+  assert.equal(res.status, 302);
+  assert.match(res.headers.get("Location"), /login_error=config$/);
+});
+
+serial("GitHub 登录成功后带上 login=github，前端据此提示", async () => {
+  const env = envWith({ MLB_DB: fakeD1() });
+  const res = await githubCallback(env, "", 77, "zed");
+  assert.match(res.headers.get("Location"), /^\/\?login=github$/);
+});
