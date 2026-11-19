@@ -8,9 +8,11 @@
 // 否则字体请求也会收到这页 403，拦截页自己的字体就加载不出来。图标是内嵌的（见 _lib/wechat-logo.js），不需要放行。
 //
 // 样式：和主站（box/style.css）用同一套设计语言——同样的色板 / 圆角 / 字体 / 背景光晕和颗粒、
-// 同样的头部（图标 + 标题）、同样的「一个容器、行与行之间细线分隔」的列表、同样的按钮和标签，
-// 以及同一套动效：背景光晕淡入 → 图标弹出 → 标题 → 列表浮上来 → 各行依次浮上来，
-// 按钮按下的弹簧回弹，点完「复制链接」按钮自己变成「已复制」（主站「按钮自己当确认」的同款）。
+// 同样的「一个容器、行与行之间细线分隔」的列表、同样的主按钮和页脚卡片。
+// 版式参考了常见的微信引导页：右上角一支大箭头直接指向微信的「···」，配一句大字说明；
+// 下面是两步操作（每步右边配对应的界面小样），最后是「复制链接」退路。
+// 动效只有一处：箭头进场时沿路径画出来，之后隔几秒朝角落轻推一下；减少动效时全部关掉。
+// 点完「复制链接」按钮自己变成「已复制」（主站「按钮自己当确认」的同款）。
 // 改主站的设计变量时，这里的 :root 也要跟着改。
 
 import { LOGO } from "./_lib/wechat-logo.js";
@@ -21,7 +23,7 @@ const PASS_PREFIXES = ["/fonts/"];
 // 按系统给出对应的菜单文案；识别不出来时用通用说法
 const GUIDES = {
   ios: { menu: "…", open: "在 Safari 中打开" },
-  android: { menu: "⋮", open: "在浏览器打开" },
+  android: { menu: "⋮", open: "在浏览器中打开" },
   other: { menu: "…", open: "在默认浏览器中打开" },
 };
 
@@ -29,6 +31,14 @@ function detectPlatform(ua) {
   if (/iPhone|iPad|iPod/i.test(ua)) return "ios";
   if (/Android/i.test(ua)) return "android";
   return "other";
+}
+
+// 菜单按钮的三个点画成 SVG：「…」这个字符在不同字体里很小、位置也不稳，看不出是个按钮。
+// 竖排（⋮）对应安卓，其余横排；读屏读的是括号里的文字。
+function dots(menu, cls = "dots") {
+  const v = menu === "⋮";
+  const c = [0, 1, 2].map((i) => (v ? `<circle cx="2" cy="${2 + i * 5}" r="1.8"/>` : `<circle cx="${2 + i * 5}" cy="2" r="1.8"/>`)).join("");
+  return `<svg class="${cls}" viewBox="${v ? "0 0 4 14" : "0 0 14 4"}" width="${v ? 4 : 14}" height="${v ? 14 : 4}" fill="currentColor" aria-hidden="true">${c}</svg><span class="sr">${v ? "竖排三个点" : "三个点"}</span>`;
 }
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -51,134 +61,165 @@ function page({ menu, open }) {
   --bg:#f6f4ef;--card:#fdfcf9;--text:#1d1b17;--muted:#6a655a;--line:#e6e2d8;--chip:#efece4;
   --accent:#0f7f69;--accent-text:#0a6250;--accent-ink:#f7fbf9;--shadow:40 30 10;
   --glow:color-mix(in srgb,var(--accent) 16%,transparent);
+  /* 品牌渐变（站点图标同款），仅用于右上角箭头 */
+  --brand-a:#0f7f69;--brand-b:#3b6cf0;--brand:linear-gradient(135deg,var(--brand-a),var(--brand-b));
   --r-lg:16px;--r-md:10px;--r-sm:6px;
-  --ease:cubic-bezier(.2,.8,.2,1);--spring:cubic-bezier(.34,1.4,.64,1);
+  --ease:cubic-bezier(.2,.8,.2,1);--out-expo:cubic-bezier(.16,1,.3,1);
   --font:"Geist Sans",-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Noto Sans SC","Segoe UI",sans-serif;
+  --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
 }
 @media (prefers-color-scheme:dark){
   :root{--bg:#12110f;--card:#191815;--text:#efece5;--muted:#a39e92;--line:#2b2924;--chip:#23211d;
     --accent:#3fcfa6;--accent-text:#3fcfa6;--accent-ink:#04140e;--shadow:0 0 0;
-    --glow:color-mix(in srgb,var(--accent) 14%,transparent)}
+    --glow:color-mix(in srgb,var(--accent) 14%,transparent);
+    --brand-a:#3fcfa6;--brand-b:#6f95ff}
 }
 *,*::before,*::after{box-sizing:border-box}
-html{background:var(--bg);-webkit-text-size-adjust:100%;height:100%;overflow:hidden}
+html{background:var(--bg);-webkit-text-size-adjust:100%;height:100%;overflow:hidden;-webkit-tap-highlight-color:transparent}
+::selection{background:color-mix(in srgb,var(--accent) 24%,transparent);color:var(--text)}
 /* 页面本身不滚动，背景固定在视口里纹丝不动；需要滚动时只有里面的 .scroll 滚。
    之前是整个文档在滚：在微信里往下拉，文档整体被拉下去，露出微信自己的灰色底，
    文档的上边缘就成了一条线，背景也跟着内容一起动。现在文档不动，下拉只会让 .scroll 回弹。 */
 body{position:fixed;inset:0;margin:0;overflow:hidden;overscroll-behavior:none;
-  background:var(--bg);color:var(--text);font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
-/* 背景光晕 + 颗粒：和主站完全一致（光晕淡入，见下面的 intro-glow） */
+  background:var(--bg);color:var(--text);font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;caret-color:var(--accent)}
+/* 背景光晕 + 颗粒：和主站完全一致。光晕挪到右上角，和箭头指的方向一致 */
 body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
   background:
-    linear-gradient(var(--bg) 0,transparent 18%,transparent 82%,var(--bg) 100%),
-    radial-gradient(75% 46% at 50% 14%,var(--glow),transparent 72%),
-    radial-gradient(65% 40% at 85% 96%,color-mix(in srgb,var(--glow) 55%,transparent),transparent 70%);
-  animation:intro-glow 1.3s ease-out backwards}
+    radial-gradient(60% 34% at 92% 0%,var(--glow),transparent 72%),
+    radial-gradient(65% 40% at 10% 100%,color-mix(in srgb,var(--glow) 55%,transparent),transparent 70%)}
 body::before{content:"";position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.05;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
-.scroll{position:absolute;z-index:2;inset:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
-/* 顶部多留一截：右上角的提示药丸（指向微信的「···」）固定在那里，不能压到标题 */
-.shell{max-width:560px;margin:0 auto;padding:calc(56px + env(safe-area-inset-top)) 16px calc(36px + env(safe-area-inset-bottom))}
+.scroll{position:absolute;z-index:2;inset:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.shell{max-width:480px;margin:0 auto;padding:calc(132px + env(safe-area-inset-top)) 20px calc(32px + env(safe-area-inset-bottom))}
 h1,h2,p{margin:0}
+a{color:var(--accent-text);text-underline-offset:3px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.nw{white-space:nowrap}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
-/* 右上角提示：指向微信的菜单按钮，箭头轻轻点动 */
-.hint{z-index:3;position:fixed;top:calc(12px + env(safe-area-inset-top));right:14px;display:flex;align-items:center;gap:6px;
-  padding:7px 12px;border:1px solid var(--line);border-radius:999px;background:var(--card);
-  font-size:12.5px;font-weight:600;box-shadow:0 6px 20px rgb(var(--shadow) / .12);animation:hint-in .5s var(--spring) .15s both}
-.hint i{display:inline-block;font-style:normal;color:var(--accent-text);font-size:15px;line-height:1;animation:nudge 1.8s ease-in-out 1.1s infinite}
+/* 右上角的箭头：这一页唯一的「动作」。直接指向微信顶栏的菜单按钮（同类引导页最通行的做法），
+   进场时沿路径画出来，之后每隔几秒朝角落轻推一下 */
+.pointer{z-index:3;position:fixed;top:calc(6px + env(safe-area-inset-top));right:10px;display:flex;align-items:flex-end;gap:4px;pointer-events:none}
+.pointer-label{margin-bottom:8px;padding:6px 11px;border-radius:999px;background:var(--text);color:var(--bg);font-size:13px;font-weight:650;line-height:1.2;white-space:nowrap;
+  box-shadow:0 4px 12px -2px rgb(var(--shadow) / .25);animation:fade .4s var(--out-expo) .75s backwards}
+.pointer-label .dots{vertical-align:middle;margin:0 1px 0 3px}
+.arrow{width:76px;height:96px;overflow:visible;animation:nudge 2.6s var(--ease) 1.6s infinite}
+.arrow path{fill:none;stroke:url(#ag);stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round}
+.arrow .shaft{stroke-dasharray:140;stroke-dashoffset:0;animation:draw .8s var(--out-expo) .15s backwards}
+.arrow .head{animation:fade .25s ease-out .7s backwards}
 
-/* 头部：和主站一样，图标 + 两行标题 + 副标题 */
-.head{display:flex;align-items:center;gap:12px;margin-bottom:20px}
-.logo{border-radius:var(--r-md);flex:none;box-shadow:0 0 0 1px var(--line);animation:intro-pop .7s cubic-bezier(.34,1.3,.64,1) backwards}
-.head-text{flex:1;min-width:0;animation:intro-up .6s var(--ease) .08s backwards}
-.head h1{font-size:24px;line-height:1.05;font-weight:700;letter-spacing:-.03em}
-.h1-eyebrow{display:block;font-size:13px;font-weight:600;letter-spacing:0;color:var(--muted);margin-bottom:3px}
-.head p{color:var(--muted);font-size:13px;font-weight:500;margin-top:5px}
+/* 品牌行：缩成一行，让位给标题（拦截页的主角是「怎么打开」，不是品牌） */
+.brand{display:flex;align-items:center;gap:9px;margin-bottom:18px;font-size:13.5px;font-weight:650;letter-spacing:-.01em}
+.brand img{border-radius:8px;box-shadow:0 0 0 1px var(--line)}
+.brand span{color:var(--muted);font-weight:500}
+h1{font-size:28px;line-height:1.18;font-weight:700;letter-spacing:-.03em;text-wrap:balance}
+.lead{margin-top:8px;color:var(--muted);font-size:15px;line-height:1.6;text-wrap:pretty}
 
-/* 引导列表：一个容器，行与行之间用细线分隔（主站的 .list / .card） */
-.list{border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card);overflow:hidden;animation:intro-up .6s var(--ease) .2s backwards}
-.list>*+*,.steps>li+li{border-top:1px solid var(--line)}
-.row{display:flex;align-items:center;gap:12px 14px;padding:16px;animation:rise .34s var(--ease) both;animation-delay:calc(.3s + var(--i,0) * 60ms)}
-.row-hero{align-items:flex-start}
-.gicon{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:var(--r-md);background:var(--chip);color:var(--accent);box-shadow:0 0 0 1px var(--line)}
-.gicon svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.name{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
-h2{font-size:16px;line-height:1.35;font-weight:650;letter-spacing:-.01em}
-.chip{display:inline-block;font-size:11px;line-height:1;padding:4px 7px;border-radius:var(--r-sm);background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--accent-text);font-weight:600}
-.desc{margin-top:5px;color:var(--muted);font-size:13.5px;line-height:1.55}
+/* 步骤：主站的「一个容器、行与行之间细线分隔」的列表；每行右边配一个对应的界面小样 */
+.list{margin-top:24px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card);overflow:hidden}
+.list>*+*{border-top:1px solid var(--line)}
 .steps{margin:0;padding:0;list-style:none}
-.step{min-height:56px;padding-block:0;font-size:14px}
-.n{flex:none;display:grid;place-items:center;width:21px;height:21px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:11px;font-weight:700}
-.step b{font-weight:650}
+.steps>li+li{border-top:1px solid var(--line)}
+.step{display:grid;grid-template-columns:24px 1fr auto;align-items:center;gap:14px;padding:16px}
+.n{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--chip);color:var(--text);font-size:12.5px;font-weight:700;box-shadow:inset 0 0 0 1px var(--line)}
+.step-text{font-size:15px;line-height:1.45;font-weight:600}
+.step-text .dots{vertical-align:middle;margin:0 1px}
+/* 界面小样：微信顶栏的菜单胶囊；「在浏览器中打开」一项改用主站强调色（--accent / --accent-ink），与主按钮一致 */
+.ui-menu{display:grid;place-items:center;width:44px;height:30px;border-radius:999px;background:var(--chip);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
+.ui-open{display:grid;place-items:center;width:44px}
+.ui-open i{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:var(--accent);color:var(--accent-ink)}
+.ui-open svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 
-/* 按钮：主站的 .btn .btn-primary；点完按钮自己变成「已复制」（主站「按钮自己当确认」同款：
-   两段文字叠在同一格里，按钮大小不变，旧文字向上滑走、新文字从下面滑进来，按钮亮一点） */
-.btn{font:inherit;font-size:14.5px;font-weight:600;width:100%;padding:11px 14px;border:1px solid var(--accent);border-radius:var(--r-md);
+/* 复制链接：退路，放在步骤之后；地址框 + 主按钮（主站的 .btn-primary）。
+   按钮自己当确认（主站同款）：两段文字叠在同一格，旧文字上滑走、新文字从下面滑进来 */
+.copy{display:grid;gap:10px;padding:16px}
+.copy-title{font-size:13.5px;font-weight:500;color:var(--muted)}
+.url{display:block;padding:11px 12px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--bg);font:12.5px/1.4 var(--mono);color:var(--text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;-webkit-user-select:all;user-select:all}
+.btn{font:inherit;font-size:15px;font-weight:650;width:100%;min-height:46px;padding:12px 14px;border:0;border-radius:var(--r-md);
   background:var(--accent);color:var(--accent-ink);cursor:pointer;line-height:1.2;
+  box-shadow:0 1px 0 rgb(var(--shadow) / .08),0 4px 10px -4px rgb(var(--shadow) / .35);
   display:inline-grid;grid-template-areas:"s";align-items:center;justify-items:center;overflow:hidden;
-  transition:filter .15s,transform .35s var(--spring)}
+  transition:filter .15s,transform .3s var(--out-expo)}
 .btn:active{transform:scale(.97)}
-.btn>.lbl{grid-area:s;display:inline-flex;align-items:center;gap:6px;transition:transform .34s var(--ease),opacity .2s}
+@media (hover:hover){.btn:hover{filter:brightness(1.08)}}
+.btn>.lbl{grid-area:s;display:inline-flex;align-items:center;gap:7px;transition:transform .34s var(--ease),opacity .2s}
 .btn>.lbl-alt{transform:translateY(70%);opacity:0}
 .btn[data-done]>.lbl:not(.lbl-alt){transform:translateY(-70%);opacity:0}
 .btn[data-done]>.lbl-alt{transform:none;opacity:1;transition-delay:.04s}
 .btn[data-done]{filter:brightness(1.12)}
-.btn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
-.btn.fail svg{display:none}
-.foot{margin:20px 8px 0;text-align:center;color:var(--muted);font-size:12.5px;line-height:1.55;animation:intro-glow .5s ease-out .55s backwards}
+.btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.btn.fail .lbl-alt svg{display:none}
 
-@keyframes intro-up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
-@keyframes intro-pop{from{opacity:0;transform:scale(.86)}to{opacity:1;transform:none}}
-@keyframes intro-glow{from{opacity:0}to{opacity:1}}
-@keyframes rise{from{opacity:0;transform:translateY(8px)}}
-@keyframes hint-in{from{opacity:0;transform:translateY(-5px) scale(.96)}}
-@keyframes nudge{0%,60%,100%{transform:none}30%{transform:translate(2.5px,-2.5px)}}
-@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+/* 页脚：和主站其他页面同一套卡片样式（box/styles/base.css 的 .foot） */
+.foot{margin-top:14px;padding:16px 16px 14px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card)}
+.foot-brand{margin:0 0 6px;color:var(--text);font-size:13.5px;font-weight:650;letter-spacing:-.02em}
+.foot p{color:var(--muted);font-size:12.5px;line-height:1.55}
+
+main{animation:rise .5s var(--out-expo) backwards}
+/* 宽屏（桌面版微信）：箭头还是贴着右上角，内容再往下放一点 */
+@media (min-width:720px){.shell{padding-top:calc(120px + env(safe-area-inset-top))}}
+/* 窄屏（320 宽）：标题小一号，界面小样收窄 */
+@media (max-width:350px){h1{font-size:25px}.step{gap:12px;padding:14px}}
+
+@keyframes rise{from{opacity:0;transform:translateY(10px)}}
+@keyframes fade{from{opacity:0}}
+@keyframes draw{from{stroke-dashoffset:140}}
+@keyframes nudge{0%,55%,100%{transform:none}25%{transform:translate(3px,-4px)}}
+/* 减少动效：箭头直接画好、不再推动，内容直接出现；复制按钮仍然切换文字，只是不滑动 */
+@media (prefers-reduced-motion:reduce){
+  .arrow,.arrow path,.pointer-label,main{animation:none}
+  .btn,.btn>.lbl{transition:opacity .15s}
+  .btn>.lbl-alt,.btn[data-done]>.lbl:not(.lbl-alt){transform:none}
+}
 </style>
 </head>
 <body>
-<div class="hint" aria-hidden="true"><span>点击右上角「${esc(menu)}」</span><i>↗</i></div>
+<div class="pointer" aria-hidden="true">
+  <span class="pointer-label">点击右上角 ${dots(menu)}</span>
+  <svg class="arrow" viewBox="0 0 76 96">
+    <defs><linearGradient id="ag" x1="0" y1="1" x2="1" y2="0"><stop offset="0" style="stop-color:var(--brand-a)"/><stop offset="1" style="stop-color:var(--brand-b)"/></linearGradient></defs>
+    <path class="shaft" d="M10 90C14 52 34 26 62 10"/>
+    <path class="head" d="M46 8l17 1.5-5 16"/>
+  </svg>
+</div>
 <div class="scroll">
 <main class="shell">
-  <header class="head">
-    <img class="logo" src="${LOGO}" alt="" width="44" height="44">
-    <div class="head-text">
-      <h1><span class="h1-eyebrow">OliviaR13's</span>Loon Box</h1>
-      <p>OliviaR13's Loon Library</p>
-    </div>
-  </header>
-  <section class="list" aria-labelledby="t">
-    <div class="row row-hero" style="--i:0">
-      <span class="gicon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg></span>
-      <div>
-        <div class="name"><h2 id="t">请在浏览器中打开</h2><span class="chip">微信内无法唤起 Loon</span></div>
-        <p class="desc">微信内置浏览器无法唤起 Loon。请改用系统浏览器打开本页，再继续安装插件。</p>
-      </div>
-    </div>
+  <p class="brand"><img src="${LOGO}" alt="" width="26" height="26">Loon Box <span>OliviaR13's Loon Library</span></p>
+  <h1>请在浏览器中打开</h1>
+  <p class="lead">微信内置浏览器无法唤起 Loon。请使用系统浏览器打开本页，以安装插件。</p>
+  <section class="list" aria-label="打开方法">
     <ol class="steps">
-      <li class="row step" style="--i:1"><span class="n">1</span><span>点击右上角菜单 <b>「${esc(menu)}」</b></span></li>
-      <li class="row step" style="--i:2"><span class="n">2</span><span>选择 <b>「${esc(open)}」</b></span></li>
+      <li class="step"><span class="n" aria-hidden="true">1</span><span class="step-text"><span class="sr">第 1 步：</span>点击右上角「${dots(menu)}」</span><span class="ui-menu" aria-hidden="true">${dots(menu)}</span></li>
+      <li class="step"><span class="n" aria-hidden="true">2</span><span class="step-text"><span class="sr">第 2 步：</span>选择<span class="nw">「${esc(open)}」</span></span><span class="ui-open" aria-hidden="true"><i><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg></i></span></li>
     </ol>
-    <div class="row" style="--i:3">
+    <div class="copy">
+      <p class="copy-title" id="urlLabel">或复制链接后在浏览器中访问</p>
+      <code class="url" id="url" aria-labelledby="urlLabel"></code>
       <button class="btn" id="copy" type="button">
-        <span class="lbl">复制链接</span>
+        <span class="lbl"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>复制链接</span>
         <span class="lbl lbl-alt" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span id="doneText"></span></span>
       </button>
+      <span class="sr" role="status" aria-live="polite" id="live"></span>
     </div>
   </section>
-  <p class="foot">找不到菜单？复制链接后，到浏览器地址栏粘贴打开即可。</p>
+  <footer class="foot">
+    <p class="foot-brand">OliviaR13's Loon Box</p>
+    <p>本服务不支持在微信内打开。隐私政策与使用条款请在系统浏览器中查看。</p>
+  </footer>
 </main>
 </div>
 <script>
 (function () {
-  var btn = document.getElementById("copy"), txt = document.getElementById("doneText"), timer;
+  var btn = document.getElementById("copy"), txt = document.getElementById("doneText"), live = document.getElementById("live"), timer;
+  document.getElementById("url").textContent = location.href;
   function done(ok) {
-    txt.textContent = ok ? "已复制，去浏览器粘贴打开" : "复制失败，请长按地址手动复制";
+    txt.textContent = ok ? "已复制" : "复制失败，请长按上方地址复制";
     btn.className = ok ? "btn" : "btn fail";
     btn.setAttribute("data-done", "");
-    btn.setAttribute("aria-label", txt.textContent); // 读屏软件也能知道结果
+    live.textContent = txt.textContent; // 读屏软件也能知道结果
     clearTimeout(timer);
-    timer = setTimeout(function () { btn.removeAttribute("data-done"); btn.removeAttribute("aria-label"); }, 2500);
+    timer = setTimeout(function () { btn.removeAttribute("data-done"); live.textContent = ""; }, 2500);
   }
   // 微信里 navigator.clipboard 经常不可用（非安全上下文或被禁用），退回到 execCommand
   function fallback(text) {
