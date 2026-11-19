@@ -48,7 +48,7 @@ export function initAccount() {
   let linked = [];
   let passkeyCreds = [];
   let accountsState = "loading"; // loading | ok | error
-  const SIGNED_OUT_SUB = "登录后，收藏和设置可在多台设备间同步";
+  const SIGNED_OUT_SUB = "用 GitHub 账号登录";
   const ONLY_METHOD = "唯一的登录方式";
 
   const setHint = (on) => (on ? lsSet(LOGIN_HINT_KEY, "1") : lsRemove(LOGIN_HINT_KEY));
@@ -121,6 +121,8 @@ export function initAccount() {
     if (head) head.hidden = !user;
     $id("syncSection").hidden = !user;
     if (!user) $id("loginSub").textContent = SIGNED_OUT_SUB;
+    const loginFoot = $id("loginFoot");
+    if (loginFoot) loginFoot.hidden = !!user;
     setSwitch($id("syncMasterSwitch"), m);
     $id("syncNowRow").hidden = !user || !m;
     $id("syncFavsRow").dataset.off = String(!m);
@@ -429,7 +431,7 @@ export function initAccount() {
         sub.textContent = !passkeyEnabled
           ? "暂未开放，不影响浏览和安装"
           : supported
-            ? "用已保存的通行密钥登录，无需输入账号"
+            ? "用指纹、面容或锁屏密码登录，无需输入账号"
             : "当前浏览器不支持通行密钥";
       }
       if (addSub) {
@@ -557,7 +559,7 @@ export function initAccount() {
       const on = data.enabled === true;
       googleEnabled = on;
       btn.disabled = !on;
-      sub.textContent = on ? "使用 Google 账号登录" : "暂未开放，不影响浏览和安装";
+      sub.textContent = on ? "用 Google 账号登录" : "暂未开放，不影响浏览和安装";
     } catch {
       googleEnabled = false;
       btn.disabled = true;
@@ -655,7 +657,7 @@ export function initAccount() {
       refreshSync();
     } catch {
       renderAccount();
-      $id("loginSub").textContent = "暂时连不上云端，收藏和设置先保存在这台设备上";
+      $id("loginSub").textContent = "暂时连不上云端，收藏和设置先保存在这台设备";
     }
   }
 

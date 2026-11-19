@@ -111,7 +111,7 @@
       <h3 class="group-title">账号</h3>
       <div class="group">
         <div class="row" id="loginRow">
-          <span class="row-text"><span>GitHub</span><span class="sub" id="loginSub">登录后，收藏和设置可在多台设备间同步</span></span>
+          <span class="row-text"><span>GitHub</span><span class="sub" id="loginSub">用 GitHub 账号登录</span></span>
           <a class="btn btn-login" id="loginBtn" href="/api/auth/login"><svg class="b-ico" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span>GitHub 登录</span></a>
         </div>
         <div class="row" id="googleRow">
@@ -122,7 +122,7 @@
           </button>
         </div>
         <div class="row" id="passkeyRow">
-          <label class="row-text" for="passkeyName"><span>通行密钥</span><span class="sub" id="passkeySub">正在检查是否可用…</span><input class="passkey-input" id="passkeyName" autocomplete="username webauthn" placeholder="点这里，用通行密钥登录" aria-label="通行密钥"></label>
+          <label class="row-text" for="passkeyName"><span>通行密钥</span><span class="sub" id="passkeySub">正在检查是否可用…</span><input class="passkey-input" id="passkeyName" autocomplete="username webauthn" placeholder="点此选择已保存的通行密钥" aria-label="通行密钥"></label>
           <button class="btn btn-login" id="passkeyBtn" type="button" disabled><svg class="b-ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M10.85 12.15L19 4M18 5l3 3M15 8l2 2"/></svg><span>通行密钥登录</span></button>
         </div>
         <div class="row" id="accountRow" hidden>
@@ -134,6 +134,7 @@
           </span>
         </div>
       </div>
+      <p class="group-foot" id="loginFoot">登录后，收藏和设置可在多台设备间同步。</p>
 
       <div id="accountManage" hidden>
         <h3 class="group-title">账号管理</h3>
@@ -249,7 +250,7 @@
       </div>
       <h3 class="group-title privacy-title">隐私说明</h3>
       <p class="group-foot privacy">MyLoon 不接入网站统计分析，不追踪用户行为，也不主动收集浏览记录等个人信息。</p>
-      <p class="group-foot privacy">未登录时，收藏与设置仅保存在当前浏览器中。GitHub 登录只读取公开用户名和头像，不申请其他权限，也不保存访问令牌。Google 登录只读取姓名、头像和已验证的邮箱，用来显示已登录状态，同样不保存 Google 的访问令牌。通行密钥只在服务器保存公钥和签名计数器，不保存生物特征。同一个账号可以绑定这几种登录方式，对应关系存在现有的 D1 或 KV 里。</p>
+      <p class="group-foot privacy">未登录时，收藏与设置仅保存在当前浏览器中。GitHub 登录只读取公开用户名和头像，Google 登录只读取姓名、头像和已验证的邮箱，用来显示登录状态；两者都不申请其他权限，也不保存访问令牌。通行密钥只在服务器保存公钥和签名计数器，不保存生物特征。同一个账号可以绑定多种登录方式，绑定关系保存在站点的云端存储中。</p>
       <p class="group-foot privacy">登录后，收藏及已启用同步的偏好设置将与账号 ID 关联并保存至云端，用于跨设备同步。</p>
       <p class="group-foot privacy">人机验证由 Cloudflare Turnstile 提供。</p>
       <p class="group-foot privacy"><a href="./privacy.html">完整隐私政策</a> · <a href="./terms.html">使用条款</a></p>
