@@ -2,7 +2,7 @@
    支持收藏逐项时间戳（Tombstone CRDT）合并，以及外观、插件卡片、设置页偏好三组独立时间戳同步。
    没配 Google 客户端或 PASSKEYS 时，对应按钮保持停用，浏览和安装不受影响。 */
 
-import { conditionalPasskeyAvailable, loginPasskey, passkeySupported, registerPasskey } from "./passkey.js";
+import { loginPasskey, passkeySupported, registerPasskey } from "./passkey.js";
 
 import { SYNC_KEYS, LEGACY_AT, TOMBSTONE_TTL, SORT_KEY, LOGIN_HINT_KEY } from "./config.js";
 import { $id, setSwitch, lsGet, lsSet, lsRemove, confirmable } from "./dom.js";
@@ -42,7 +42,6 @@ export function initAccount() {
   let pushWarned = false;
   let syncing = false;
   let passkeyEnabled = false;
-  let passkeyAbort = null;
   let googleEnabled = false;
   let accountsConfigured = false;
   let linked = [];
@@ -495,32 +494,17 @@ export function initAccount() {
     paintLinkRow("github", $id("linkGithubSub"), $id("linkGithubBtn"));
     paintLinkRow("google", $id("linkGoogleSub"), $id("linkGoogleBtn"));
     renderAccount();
-    if (!user && passkeyEnabled) startConditional();
   }
 
   async function afterPasskeyLogin() {
-    passkeyAbort?.abort();
     await pullSession();
     await refreshAccounts();
     toast("已使用通行密钥登录");
   }
 
-  async function startConditional() {
-    if (user || !passkeyEnabled || !await conditionalPasskeyAvailable()) return;
-    passkeyAbort?.abort();
-    passkeyAbort = new AbortController();
-    try {
-      await loginPasskey({ mediation: "conditional", signal: passkeyAbort.signal });
-      await afterPasskeyLogin();
-    } catch (err) {
-      if (err?.name === "AbortError" || err?.name === "NotAllowedError") return;
-    }
-  }
-
   $id("passkeyBtn")?.addEventListener("click", async () => {
     const btn = $id("passkeyBtn");
     if (!btn || btn.disabled) return;
-    passkeyAbort?.abort();
     btn.disabled = true;
     try {
       await loginPasskey();
