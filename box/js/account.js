@@ -47,6 +47,9 @@ export function initAccount() {
   let accountsConfigured = false;
   let linked = [];
   let passkeyCreds = [];
+  let accountsState = "loading"; // loading | ok | error
+  const SIGNED_OUT_SUB = "登录后，收藏和设置可在多台设备间同步";
+  const ONLY_METHOD = "唯一的登录方式";
 
   const setHint = (on) => (on ? lsSet(LOGIN_HINT_KEY, "1") : lsRemove(LOGIN_HINT_KEY));
   const ownMaster = () => lsGet(SYNC_KEYS.master) !== "0";
@@ -117,7 +120,7 @@ export function initAccount() {
     const head = $id("headAcct");
     if (head) head.hidden = !user;
     $id("syncSection").hidden = !user;
-    if (user) $id("loginSub").textContent = "登录后，收藏和设置可以在多台设备间同步";
+    if (!user) $id("loginSub").textContent = SIGNED_OUT_SUB;
     setSwitch($id("syncMasterSwitch"), m);
     $id("syncNowRow").hidden = !user || !m;
     $id("syncFavsRow").dataset.off = String(!m);
@@ -129,7 +132,7 @@ export function initAccount() {
       sw.disabled = !m;
     }
     $id("syncFoot").textContent = m
-      ? "收藏会始终同步。外观、插件卡片和设置页偏好可以分别关闭，关闭后只保存在这台设备。如果多台设备修改了同一项，以最后一次修改为准。"
+      ? "收藏会始终同步。外观、插件卡片和设置页偏好可以分别关闭，关闭后只保存在这台设备。多台设备改了同一项时，以最后一次修改为准。"
       : "云端同步已关闭：收藏和设置只保存在这台设备，不会上传，也不会读取云端的内容。";
     if (user) {
       const google = user.provider === "google";
@@ -391,30 +394,52 @@ export function initAccount() {
 
   const passkeyToast = (err) => {
     if (!err || err.name === "NotAllowedError" || err.name === "AbortError") return;
-    if (err.code === "passkeys_not_configured") return toast(err.detail || "通行密钥尚未配置，不影响浏览和安装");
+    if (err.code === "passkeys_not_configured") return toast("通行密钥暂未开放，不影响浏览和安装");
     if (err.code === "too_many") return toast("最多添加 8 把通行密钥");
+    if (err.code === "rp_id") return toast("当前网址不支持通行密钥，请用正式域名访问");
     toast("通行密钥没有通过，请重试");
+  };
+
+  const fmtWhen = (t) => {
+    const at = Number(t);
+    if (!Number.isFinite(at) || at <= 0) return "已添加";
+    try {
+      return "添加于 " + new Date(at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+    } catch {
+      return "添加于 " + new Date(at).toLocaleDateString();
+    }
   };
 
   async function refreshPasskeys() {
     const btn = $id("passkeyBtn");
     const sub = $id("passkeySub");
     const add = $id("passkeyAdd");
+    const addSub = $id("passkeyAddSub");
     try {
       const res = await api("GET", "/api/auth/passkey");
+      if (!res.ok) throw new Error("HTTP " + res.status);
       const data = await res.json();
       passkeyEnabled = data.enabled === true;
-      if (btn) btn.disabled = !passkeyEnabled || !passkeySupported();
-      if (add) add.disabled = !passkeyEnabled || !passkeySupported();
+      const supported = passkeySupported();
+      passkeyCreds = data.credentials || [];
+      const full = passkeyCreds.length >= 8;
+      if (btn) btn.disabled = !passkeyEnabled || !supported;
+      if (add) add.disabled = !passkeyEnabled || !supported || full;
       if (sub) {
         sub.textContent = !passkeyEnabled
-          ? "尚未配置，不影响浏览和安装"
-          : passkeySupported()
-            ? "用已添加的通行密钥登录，无需输入账号"
+          ? "暂未开放，不影响浏览和安装"
+          : supported
+            ? "用已保存的通行密钥登录，无需输入账号"
             : "当前浏览器不支持通行密钥";
       }
+      if (addSub) {
+        addSub.textContent = !supported
+          ? "当前浏览器不支持通行密钥"
+          : full
+            ? "已添加 8 把，达到上限，请先移除不用的"
+            : "用这台设备的指纹、面容或锁屏密码登录这个账号";
+      }
       const list = $id("passkeyList");
-      passkeyCreds = data.credentials || [];
       if (list) {
         list.replaceChildren();
         const creds = passkeyCreds;
@@ -422,7 +447,7 @@ export function initAccount() {
         if (!creds.length) {
           const empty = document.createElement("div");
           empty.className = "row";
-          empty.innerHTML = '<span class="row-text"><span>还没有通行密钥</span><span class="sub">添加后才能用通行密钥登录</span></span>';
+          empty.innerHTML = '<span class="row-text"><span>还没有通行密钥</span><span class="sub">添加后，下次可以直接用它登录</span></span>';
           list.append(empty);
         }
         for (const c of creds) {
@@ -434,25 +459,25 @@ export function initAccount() {
           title.textContent = "通行密钥";
           const when = document.createElement("span");
           when.className = "sub";
-          const at = Number(c.createdAt);
-          when.textContent = Number.isFinite(at) && at > 0 ? "添加于 " + new Date(at).toLocaleDateString() : "已添加";
+          when.textContent = fmtWhen(c.createdAt) + (last ? " · " + ONLY_METHOD : "");
           text.append(title, when);
           const remove = document.createElement("button");
           remove.className = "btn btn-ghost";
           remove.type = "button";
-          remove.textContent = "解绑";
+          remove.textContent = "移除";
           remove.disabled = !!user && last;
+          if (remove.disabled) remove.title = "至少保留一种登录方式";
           remove.addEventListener("click", async () => {
             remove.disabled = true;
             try {
               const del = await fetch("/api/auth/passkey/" + encodeURIComponent(c.id), { method: "DELETE", credentials: "same-origin", headers: { accept: "application/json" } });
               const body = await del.json().catch(() => ({}));
               if (!del.ok) throw new Error(body.message || "");
-              toast("已解绑这把通行密钥");
+              toast("已移除这把通行密钥");
               await refreshAccounts();
             } catch (err) {
               remove.disabled = false;
-              toast(err.message || "解绑失败，请重试");
+              toast(err.message || "移除失败，请重试");
             }
           });
           row.append(text, remove);
@@ -462,6 +487,7 @@ export function initAccount() {
     } catch {
       passkeyEnabled = false;
       if (btn) btn.disabled = true;
+      if (add) add.disabled = true;
       if (sub) sub.textContent = "暂时无法连接登录服务，不影响浏览和安装";
     }
     paintLinkRow("github", $id("linkGithubSub"), $id("linkGithubBtn"));
@@ -531,26 +557,37 @@ export function initAccount() {
       const on = data.enabled === true;
       googleEnabled = on;
       btn.disabled = !on;
-      sub.textContent = on
-        ? "使用 Google 账号登录，收藏和设置可以在多台设备间同步"
-        : "尚未配置，不影响浏览和安装";
+      sub.textContent = on ? "使用 Google 账号登录" : "暂未开放，不影响浏览和安装";
     } catch {
+      googleEnabled = false;
       btn.disabled = true;
       sub.textContent = "暂时无法连接登录服务，不影响浏览和安装";
     }
+    paintLinkRow("google", $id("linkGoogleSub"), $id("linkGoogleBtn"));
   }
 
   logoutBtn?.addEventListener("click", async () => {
     if (!asking()) { askLogout(true); return; }
     askLogout(false);
     clearTimeout(timer);
+    logoutBtn.disabled = true;
+    // 400ms 防抖窗口里的最后几次改动，退出前先上传，免得云端少了它们（最多等 3 秒）
+    if (dirty && ownMaster() && !merging) {
+      const settle = async () => {
+        if (inflight) await inflight;
+        if (dirty) await flush();
+      };
+      await Promise.race([settle().catch(() => {}), new Promise((r) => setTimeout(r, 3000))]);
+    }
     try {
       const res = await api("POST", "/api/logout");
       if (!res.ok) throw new Error("HTTP " + res.status);
     } catch {
+      logoutBtn.disabled = false;
       toast("退出失败，请检查网络后重试");
       return;
     }
+    logoutBtn.disabled = false;
     user = null;
     linked = [];
     accountsConfigured = false;
@@ -574,21 +611,25 @@ export function initAccount() {
         openConflict(q.get("provider") === "google" ? "google" : "github", pending);
       } else if (err) {
         const msg = {
-          denied: "这个 GitHub 账号没有登录权限",
-          state: "登录已过期，请重试",
-          config: "登录功能尚未配置",
-          google_config: "Google 登录尚未配置，浏览和安装不受影响",
+          denied: "该 GitHub 账号没有登录权限",
+          state: "GitHub 登录已过期，请重试",
+          config: "GitHub 登录暂未开放，浏览和安装不受影响",
+          google_config: "Google 登录暂未开放，浏览和安装不受影响",
           google_state: "Google 登录已过期，请重试",
           google_denied: "已取消 Google 登录",
           google_exchange: "无法完成 Google 登录，请重试",
-          google_verify: "Google 身份校验没有通过，请重试",
-          link_state: "绑定已过期，请重试",
-          accounts_config: "需要绑定 D1 或 KV 才能管理登录方式",
+          google_verify: "Google 账号校验未通过，请重试",
+          link_state: "绑定已过期，请重新操作",
+          accounts_config: "暂时不能管理登录方式",
           storage: "暂时无法保存登录方式，请重试",
           link_conflict: q.get("provider") === "google" ? "该 Google 账号已绑定其他账号" : "该 GitHub 账号已绑定其他账号",
-          already_linked: q.get("provider") === "google" ? "这个账号已经绑定了 Google" : "这个账号已经绑定了 GitHub",
+          already_linked: q.get("provider") === "google"
+            ? "当前账号已绑定另一个 Google 账号，请先解绑再绑定新的"
+            : "当前账号已绑定另一个 GitHub 账号，请先解绑再绑定新的",
         }[err] || (String(err).startsWith("google") ? "Google 登录失败，请重试" : "GitHub 登录失败，请重试");
         toast(msg);
+      } else if (logged === "github") {
+        toast("已使用 GitHub 账号登录");
       } else if (logged === "google") {
         toast("已使用 Google 账号登录");
       } else if (logged === "linked_google") {
@@ -628,7 +669,7 @@ export function initAccount() {
       return;
     }
     const name = provider === "google" ? "Google" : "GitHub";
-    text.textContent = "该 " + name + " 账号已绑定另一个账号。是否注销那个账号，并把这个 " + name + " 登录转到当前账号？那个账号的同步数据会被永久删除。";
+    text.textContent = "这个 " + name + " 账号已经属于另一个账号。继续的话，另一个账号会被注销，它的收藏、设置和通行密钥会被永久删除，这个 " + name + " 登录则转到当前账号。此操作无法撤销。";
     const close = () => { if (dialog.open) dialog.close(); };
     cancel.onclick = close;
     dialog.oncancel = (e) => { e.preventDefault(); close(); };
@@ -657,15 +698,26 @@ export function initAccount() {
   }
 
   function paintLinkRow(kind, sub, btn) {
+    if (!sub || !btn) return;
     const row = linked.find((item) => item.kind === kind);
     const last = linked.length + passkeyCreds.length <= 1;
-    if (!sub || !btn) return;
-    if (kind === "github") sub.textContent = row ? (row.login || "已绑定") : "未绑定";
-    else sub.textContent = row ? (row.email || row.name || "已绑定") : (googleEnabled ? "未绑定" : "尚未配置，不影响浏览和安装");
     const unlink = !!row;
     btn.textContent = unlink ? "解绑" : "绑定";
     btn.dataset.mode = unlink ? "unlink" : "link";
+    btn.title = "";
+    if (accountsState !== "ok") {
+      sub.textContent = accountsState === "loading" ? "正在读取…" : "暂时无法读取";
+      btn.disabled = true;
+      return;
+    }
+    if (row) {
+      const who = kind === "github" ? (row.login || "已绑定") : (row.email || row.name || "已绑定");
+      sub.textContent = last ? who + " · " + ONLY_METHOD : who;
+    } else {
+      sub.textContent = kind === "google" && !googleEnabled ? "暂未开放，不影响浏览和安装" : "未绑定";
+    }
     btn.disabled = !accountsConfigured || (unlink ? last : kind === "google" && !googleEnabled);
+    if (unlink && last) btn.title = "至少保留一种登录方式";
   }
 
   async function refreshAccounts() {
@@ -673,6 +725,7 @@ export function initAccount() {
     if (!user) {
       linked = [];
       accountsConfigured = false;
+      accountsState = "loading";
       await refreshPasskeys();
       return;
     }
@@ -682,14 +735,16 @@ export function initAccount() {
       if (!res.ok) throw new Error();
       accountsConfigured = data.configured === true;
       linked = data.identities || [];
+      accountsState = "ok";
       if (foot) {
         foot.textContent = accountsConfigured
-          ? "绑定后可以用其中任意一种方式登录，收藏和设置仍属于这个账号。已经绑在其他账号上的不会自动合并。"
-          : (data.message || "需要绑定 D1 或 KV 才能管理登录方式");
+          ? "绑定后，可以用其中任意一种方式登录同一个账号，收藏和设置保持不变。已被其他账号绑定的登录方式不会自动合并，转移前会请你确认。至少保留一种登录方式。"
+          : "站点暂未开放登录方式管理，目前只能用当前方式登录。";
       }
     } catch {
       accountsConfigured = false;
-      if (foot) foot.textContent = "暂时无法读取账号绑定，不影响浏览和安装";
+      accountsState = "error";
+      if (foot) foot.textContent = "暂时无法读取已绑定的登录方式，不影响浏览和安装。";
     }
     paintLinkRow("github", $id("linkGithubSub"), $id("linkGithubBtn"));
     paintLinkRow("google", $id("linkGoogleSub"), $id("linkGoogleBtn"));
