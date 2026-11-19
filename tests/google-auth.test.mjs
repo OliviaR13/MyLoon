@@ -58,6 +58,7 @@ function claims(extra = {}) {
     email_verified: true,
     name: "阿达",
     picture: "https://lh3.googleusercontent.com/a/abc=s96-c",
+    nonce: "n",
     iat: now,
     exp: now + 3600,
     ...extra,
@@ -167,14 +168,16 @@ serial("配齐之后，页面询问得到 enabled:true，浏览器跳转才去 G
   assert.equal(loc.searchParams.get("redirect_uri"), ORIGIN + "/api/auth/google/callback");
   assert.equal(loc.searchParams.get("response_type"), "code");
   assert.equal(loc.searchParams.get("code_challenge_method"), "S256");
+  assert.ok(loc.searchParams.get("nonce"));
   assert.equal(loc.searchParams.get("scope"), "openid email profile");
   assert.equal(loc.searchParams.has("client_secret"), false);
   const cookies = nav.headers.getSetCookie();
   assert.equal(cookies.some((c) => c.startsWith("mlb_state=") && c.includes("HttpOnly") && c.includes("Path=/api/auth")), true);
   assert.equal(cookies.some((c) => c.startsWith("mlb_pkce=") && c.includes("HttpOnly")), true);
+  assert.equal(cookies.some((c) => c.startsWith("mlb_nonce=") && c.includes("HttpOnly")), true);
 });
 
-function callbackRequest(query, cookie = "mlb_state=st; mlb_pkce=verifier") {
+function callbackRequest(query, cookie = "mlb_state=st; mlb_pkce=verifier; mlb_nonce=n") {
   return new Request(ORIGIN + "/api/auth/google/callback?" + query, { headers: { Cookie: cookie } });
 }
 
@@ -218,7 +221,7 @@ serial("回调校验通过后写入 Google 会话，/api/me 能读出名字和�
 
   const raw = res.headers.getSetCookie().find((c) => c.startsWith("mlb_session="));
   const sessionToken = raw.split(";")[0].slice("mlb_session=".length);
-  const session = await unseal(sessionToken, SECRET);
+  const session = await unseal(sessionToken, SECRET, "session");
   assert.equal(session.provider, "google");
   assert.equal(session.id, "google:10001");
   assert.equal(session.name, "阿达");

@@ -1,5 +1,6 @@
 // POST /api/auth/passkey/login/verify：核对断言，通过后写入和 GitHub / Google 相同的 mlb_session。
-import { cookie, json, seal, SESSION_TTL } from "../../../../_lib/auth.js";
+import { allowListed, cookie, issueSession, json, SESSION_TTL } from "../../../../_lib/auth.js";
+import { rateLimit } from "../../../../_lib/rate-limit.js";
 import { bytesField, httpError, readBody, rpOrError, unavailable } from "../../../../_lib/passkey-http.js";
 import { getCredential, sessionFromProfile, takeChallenge, updateSignCount } from "../../../../_lib/passkeys.js";
 import { b64urlEncode, counterOk, verifyAssertion } from "../../../../_lib/webauthn.js";
@@ -7,6 +8,8 @@ import { b64urlEncode, counterOk, verifyAssertion } from "../../../../_lib/webau
 export async function onRequestPost({ request, env }) {
   const missing = unavailable(env);
   if (missing) return missing;
+  const limited = await rateLimit(request, env, "passkey-login-ver");
+  if (limited) return limited;
   const { rp, error } = rpOrError(request);
   if (error) return error;
   const { body, error: bad } = await readBody(request);
@@ -24,7 +27,7 @@ export async function onRequestPost({ request, env }) {
   } catch {
     return json({ error: "bad_client_data" }, 400);
   }
-  const saved = await takeChallenge(env.PASSKEYS, challenge, "auth");
+  const saved = await takeChallenge(env, challenge, "auth", request);
   if (!saved) return json({ error: "challenge" }, 400);
 
   const credentialId = b64urlEncode(rawId);
@@ -47,8 +50,9 @@ export async function onRequestPost({ request, env }) {
       coseKey: record.coseKeyBytes,
     });
     if (!counterOk(record.signCount || 0, verified.signCount)) return json({ error: "counter" }, 400);
+    if (!allowListed(env, record.login, record.email)) return json({ error: "denied" }, 403);
     if (verified.signCount > (record.signCount || 0)) await updateSignCount(env.PASSKEYS, credentialId, verified.signCount);
-    const session = await seal(sessionFromProfile(record), env.SESSION_SECRET);
+    const session = await issueSession(env, sessionFromProfile(record));
     return json({ ok: true }, 200, { "Set-Cookie": cookie("mlb_session", session, { maxAge: SESSION_TTL }) });
   } catch (err) {
     return httpError(err);

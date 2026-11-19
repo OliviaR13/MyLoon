@@ -6,6 +6,7 @@
 //   三个都没有时不记录（501），不再退回写死的默认值
 import manifest from "../../manifest.json";
 import { json, sameOrigin } from "../_lib/auth.js";
+import { rateLimit } from "../_lib/rate-limit.js";
 import { ensureSchema, today } from "../_lib/stats-db.js";
 
 const IDS = new Set((manifest.plugins || []).map((p) => String(p.id || p.file)));
@@ -15,6 +16,8 @@ const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart
 export async function onRequestPost({ request, env }) {
   // 浏览器发 POST 一定带 Origin；没有或不同源都不收
   if (!request.headers.get("Origin") || !sameOrigin(request)) return json({ error: "forbidden" }, 403);
+  const limited = await rateLimit(request, env, "install");
+  if (limited) return limited;
   const DB = env.MLB_DB;
   if (!DB) return json({ error: "stats_not_configured" }, 501);
   // 没有任何密钥时，IP 哈希等于裸哈希（IPv4 地址空间很小，能被枚举还原），宁可不记也不用固定默认值

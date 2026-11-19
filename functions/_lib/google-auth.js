@@ -123,6 +123,7 @@ export async function verifyGoogleIdToken(token, clientId, opts = {}) {
   if (typeof payload.exp !== "number" || payload.exp < t - 60) return null;
   if (typeof payload.iat !== "number" || payload.iat > t + 60) return null;
   if (typeof payload.sub !== "string" || !/^[A-Za-z0-9_-]{1,255}$/.test(payload.sub)) return null;
+  if (opts.nonce != null && payload.nonce !== opts.nonce) return null;
   if (payload.email_verified !== true && payload.email_verified !== "true") return null;
   const email = cleanEmail(payload.email);
   if (!email) return null;

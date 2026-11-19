@@ -1,7 +1,7 @@
 // GET /api/auth/google/callback：Google 授权后带 code 回来。
 // 核对 state，用授权码换 ID Token，校验签名后再写下登录 Cookie。访问令牌不保存。
-import { SESSION_TTL, clearCookie, cookie, getCookie, getSession, seal } from "../../../_lib/auth.js";
-import { googleProfile, issueConflictToken, linkAccount, loginAccount, readLinkIntent, sessionAccountId, sessionPayload } from "../../../_lib/accounts.js";
+import { SESSION_TTL, allowListed, clearCookie, cookie, getCookie, getSessionOr503, issueSession } from "../../../_lib/auth.js";
+import { conflictMarker, googleProfile, issueConflictToken, linkAccount, loginAccount, readLinkIntent, sessionAccountId, sessionPayload } from "../../../_lib/accounts.js";
 import { exchangeGoogleCode, googleRedirectUri, verifyGoogleIdToken } from "../../../_lib/google-auth.js";
 
 export async function onRequestGet({ request, env }) {
@@ -12,6 +12,7 @@ export async function onRequestGet({ request, env }) {
       "cache-control": "no-store",
     });
     headers.append("Set-Cookie", clearCookie("mlb_state", "/api/auth"));
+    headers.append("Set-Cookie", clearCookie("mlb_nonce", "/api/auth"));
     headers.append("Set-Cookie", clearCookie("mlb_pkce", "/api/auth"));
     headers.append("Set-Cookie", clearCookie("mlb_link", "/api/auth"));
     return new Response(null, { status: 302, headers });
@@ -25,7 +26,8 @@ export async function onRequestGet({ request, env }) {
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const verifier = getCookie(request, "mlb_pkce");
-  if (!code || code.length > 2048 || !state || state !== getCookie(request, "mlb_state") || !verifier) return fail("google_state");
+  const nonce = getCookie(request, "mlb_nonce");
+  if (!code || code.length > 2048 || !state || state !== getCookie(request, "mlb_state") || !verifier || !nonce) return fail("google_state");
 
   const link = await readLinkIntent(request, env);
   if (link.present && !link.valid) return fail("link_state");
@@ -47,16 +49,19 @@ export async function onRequestGet({ request, env }) {
 
   let profile;
   try {
-    profile = await verifyGoogleIdToken(idToken, env.GOOGLE_CLIENT_ID);
+    profile = await verifyGoogleIdToken(idToken, env.GOOGLE_CLIENT_ID, { nonce });
   } catch {
     return fail("google_verify");
   }
   if (!profile) return fail("google_verify");
   const identity = googleProfile(profile);
   if (!identity) return fail("google_verify");
+  if (!allowListed(env, identity.email)) return fail("denied");
 
   if (link.present) {
-    const sessionUser = await getSession(request, env);
+    const got = await getSessionOr503(request, env);
+    if (got.response) return fail("storage");
+    const sessionUser = got.user;
     if (!sessionUser || sessionAccountId(sessionUser) !== link.accountId) return fail("link_state");
     try {
       await linkAccount(env, sessionUser, identity);
@@ -65,7 +70,9 @@ export async function onRequestGet({ request, env }) {
         let token = "";
         try { token = await issueConflictToken(env, sessionUser, identity); } catch { token = ""; }
         const pending = token ? "&pending=" + encodeURIComponent(token) : "";
-        return fail("link_conflict&provider=google" + pending);
+        const conflict = fail("link_conflict&provider=google" + pending);
+        if (token) conflict.headers.append("Set-Cookie", cookie("mlb_conflict", await conflictMarker(token), { maxAge: 300 }));
+        return conflict;
       }
       if (err?.code === "already_linked") return fail("already_linked&provider=google");
       if (err?.code === "accounts_not_configured") return fail("accounts_config");
@@ -76,6 +83,7 @@ export async function onRequestGet({ request, env }) {
       "cache-control": "no-store",
     });
     headers.append("Set-Cookie", clearCookie("mlb_state", "/api/auth"));
+    headers.append("Set-Cookie", clearCookie("mlb_nonce", "/api/auth"));
     headers.append("Set-Cookie", clearCookie("mlb_pkce", "/api/auth"));
     headers.append("Set-Cookie", clearCookie("mlb_link", "/api/auth"));
     return new Response(null, { status: 302, headers });
@@ -87,12 +95,13 @@ export async function onRequestGet({ request, env }) {
   } catch {
     return fail("storage");
   }
-  const session = await seal(sessionPayload(accountId, identity), env.SESSION_SECRET);
+  const session = await issueSession(env, sessionPayload(accountId, identity));
   const headers = new Headers({
     Location: new URL("/?login=google", request.url).href,
     "cache-control": "no-store",
   });
   headers.append("Set-Cookie", clearCookie("mlb_state", "/api/auth"));
+  headers.append("Set-Cookie", clearCookie("mlb_nonce", "/api/auth"));
   headers.append("Set-Cookie", clearCookie("mlb_pkce", "/api/auth"));
   headers.append("Set-Cookie", clearCookie("mlb_link", "/api/auth"));
   headers.append("Set-Cookie", cookie("mlb_session", session, { maxAge: SESSION_TTL }));

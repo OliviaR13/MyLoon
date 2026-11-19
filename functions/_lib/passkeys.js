@@ -2,7 +2,7 @@
 //   cred:<credentialId>  公钥、计数器、所属账号
 //   user:<userId>        这个账号的凭证 ID 列表
 //   chal:<challenge>     一次性挑战，TTL 5 分钟，用过即删
-import { SESSION_TTL } from "./auth.js";
+import { SESSION_TTL, cookie, getCookie, seal, unseal } from "./auth.js";
 import { b64urlDecode, b64urlEncode } from "./webauthn.js";
 
 export const CHALLENGE_TTL = 300;
@@ -19,17 +19,62 @@ const credKey = (id) => `cred:${id}`;
 const userKey = (id) => `user:${id}`;
 const chalKey = (id) => `chal:${id}`;
 
-export async function saveChallenge(kv, challenge, kind, extra = {}) {
-  await kv.put(
-    chalKey(challenge),
-    JSON.stringify({ kind, userId: extra.userId || "", exp: Date.now() + CHALLENGE_TTL * 1000 }),
-    { expirationTtl: CHALLENGE_TTL },
-  );
+const chalReady = new WeakMap();
+
+function ensureChalTable(DB) {
+  let pending = chalReady.get(DB);
+  if (!pending) {
+    pending = DB.prepare(
+      "CREATE TABLE IF NOT EXISTS passkey_challenges (challenge TEXT PRIMARY KEY, kind TEXT NOT NULL, user_id TEXT NOT NULL DEFAULT '', exp INTEGER NOT NULL)",
+    ).run().catch((err) => {
+      chalReady.delete(DB);
+      throw err;
+    });
+    chalReady.set(DB, pending);
+  }
+  return pending;
 }
 
-// 取出并删除。第二次再用同一个挑战会失败。
-export async function takeChallenge(kv, challenge, kind) {
-  if (!challenge || challenge.length > 200) return null;
+export async function saveChallenge(env, challenge, kind, extra = {}) {
+  const exp = Date.now() + CHALLENGE_TTL * 1000;
+  const userId = extra.userId || "";
+  if (env?.MLB_DB) {
+    await ensureChalTable(env.MLB_DB);
+    await env.MLB_DB.prepare(
+      "INSERT OR REPLACE INTO passkey_challenges (challenge, kind, user_id, exp) VALUES (?1, ?2, ?3, ?4)",
+    ).bind(challenge, kind, userId, exp).run();
+  }
+  if (env?.PASSKEYS) {
+    await env.PASSKEYS.put(chalKey(challenge), JSON.stringify({ kind, userId, exp }), { expirationTtl: CHALLENGE_TTL });
+  }
+}
+
+export async function challengeCookie(env, challenge, kind) {
+  const token = await seal({
+    typ: "chal",
+    challenge,
+    kind,
+    exp: Math.floor(Date.now() / 1000) + CHALLENGE_TTL,
+  }, env.SESSION_SECRET, "passkey-chal");
+  return cookie("mlb_chal", token, { maxAge: CHALLENGE_TTL });
+}
+
+async function challengeCookieOk(request, env, challenge, kind) {
+  const data = await unseal(getCookie(request, "mlb_chal"), env.SESSION_SECRET, "passkey-chal");
+  return !!data && data.typ === "chal" && data.challenge === challenge && data.kind === kind;
+}
+
+async function takeFromD1(DB, challenge, kind) {
+  await ensureChalTable(DB);
+  const out = await DB.prepare(
+    "DELETE FROM passkey_challenges WHERE challenge = ?1 AND kind = ?2 RETURNING user_id, exp",
+  ).bind(challenge, kind).all();
+  const row = out.results?.[0];
+  if (!row || !Number.isFinite(row.exp) || row.exp < Date.now()) return null;
+  return { kind, userId: row.user_id || "" };
+}
+
+async function takeFromKv(kv, challenge, kind) {
   const key = chalKey(challenge);
   const raw = await kv.get(key);
   if (!raw) return null;
@@ -42,6 +87,21 @@ export async function takeChallenge(kv, challenge, kind) {
   }
   if (!data || data.kind !== kind || !Number.isFinite(data.exp) || data.exp < Date.now()) return null;
   return data;
+}
+
+// 取出并删除。有 D1 时用 DELETE … RETURNING，避免两个请求同时读到同一条。
+// 另外必须带上签发挑战时写下的 Cookie，这样别人拿到挑战值也用不了。
+// 只剩 KV 时，同一次浏览器里并发重放仍有窗口，见报告。
+export async function takeChallenge(env, challenge, kind, request) {
+  if (!challenge || challenge.length > 200) return null;
+  if (!(await challengeCookieOk(request, env, challenge, kind))) return null;
+  if (env?.MLB_DB) {
+    const row = await takeFromD1(env.MLB_DB, challenge, kind);
+    if (env?.PASSKEYS) await env.PASSKEYS.delete(chalKey(challenge));
+    if (row) return row;
+  }
+  if (!env?.PASSKEYS) return null;
+  return takeFromKv(env.PASSKEYS, challenge, kind);
 }
 
 function cleanText(v, max) {
@@ -107,6 +167,12 @@ export async function listCredentials(kv, userId) {
 }
 
 export async function putCredential(kv, record) {
+  const existing = await kv.get(credKey(record.credentialId));
+  if (existing) {
+    const err = new Error("credential_exists");
+    err.code = "credential_exists";
+    throw err;
+  }
   const ids = await readIndex(kv, record.userId);
   if (!ids.includes(record.credentialId) && ids.length >= MAX_PASSKEYS) {
     const err = new Error("too_many");

@@ -76,14 +76,14 @@ export function sessionPayload(accountId, profile) {
 }
 
 export async function sealLinkIntent(accountId, secret) {
-  return seal({ intent: "link", accountId: String(accountId), exp: Math.floor(Date.now() / 1000) + 600 }, secret);
+  return seal({ intent: "link", accountId: String(accountId), exp: Math.floor(Date.now() / 1000) + 600 }, secret, "link");
 }
 
 // present 表示浏览器带了绑定用的 Cookie。带了但验签失败时不能退回去当普通登录。
 export async function readLinkIntent(request, env) {
   const raw = getCookie(request, "mlb_link");
   if (!raw) return { present: false, valid: false };
-  const data = env?.SESSION_SECRET ? await unseal(raw, env.SESSION_SECRET) : null;
+  const data = env?.SESSION_SECRET ? await unseal(raw, env.SESSION_SECRET, "link") : null;
   if (!data || data.intent !== "link" || typeof data.accountId !== "string" || !data.accountId) {
     return { present: true, valid: false };
   }
@@ -517,12 +517,18 @@ export async function stageConflictToken(env, accountId, otherAccountId, profile
     kind: profile.kind,
     subject: profile.subject,
     exp: saved.exp,
-  }, env.SESSION_SECRET);
+  }, env.SESSION_SECRET, "conflict");
 }
 
-export async function confirmConflict(env, user, token) {
+export async function conflictMarker(token) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(token || "")));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export async function confirmConflict(env, user, token, marker = "") {
   if (!env?.SESSION_SECRET) throw httpError("pending");
-  const data = await unseal(token, env.SESSION_SECRET);
+  const data = await unseal(token, env.SESSION_SECRET, "conflict");
+  if (!marker || marker !== await conflictMarker(token)) throw httpError("pending");
   if (!data || data.typ !== "conflict" || typeof data.jti !== "string") throw httpError("pending");
   const accountId = sessionAccountId(user);
   if (!accountId || data.accountId !== accountId) throw httpError("pending");

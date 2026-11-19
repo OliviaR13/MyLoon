@@ -1,5 +1,5 @@
 // DELETE /api/account/identities/:kind：解绑 GitHub 或 Google。至少留一种登录方式。
-import { getSession, json, sameOrigin } from "../../../_lib/auth.js";
+import { getSessionOr503, json, rotateSession, sameOrigin } from "../../../_lib/auth.js";
 import { openAccountStore, passkeyCount, sessionAccountId } from "../../../_lib/accounts.js";
 
 const MESSAGES = {
@@ -10,7 +10,9 @@ const MESSAGES = {
 
 export async function onRequestDelete({ request, env, params }) {
   if (!sameOrigin(request)) return json({ error: "forbidden" }, 403);
-  const user = await getSession(request, env);
+  const got = await getSessionOr503(request, env);
+  if (got.response) return got.response;
+  const user = got.user;
   if (!user) return json({ error: "unauthorized" }, 401);
   const kind = String(params?.kind || "");
   if (kind !== "github" && kind !== "google") return json({ error: "not_linked", message: MESSAGES.not_linked }, 404);
@@ -21,7 +23,7 @@ export async function onRequestDelete({ request, env, params }) {
     await store.ensureFromSession(user);
     const extra = await passkeyCount(env, accountId);
     await store.unlink(accountId, kind, extra);
-    return json({ ok: true });
+    return json({ ok: true }, 200, { "Set-Cookie": await rotateSession(env, user) });
   } catch (err) {
     const code = err?.code;
     if (code === "last_method") return json({ error: code, message: MESSAGES.last_method }, 409);

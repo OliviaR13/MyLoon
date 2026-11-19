@@ -1,13 +1,18 @@
 // POST /api/auth/passkey/register/verify：核对注册响应，把公钥存进 PASSKEYS。
-import { getSession, json } from "../../../../_lib/auth.js";
+import { getSessionOr503, json } from "../../../../_lib/auth.js";
 import { bytesField, httpError, readBody, rpOrError, unavailable } from "../../../../_lib/passkey-http.js";
 import { profileFromSession, putCredential, takeChallenge } from "../../../../_lib/passkeys.js";
+import { rateLimit } from "../../../../_lib/rate-limit.js";
 import { b64urlEncode, verifyRegistration } from "../../../../_lib/webauthn.js";
 
 export async function onRequestPost({ request, env }) {
   const missing = unavailable(env);
   if (missing) return missing;
-  const user = await getSession(request, env);
+  const limited = await rateLimit(request, env, "passkey-reg-ver");
+  if (limited) return limited;
+  const got = await getSessionOr503(request, env);
+  if (got.response) return got.response;
+  const user = got.user;
   if (!user) return json({ error: "unauthorized" }, 401);
   const { rp, error } = rpOrError(request);
   if (error) return error;
@@ -24,7 +29,7 @@ export async function onRequestPost({ request, env }) {
   } catch {
     return json({ error: "bad_client_data" }, 400);
   }
-  const saved = await takeChallenge(env.PASSKEYS, challenge, "reg");
+  const saved = await takeChallenge(env, challenge, "reg", request);
   if (!saved || saved.userId !== String(user.id)) return json({ error: "challenge" }, 400);
 
   try {

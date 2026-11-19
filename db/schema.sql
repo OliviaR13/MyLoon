@@ -88,3 +88,25 @@ CREATE TABLE IF NOT EXISTS deleted_accounts (
   id         TEXT PRIMARY KEY,
   deleted_at INTEGER NOT NULL
 );
+
+-- 会话代数。抬高之后，sv 更小或没有 sv 的登录 Cookie 全部失效。函数第一次用到时会自动建表。
+CREATE TABLE IF NOT EXISTS session_epochs (
+  id    TEXT PRIMARY KEY,
+  epoch INTEGER NOT NULL
+);
+
+-- 通行密钥挑战。有 D1 时用 DELETE … RETURNING 一次性消费；没有 D1 时仍放在 PASSKEYS KV。
+CREATE TABLE IF NOT EXISTS passkey_challenges (
+  challenge TEXT PRIMARY KEY,
+  kind      TEXT NOT NULL,
+  user_id   TEXT NOT NULL DEFAULT '',
+  exp       INTEGER NOT NULL
+);
+
+-- 接口限流计数。窗口过了就没用了，函数第一次用到时会自动建表。
+CREATE TABLE IF NOT EXISTS rate_limits (
+  k   TEXT    NOT NULL,
+  win INTEGER NOT NULL,
+  n   INTEGER NOT NULL,
+  PRIMARY KEY (k, win)
+);

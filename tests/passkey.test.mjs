@@ -108,6 +108,12 @@ function post(url, body, cookie) {
   return new Request(url, { method: "POST", headers, body: body ? JSON.stringify(body) : "{}" });
 }
 
+function withChal(cookie, res) {
+  const raw = res.headers.getSetCookie().find((c) => c.startsWith("mlb_chal=") && !c.includes("Max-Age=0"));
+  const chal = raw ? raw.split(";")[0] : "";
+  return [cookie, chal].filter(Boolean).join("; ");
+}
+
 test("RP ID 取主机名，IP 地址不行，预览子域和 localhost 可以", () => {
   assert.equal(rpIdFromHost("olivia-loon-box.pages.dev"), "olivia-loon-box.pages.dev");
   assert.equal(rpIdFromHost("abc.olivia-loon-box.pages.dev"), "abc.olivia-loon-box.pages.dev");
@@ -165,21 +171,22 @@ test("ES256 注册后可以用通行密钥登录，挑战不能再用", async ()
     },
   };
   const reg = await registerVerify({
-    request: post(ORIGIN + "/api/auth/passkey/register/verify", regBody, cookie),
+    request: post(ORIGIN + "/api/auth/passkey/register/verify", regBody, withChal(cookie, optRes)),
     env,
   });
   assert.equal(reg.status, 200, JSON.stringify(await reg.clone().json()));
   const again = await registerVerify({
-    request: post(ORIGIN + "/api/auth/passkey/register/verify", regBody, cookie),
+    request: post(ORIGIN + "/api/auth/passkey/register/verify", regBody, withChal(cookie, optRes)),
     env,
   });
   assert.equal(again.status, 400);
   assert.equal((await again.json()).error, "challenge");
 
-  const loginOpt = await (await loginOptions({
+  const loginOptRes = await loginOptions({
     request: post(ORIGIN + "/api/auth/passkey/login/options", {}),
     env,
-  })).json();
+  });
+  const loginOpt = await loginOptRes.json();
   const loginAuth = await authData({ rpId: RP_ID, flags: 0x01, signCount: 1 });
   const loginClient = clientData("webauthn.get", loginOpt.challenge, ORIGIN);
   const signed = concat(loginAuth, new Uint8Array(await crypto.subtle.digest("SHA-256", loginClient)));
@@ -194,7 +201,7 @@ test("ES256 注册后可以用通行密钥登录，挑战不能再用", async ()
         signature: b64urlEncode(signature),
         userHandle: b64urlEncode(new TextEncoder().encode("42")),
       },
-    }),
+    }, withChal("", loginOptRes)),
     env,
   });
   assert.equal(loginRes.status, 200, JSON.stringify(await loginRes.clone().json()));
@@ -228,10 +235,11 @@ test("错误的签名、来源、UP 和 rpIdHash 都会拒绝", async () => {
   const kv = memoryKv();
   const env = envWith(kv);
   const cookie = await sessionCookie({ id: 7, login: "bee", provider: "google", name: "蜜蜂", email: "bee@gmail.com", picture: "https://lh3.googleusercontent.com/a/bee" });
-  const opt = await (await registerOptions({
+  const optRes = await registerOptions({
     request: post(ORIGIN + "/api/auth/passkey/register/options", {}, cookie),
     env,
-  })).json();
+  });
+  const opt = await optRes.json();
   const pair = await es256Pair();
   const credId = crypto.getRandomValues(new Uint8Array(16));
   const regAuth = await authData({ rpId: RP_ID, flags: 0x45, signCount: 0, credId, cose: coseEc(pair.jwk) });
@@ -248,15 +256,16 @@ test("错误的签名、来源、UP 和 rpIdHash 都会拒绝", async () => {
           ["authData", regAuth],
         ]))),
       },
-    }, cookie),
+    }, withChal(cookie, optRes)),
     env,
   })).status, 200);
 
   async function loginWith({ rpId = RP_ID, origin = ORIGIN, flags = 0x01, signCount = 1, mutate } = {}) {
-    const loginOpt = await (await loginOptions({
+    const loginOptRes = await loginOptions({
       request: post(ORIGIN + "/api/auth/passkey/login/options", {}),
       env,
-    })).json();
+    });
+    const loginOpt = await loginOptRes.json();
     const loginAuth = await authData({ rpId, flags, signCount });
     const loginClient = clientData("webauthn.get", loginOpt.challenge, origin);
     const signed = concat(loginAuth, new Uint8Array(await crypto.subtle.digest("SHA-256", loginClient)));
@@ -271,7 +280,7 @@ test("错误的签名、来源、UP 和 rpIdHash 都会拒绝", async () => {
           authenticatorData: b64urlEncode(loginAuth),
           signature: b64urlEncode(signature),
         },
-      }),
+      }, withChal("", loginOptRes)),
       env,
     });
   }
@@ -306,10 +315,11 @@ test("RS256 公钥可以注册并登录", async () => {
   const kv = memoryKv();
   const env = envWith(kv);
   const cookie = await sessionCookie({ id: 9, login: "rsa" });
-  const opt = await (await registerOptions({
+  const optRes = await registerOptions({
     request: post(ORIGIN + "/api/auth/passkey/register/options", {}, cookie),
     env,
-  })).json();
+  });
+  const opt = await optRes.json();
   const kp = await crypto.subtle.generateKey(
     { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
     true,
@@ -331,15 +341,16 @@ test("RS256 公钥可以注册并登录", async () => {
           ["authData", regAuth],
         ]))),
       },
-    }, cookie),
+    }, withChal(cookie, optRes)),
     env,
   });
   assert.equal(reg.status, 200, JSON.stringify(await reg.clone().json()));
 
-  const loginOpt = await (await loginOptions({
+  const loginOptRes = await loginOptions({
     request: post(ORIGIN + "/api/auth/passkey/login/options", {}),
     env,
-  })).json();
+  });
+  const loginOpt = await loginOptRes.json();
   const loginAuth = await authData({ rpId: RP_ID, flags: 0x01, signCount: 0 });
   const loginClient = clientData("webauthn.get", loginOpt.challenge, ORIGIN);
   const signed = concat(loginAuth, new Uint8Array(await crypto.subtle.digest("SHA-256", loginClient)));
@@ -353,7 +364,7 @@ test("RS256 公钥可以注册并登录", async () => {
         authenticatorData: b64urlEncode(loginAuth),
         signature: b64urlEncode(signature),
       },
-    }),
+    }, withChal("", loginOptRes)),
     env,
   });
   assert.equal(loginRes.status, 200, JSON.stringify(await loginRes.clone().json()));
@@ -369,10 +380,11 @@ test("未登录不能注册；可以移除自己的通行密钥；IP 主机被�
   assert.equal(anon.status, 401);
 
   const cookie = await sessionCookie({ id: 3, login: "cat" });
-  const opt = await (await registerOptions({
+  const optRes = await registerOptions({
     request: post(ORIGIN + "/api/auth/passkey/register/options", {}, cookie),
     env,
-  })).json();
+  });
+  const opt = await optRes.json();
   const pair = await es256Pair();
   const credId = crypto.getRandomValues(new Uint8Array(16));
   const regClient = clientData("webauthn.create", opt.challenge, ORIGIN);
@@ -388,7 +400,7 @@ test("未登录不能注册；可以移除自己的通行密钥；IP 主机被�
           ["authData", await authData({ rpId: RP_ID, flags: 0x41, signCount: 0, credId, cose: coseEc(pair.jwk) })],
         ]))),
       },
-    }, cookie),
+    }, withChal(cookie, optRes)),
     env,
   });
   const { id } = await reg.json();
@@ -431,6 +443,7 @@ test("超过 8 把通行密钥时拒绝再添加", async () => {
     await putCredential(kv, { ...profile, credentialId: "k" + i, coseKey: b64urlEncode(new Uint8Array([1])), alg: -7, signCount: 0, createdAt: i });
   }
   await assert.rejects(() => putCredential(kv, { ...profile, credentialId: "k9", coseKey: "AA", alg: -7, signCount: 0, createdAt: 9 }), (err) => err.code === "too_many");
+  await assert.rejects(() => putCredential(kv, { ...profile, credentialId: "k0", coseKey: "AA", alg: -7, signCount: 0, createdAt: 10 }), (err) => err.code === "credential_exists");
 });
 
 test("已有 8 把通行密钥时，注册选项直接返回 too_many，不再弹出验证", async () => {

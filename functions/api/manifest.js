@@ -5,7 +5,8 @@
 //   TURNSTILE_SECRET     Turnstile 小组件的 Secret key（设为 Secret；同时用作 Cookie 的签名密钥）
 //   TURNSTILE_HOSTNAMES  允许的前端域名，逗号分隔，例如 olivia-loon-box.pages.dev
 import manifest from "../../manifest.json";
-import { getSession } from "../_lib/auth.js";
+import { getSessionOr503 } from "../_lib/auth.js";
+import { rateLimit } from "../_lib/rate-limit.js";
 
 const SITEVERIFY = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 const ACTION = "load_manifest"; // 需与 app.js 中 CONFIG.turnstile.action 一致
@@ -42,6 +43,8 @@ async function hasValidCookie(request, secret) {
 }
 
 export async function onRequestPost({ request, env }) {
+  const limited = await rateLimit(request, env, "manifest");
+  if (limited) return limited;
   if (!env.TURNSTILE_SECRET || !env.TURNSTILE_HOSTNAMES) return json({ error: "server_misconfigured" }, 500);
   const hostnames = new Set(env.TURNSTILE_HOSTNAMES.split(",").map((h) => h.trim()).filter(Boolean));
 
@@ -50,7 +53,9 @@ export async function onRequestPost({ request, env }) {
 
   // 没有令牌：只接受仍在有效期内的签名 Cookie
   if (!token) {
-    const ok = (await hasValidCookie(request, env.TURNSTILE_SECRET)) || (await getSession(request, env));
+    const got = await getSessionOr503(request, env);
+    if (got.response) return got.response;
+    const ok = (await hasValidCookie(request, env.TURNSTILE_SECRET)) || got.user;
     return ok ? json(manifest) : forbidden("no_token");
   }
   if (typeof token !== "string" || token.length > 2048) return forbidden("no_token");

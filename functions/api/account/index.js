@@ -1,5 +1,5 @@
 // GET /api/account：当前账号已绑定的 GitHub、Google 和通行密钥。
-import { getSession, json } from "../../_lib/auth.js";
+import { getSessionOr503, json } from "../../_lib/auth.js";
 import {
   ACCOUNT_STORE_MESSAGE,
   identitiesForClient,
@@ -10,7 +10,9 @@ import {
 import { listCredentials } from "../../_lib/passkeys.js";
 
 export async function onRequestGet({ request, env }) {
-  const user = await getSession(request, env);
+  const got = await getSessionOr503(request, env);
+  if (got.response) return got.response;
+  const user = got.user;
   if (!user) return json({ error: "unauthorized" }, 401);
   const accountId = sessionAccountId(user);
   const store = openAccountStore(env);

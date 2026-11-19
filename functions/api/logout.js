@@ -1,4 +1,6 @@
-import { clearCookie, json, sameOrigin } from "../_lib/auth.js";
+import { clearCookie, getSession, json, sameOrigin } from "../_lib/auth.js";
+import { bumpEpoch } from "../_lib/session-epoch.js";
+import { isAuthUnavailable } from "../_lib/auth-error.js";
 
 // 退出登录：只接受 POST，始终返回 200 JSON，不再返回重定向。
 //
@@ -7,9 +9,14 @@ import { clearCookie, json, sameOrigin } from "../_lib/auth.js";
 // 问题在于：WebKit（iOS Safari）不保证处理重定向响应上的 Set-Cookie，
 // 会话 Cookie 就删不掉，表现为「点了退出登录，刷新后又回到已登录状态」。
 // 登出只能是普通响应，Cookie 只在 200 上发，任何浏览器都会照做。
-export async function onRequestPost({ request }) {
+export async function onRequestPost({ request, env }) {
   if (!sameOrigin(request)) return json({ error: "forbidden" }, 403);
-  return json({ ok: true }, 200, {
-    "Set-Cookie": clearCookie("mlb_session"),
-  });
+  try {
+    const user = await getSession(request, env);
+    if (user?.id != null) await bumpEpoch(env, String(user.id));
+  } catch (err) {
+    if (!isAuthUnavailable(err)) throw err;
+    return json({ error: "auth_unavailable" }, 503, { "Set-Cookie": clearCookie("mlb_session") });
+  }
+  return json({ ok: true }, 200, { "Set-Cookie": clearCookie("mlb_session") });
 }

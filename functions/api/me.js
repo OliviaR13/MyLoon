@@ -1,7 +1,7 @@
 // GET /api/me：当前登录用户和云端数据；PUT /api/me：保存收藏和设置
 // 存储：优先 D1（绑定 MLB_DB，逐行「较新者胜」写入，并发安全）；没绑 D1 时退回 KV（绑定 MLB_KV）。
 // 两个都没绑时同步功能不可用，收藏和设置只保存在本机。
-import { getSession, json, sameOrigin } from "../_lib/auth.js";
+import { getSessionOr503, json, sameOrigin } from "../_lib/auth.js";
 import { publicSessionUser } from "../_lib/google-auth.js";
 import { mergeFavMeta, mergeSettings } from "../_lib/sync-merge.js";
 import { loadFromD1, saveToD1, MAX_FAVS } from "../_lib/sync-store.js";
@@ -46,7 +46,9 @@ function clean(d) {
 }
 
 export async function onRequestGet({ request, env }) {
-  const user = await getSession(request, env);
+  const got = await getSessionOr503(request, env);
+  if (got.response) return got.response;
+  const user = got.user;
   if (!user) return json({ user: null });
   let data = null;
   try {
@@ -60,7 +62,9 @@ export async function onRequestGet({ request, env }) {
 
 export async function onRequestPut({ request, env }) {
   if (!sameOrigin(request)) return json({ error: "forbidden" }, 403);
-  const user = await getSession(request, env);
+  const got = await getSessionOr503(request, env);
+  if (got.response) return got.response;
+  const user = got.user;
   if (!user) return json({ error: "unauthorized" }, 401);
   if (!env.MLB_DB && !env.MLB_KV) return json({ error: "storage_not_configured" }, 500);
   const text = await request.text();

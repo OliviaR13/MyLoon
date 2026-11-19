@@ -210,12 +210,14 @@ test("迁移：KV 里没有数据的新用户不报错，之后照常读写", as
   assert.deepEqual((await get(env, 11)).favorites, ["a"]);
 });
 
-test("存储出错时返回 500，不泄露细节", async () => {
+test("存储出错时鉴权失败关闭，不泄露细节", async () => {
   resetSyncCache();
-  const broken = { prepare() { throw new Error("boom"); }, batch: async () => { throw new Error("boom"); } };
+  const broken = { prepare() { throw new Error("boom secret"); }, batch: async () => { throw new Error("boom secret"); } };
   const env = { SESSION_SECRET: SECRET, MLB_DB: broken };
   const res = await put(env, { favMeta: { a: [1, 1] } });
-  assert.equal(res.status, 500);
-  assert.deepEqual(await res.json(), { error: "storage_error" });
+  assert.equal(res.status, 503);
+  const body = await res.json();
+  assert.deepEqual(body, { error: "auth_unavailable" });
+  assert.equal(JSON.stringify(body).includes("secret"), false);
   resetSyncCache();
 });

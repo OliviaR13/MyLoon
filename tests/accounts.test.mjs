@@ -12,7 +12,7 @@ import { onRequestDelete as onDeletePasskey } from "../functions/api/auth/passke
 import { onRequestPost as onConflict } from "../functions/api/account/conflict.js";
 import { onRequestGet as onMe, onRequestPut } from "../functions/api/me.js";
 import { seal, unseal } from "../functions/_lib/auth.js";
-import { stageConflictToken } from "../functions/_lib/accounts.js";
+import { conflictMarker, stageConflictToken } from "../functions/_lib/accounts.js";
 import { listCredentials, putCredential } from "../functions/_lib/passkeys.js";
 import { b64urlEncode } from "../functions/_lib/webauthn.js";
 import { resetGoogleCerts } from "../functions/_lib/google-auth.js";
@@ -150,14 +150,40 @@ async function githubCallback(env, cookie, id = 42, login = "ada") {
   });
 }
 
+function jwtPayload(token) {
+  let part = String(token).split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+  part += "=".repeat((4 - (part.length % 4)) % 4);
+  const bin = atob(part);
+  const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
 async function finishGoogle(env, start, cookie) {
   const next = jar(start, cookie);
-  return onGoogleCallback({
-    request: new Request(ORIGIN + "/api/auth/google/callback?code=the-code&state=" + cookieValue(start, "mlb_state"), {
-      headers: { cookie: next },
-    }),
-    env,
-  });
+  const nonce = cookieValue(start, "mlb_nonce");
+  const inner = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    const res = await inner(url, init);
+    if (!String(url).includes("/token")) return res;
+    const body = await res.clone().json();
+    if (!body?.id_token) return res;
+    return Response.json({ ...body, id_token: await signJwt({ ...jwtPayload(body.id_token), nonce }) });
+  };
+  try {
+    return await onGoogleCallback({
+      request: new Request(ORIGIN + "/api/auth/google/callback?code=the-code&state=" + cookieValue(start, "mlb_state"), {
+        headers: { cookie: next },
+      }),
+      env,
+    });
+  } finally {
+    globalThis.fetch = inner;
+  }
+}
+
+async function conflictJar(cookie, token, res) {
+  const marker = res ? cookieValue(res, "mlb_conflict") : await conflictMarker(token);
+  return marker ? `${cookie}; mlb_conflict=${marker}` : cookie;
 }
 
 let tail = Promise.resolve();
@@ -190,7 +216,7 @@ serial("老 GitHub 用户第一次登录后，账号 ID 仍是原来的数字，
   const res = await githubCallback(env, "", 42, "ada");
   assert.equal(new URL(res.headers.get("Location"), ORIGIN).pathname, "/");
   const token = cookieValue(res, "mlb_session");
-  const session = await unseal(token, SECRET);
+  const session = await unseal(token, SECRET, "session");
   assert.equal(session.id, 42);
   assert.equal(session.login, "ada");
   assert.equal(session.provider, undefined);
@@ -261,7 +287,7 @@ serial("绑定 Google 后仍用原来的账号；再用 Google 登录也回到�
     env,
   });
   const back = await finishGoogle(env, login, "");
-  const again = await unseal(cookieValue(back, "mlb_session"), SECRET);
+  const again = await unseal(cookieValue(back, "mlb_session"), SECRET, "session");
   assert.equal(again.id, 42);
   assert.equal(again.provider, "google");
   assert.equal(again.email, "bee@gmail.com");
@@ -422,9 +448,9 @@ serial("取消确认时两个账号都还在；确认后才注销另一个账号
   assert.deepEqual(stillOther.data.favorites, ["g"]);
   assert.equal(stillOther.user.id, "google:10001");
 
-  const ok = await onConflict({ request: conflictPost(session, pending), env });
+  const ok = await onConflict({ request: conflictPost(await conflictJar(session, pending, linked), pending), env });
   assert.equal(ok.status, 200, JSON.stringify(await ok.clone().json()));
-  const again = await onConflict({ request: conflictPost(session, pending), env });
+  const again = await onConflict({ request: conflictPost(await conflictJar(session, pending, linked), pending), env });
   assert.equal(again.status, 400);
 
   const account = await (await onAccount({ request: new Request(ORIGIN + "/api/account", { headers: { cookie: session } }), env })).json();
@@ -440,7 +466,7 @@ serial("取消确认时两个账号都还在；确认后才注销另一个账号
   assert.equal(gone.user, null);
 
   const fresh = await githubCallback(env, "", 99, "side");
-  const sideSession = await unseal(cookieValue(fresh, "mlb_session"), SECRET);
+  const sideSession = await unseal(cookieValue(fresh, "mlb_session"), SECRET, "session");
   assert.equal(sideSession.id, 99);
   const sideData = await (await onMe({
     request: new Request(ORIGIN + "/api/me", { headers: { cookie: "mlb_session=" + cookieValue(fresh, "mlb_session") } }),
@@ -463,7 +489,7 @@ serial("确认凭证如果指向当前账号，不会注销当前账号", async 
   const token = await stageConflictToken(env, "42", "42", {
     kind: "github", subject: "42", label: "ada", name: "", email: "", picture: "",
   });
-  const res = await onConflict({ request: conflictPost(cookie, token), env });
+  const res = await onConflict({ request: conflictPost(await conflictJar(cookie, token), token), env });
   assert.equal(res.status, 200);
   const me = await (await onMe({ request: new Request(ORIGIN + "/api/me", { headers: { cookie } }), env })).json();
   assert.equal(me.user.id, 42);
@@ -511,15 +537,18 @@ serial("不能解绑最后一种登录方式；有通行密钥时可以解绑，
     params: { kind: "github" },
   });
   assert.equal(removed.status, 200);
-  const left = await (await onAccount({ request: new Request(ORIGIN + "/api/account", { headers: { cookie: session } }), env })).json();
+  const kept = "mlb_session=" + cookieValue(removed, "mlb_session");
+  const stale = await (await onMe({ request: new Request(ORIGIN + "/api/me", { headers: { cookie: session } }), env })).json();
+  assert.equal(stale.user, null);
+  const left = await (await onAccount({ request: new Request(ORIGIN + "/api/account", { headers: { cookie: kept } }), env })).json();
   assert.deepEqual(left.identities, []);
   assert.equal(left.passkeys.length, 1);
 
   const again = await githubCallback(env, "", 42, "ada");
-  const next = await unseal(cookieValue(again, "mlb_session"), SECRET);
+  const next = await unseal(cookieValue(again, "mlb_session"), SECRET, "session");
   assert.notEqual(next.id, 42);
   assert.match(String(next.id), /^a:/);
-  const oldData = await (await onMe({ request: new Request(ORIGIN + "/api/me", { headers: { cookie: session } }), env })).json();
+  const oldData = await (await onMe({ request: new Request(ORIGIN + "/api/me", { headers: { cookie: kept } }), env })).json();
   assert.deepEqual(oldData.data.favorites, ["keep"]);
   const newData = await (await onMe({
     request: new Request(ORIGIN + "/api/me", { headers: { cookie: "mlb_session=" + cookieValue(again, "mlb_session") } }),
@@ -528,7 +557,7 @@ serial("不能解绑最后一种登录方式；有通行密钥时可以解绑，
   assert.equal(newData.data, null);
 
   const lastKey = await onDeletePasskey({
-    request: new Request(ORIGIN + "/api/auth/passkey/cred1", { method: "DELETE", headers: { origin: ORIGIN, cookie: session } }),
+    request: new Request(ORIGIN + "/api/auth/passkey/cred1", { method: "DELETE", headers: { origin: ORIGIN, cookie: kept } }),
     env,
     params: { id: "cred1" },
   });
@@ -586,7 +615,7 @@ serial("没有 D1 时用已有的 KV 保存绑定；两个都没有时登录仍�
 
   const bare = envWith({});
   const alone = await githubCallback(bare, "", 9, "solo");
-  const solo = await unseal(cookieValue(alone, "mlb_session"), SECRET);
+  const solo = await unseal(cookieValue(alone, "mlb_session"), SECRET, "session");
   assert.equal(solo.id, 9);
   const linkStart = await onGithubLogin({
     request: new Request(ORIGIN + "/api/auth/login?intent=link", { headers: { cookie: "mlb_session=" + cookieValue(alone, "mlb_session") } }),
