@@ -438,7 +438,7 @@ export function initAccount() {
           ? "当前浏览器不支持通行密钥"
           : full
             ? "已添加 8 把，达到上限，请先移除不用的"
-            : "用这台设备的指纹、面容或锁屏密码登录这个账号";
+            : "用指纹、面容或锁屏密码登录这个账号";
       }
       const list = $id("passkeyList");
       if (list) {
