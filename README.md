@@ -216,9 +216,9 @@ https://raw.githubusercontent.com/OliviaR13/MyLoon/main/plugin/<文件名>.plugi
 
 ## 许可
 
-版权所有 © 2026 soobsessed，保留所有权利。未经事先书面许可，不得复制、修改、合并、发布、分发、转授权、出售，或以副本经营商业服务。详见 [LICENSE](LICENSE)，在线文本见 [版权与许可](https://olivia-loon-box.pages.dev/license)。
+版权所有 © 2026 soobsessed，保留所有权利。本软件为专有内容。未经著作权人事先书面许可，不得复制、修改、合并、发布、分发、转授权、出售，或用于经营商业服务。详见 [LICENSE](LICENSE)。
 
-第三方内容：[`script/spotify/`](script/spotify/) 下的文件源自 [app2smile/rules](https://github.com/app2smile/rules)，Copyright (c) 2023 app2smile，按 MIT 许可使用，见 [script/spotify/LICENSE](script/spotify/LICENSE)。上述专有限制不适用于这些文件。
+第三方内容：[`script/spotify/`](script/spotify/) 下的文件源自 [app2smile/rules](https://github.com/app2smile/rules)，Copyright (c) 2023 app2smile，按 MIT 许可使用，见 [script/spotify/LICENSE](script/spotify/LICENSE)。上述限制不适用于这些文件。
 
 <div align="center">
 
