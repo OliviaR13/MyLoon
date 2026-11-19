@@ -83,20 +83,24 @@ export async function onRequestPut({ request, env }) {
   // KV 没有原子的「比较后写入」，而且最终一致（别的机房可能一分钟内还读到旧值）：
   // 两个请求同时到达时，后写的仍可能盖掉先写的。客户端每次同步都会先合并再推送，
   // 漏掉的改动通常下次同步能补回来，但要彻底避免只能用 D1。
-  const prev = await env.MLB_KV.get(`u:${user.id}`, "json");
-  // 带了 favMeta 才合并；没带（旧客户端）仍按它提交的 favorites 整份替换，这样旧客户端才能取消收藏
-  if (Object.keys(data.favMeta).length) {
-    const prevMeta = { ...(prev?.favMeta || {}) };
-    for (const id of prev?.favorites || []) if (!prevMeta[id]) prevMeta[id] = [0, 1];
-    data.favMeta = mergeFavMeta(prevMeta, data.favMeta, Date.now(), TOMBSTONE_TTL, MAX_FAVS);
-    data.favorites = Object.keys(data.favMeta).filter((id) => data.favMeta[id][1] === 1);
+  try {
+    const prev = await env.MLB_KV.get(`u:${user.id}`, "json");
+    // 带了 favMeta 才合并；没带（旧客户端）仍按它提交的 favorites 整份替换，这样旧客户端才能取消收藏
+    if (Object.keys(data.favMeta).length) {
+      const prevMeta = { ...(prev?.favMeta || {}) };
+      for (const id of prev?.favorites || []) if (!prevMeta[id]) prevMeta[id] = [0, 1];
+      data.favMeta = mergeFavMeta(prevMeta, data.favMeta, Date.now(), TOMBSTONE_TTL, MAX_FAVS);
+      data.favorites = Object.keys(data.favMeta).filter((id) => data.favMeta[id][1] === 1);
+    }
+    const m = mergeSettings(prev, data);
+    data.settings = m.settings;
+    data.lookAt = m.lookAt;
+    data.cardsAt = m.cardsAt;
+    data.panelAt = m.panelAt;
+    data.settingsAt = Math.max(data.settingsAt, data.lookAt || 0, data.cardsAt || 0);
+    await env.MLB_KV.put(`u:${user.id}`, JSON.stringify(data));
+  } catch {
+    return json({ error: "storage_error" }, 500);
   }
-  const m = mergeSettings(prev, data);
-  data.settings = m.settings;
-  data.lookAt = m.lookAt;
-  data.cardsAt = m.cardsAt;
-  data.panelAt = m.panelAt;
-  data.settingsAt = Math.max(data.settingsAt, data.lookAt || 0, data.cardsAt || 0);
-  await env.MLB_KV.put(`u:${user.id}`, JSON.stringify(data));
   return json({ ok: true, updatedAt: data.updatedAt });
 }

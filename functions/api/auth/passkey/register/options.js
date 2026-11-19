@@ -1,6 +1,6 @@
 // POST /api/auth/passkey/register/options：已登录用户开始注册一把通行密钥。
 import { getSession, json, sameOrigin } from "../../../../_lib/auth.js";
-import { listCredentials, newChallenge, passkeyConfigError, saveChallenge, userHandle } from "../../../../_lib/passkeys.js";
+import { MAX_PASSKEYS, listCredentials, newChallenge, passkeyConfigError, saveChallenge, userHandle } from "../../../../_lib/passkeys.js";
 import { rpOrError } from "../../../../_lib/passkey-http.js";
 
 export async function onRequestPost({ request, env }) {
@@ -13,8 +13,9 @@ export async function onRequestPost({ request, env }) {
   if (error) return error;
   const challenge = newChallenge();
   try {
-    await saveChallenge(env.PASSKEYS, challenge, "reg", { userId: String(user.id) });
     const existing = await listCredentials(env.PASSKEYS, user.id);
+    if (existing.length >= MAX_PASSKEYS) return json({ error: "too_many", message: "最多添加 8 把通行密钥" }, 409);
+    await saveChallenge(env.PASSKEYS, challenge, "reg", { userId: String(user.id) });
     const name = user.provider === "google" ? (user.name || user.login || "Google 用户") : (user.login || "GitHub 用户");
     return json({
       challenge,

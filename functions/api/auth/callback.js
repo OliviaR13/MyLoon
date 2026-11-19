@@ -82,7 +82,7 @@ export async function onRequestGet({ request, env }) {
     return fail("storage");
   }
   const session = await seal(sessionPayload(accountId, profile), env.SESSION_SECRET);
-  const headers = new Headers({ Location: "/", "cache-control": "no-store" });
+  const headers = new Headers({ Location: "/?login=github", "cache-control": "no-store" });
   headers.append("Set-Cookie", clearCookie("mlb_state", "/api/auth"));
   headers.append("Set-Cookie", clearCookie("mlb_link", "/api/auth"));
   headers.append("Set-Cookie", cookie("mlb_session", session, { maxAge: SESSION_TTL }));

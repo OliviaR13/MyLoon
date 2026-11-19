@@ -4,7 +4,9 @@ import { cookie, clearCookie, getSession } from "../../_lib/auth.js";
 import { sealLinkIntent, sessionAccountId } from "../../_lib/accounts.js";
 
 export async function onRequestGet({ request, env }) {
-  if (!env.GITHUB_CLIENT_ID || !env.SESSION_SECRET) return new Response("login_not_configured", { status: 500 });
+  if (!env.GITHUB_CLIENT_ID || !env.SESSION_SECRET) {
+    return new Response(null, { status: 302, headers: { Location: "/?login_error=config", "cache-control": "no-store" } });
+  }
   const link = new URL(request.url).searchParams.get("intent") === "link";
   const headers = new Headers({ "cache-control": "no-store" });
   if (link) {
