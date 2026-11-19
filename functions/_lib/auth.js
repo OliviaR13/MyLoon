@@ -2,6 +2,7 @@
 import { isAccountDeleted } from "./account-tomb.js";
 import { isAuthUnavailable } from "./auth-error.js";
 import { bumpEpoch, currentEpoch, epochAllows } from "./session-epoch.js";
+import { isSessionRevoked } from "./revoked-sessions.js";
 const enc = new TextEncoder();
 const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64 = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
@@ -89,18 +90,20 @@ export async function getSession(request, env) {
   if (await isAccountDeleted(env, String(user.id))) return null;
   const epoch = await currentEpoch(env, String(user.id));
   if (!epochAllows(user, epoch)) return null;
+  if (await isSessionRevoked(env, user.sid)) return null;
   return user;
 }
 
 export async function issueSession(env, payload) {
   const sv = payload.sv == null ? await currentEpoch(env, String(payload.id)) : payload.sv;
-  return seal({ ...payload, sv }, env.SESSION_SECRET, "session");
+  const sid = typeof payload.sid === "string" && payload.sid ? payload.sid : crypto.randomUUID();
+  return seal({ ...payload, sv, sid }, env.SESSION_SECRET, "session");
 }
 
-// 抬高代数并给当前浏览器换一张新 Cookie，这样这一台还登录着，其他设备全部退出。
+// 抬高代数并给当前浏览器换一张新会话，这样这一台还登录着，其他设备全部退出。
 export async function rotateSession(env, user) {
   const sv = await bumpEpoch(env, String(user.id));
-  const token = await seal({ ...user, sv }, env.SESSION_SECRET, "session");
+  const token = await seal({ ...user, sv, sid: crypto.randomUUID() }, env.SESSION_SECRET, "session");
   return cookie("mlb_session", token, { maxAge: SESSION_TTL });
 }
 

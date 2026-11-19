@@ -95,6 +95,13 @@ CREATE TABLE IF NOT EXISTS session_epochs (
   epoch INTEGER NOT NULL
 );
 
+-- 单独退出的会话。expires_at 过后可以删。函数第一次用到时会自动建表。
+CREATE TABLE IF NOT EXISTS revoked_sessions (
+  sid        TEXT PRIMARY KEY,
+  account_id TEXT    NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+
 -- 通行密钥挑战。有 D1 时用 DELETE … RETURNING 一次性消费；没有 D1 时仍放在 PASSKEYS KV。
 CREATE TABLE IF NOT EXISTS passkey_challenges (
   challenge TEXT PRIMARY KEY,

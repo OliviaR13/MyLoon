@@ -3,6 +3,7 @@
 //   user:<userId>        这个账号的凭证 ID 列表
 //   chal:<challenge>     一次性挑战，TTL 5 分钟，用过即删
 import { SESSION_TTL, cookie, getCookie, seal, unseal } from "./auth.js";
+import { claimOnce } from "./kv-once.js";
 import { b64urlDecode, b64urlEncode } from "./webauthn.js";
 
 export const CHALLENGE_TTL = 300;
@@ -78,20 +79,28 @@ async function takeFromKv(kv, challenge, kind) {
   const key = chalKey(challenge);
   const raw = await kv.get(key);
   if (!raw) return null;
-  await kv.delete(key);
   let data;
   try {
     data = JSON.parse(raw);
   } catch {
+    await kv.delete(key);
     return null;
   }
-  if (!data || data.kind !== kind || !Number.isFinite(data.exp) || data.exp < Date.now()) return null;
+  if (!data || data.kind !== kind || !Number.isFinite(data.exp) || data.exp < Date.now()) {
+    await kv.delete(key);
+    return null;
+  }
+  // 先占住 used 标记再删。两个并发请求里后写标记的那个会失败；仍有极小窗口，见 kv-once.js。
+  if (!(await claimOnce(kv, key))) {
+    await kv.delete(key);
+    return null;
+  }
+  await kv.delete(key);
   return data;
 }
 
 // 取出并删除。有 D1 时用 DELETE … RETURNING，避免两个请求同时读到同一条。
 // 另外必须带上签发挑战时写下的 Cookie，这样别人拿到挑战值也用不了。
-// 只剩 KV 时，同一次浏览器里并发重放仍有窗口，见报告。
 export async function takeChallenge(env, challenge, kind, request) {
   if (!challenge || challenge.length > 200) return null;
   if (!(await challengeCookieOk(request, env, challenge, kind))) return null;

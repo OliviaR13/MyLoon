@@ -7,6 +7,7 @@
 // 存储优先用已有的 D1（MLB_DB）。没绑 D1 时退回已有的 KV（MLB_KV）。两个都没有时，
 // 登录仍按老的会话 ID 工作，只是不能绑定或解绑。
 import { SESSION_TTL, getCookie, seal, unseal } from "./auth.js";
+import { claimOnce } from "./kv-once.js";
 import { isAccountDeleted, markAccountDeleted } from "./account-tomb.js";
 
 const KINDS = new Set(["github", "google"]);
@@ -434,8 +435,15 @@ function kvStore(KV) {
     async takePending(jti) {
       const key = "pend:" + jti;
       const row = await read(key);
+      if (!row || row.exp < Math.floor(Date.now() / 1000)) {
+        if (KV.delete) await KV.delete(key);
+        return null;
+      }
+      if (!(await claimOnce(KV, key))) {
+        if (KV.delete) await KV.delete(key);
+        return null;
+      }
       if (KV.delete) await KV.delete(key);
-      if (!row || row.exp < Math.floor(Date.now() / 1000)) return null;
       return row;
     },
     async moveIdentity(accountId, otherAccountId, profile) {

@@ -9,7 +9,8 @@ import { rateLimit } from "../functions/_lib/rate-limit.js";
 import { onRequestGet as onGithubLogin } from "../functions/api/auth/login.js";
 import { bumpEpoch } from "../functions/_lib/session-epoch.js";
 import { applySecurityHeaders } from "../functions/_lib/security-headers.js";
-import { putCredential } from "../functions/_lib/passkeys.js";
+import { challengeCookie, putCredential, takeChallenge } from "../functions/_lib/passkeys.js";
+import { claimOnce } from "../functions/_lib/kv-once.js";
 import { resetSyncCache } from "../functions/_lib/sync-store.js";
 
 const SECRET = "test-session-secret";
@@ -58,15 +59,91 @@ test("没有 sv 的旧 Cookie 在代数为 0 时仍有效，抬高后失效", as
   assert.equal((await getSession(again, env)).login, "ada");
 });
 
-test("退出登录会抬高代数，另一台设备上的旧 Cookie 失效", async () => {
+function sessionToken(fields) {
+  return seal({
+    sv: 0,
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    ...fields,
+  }, SECRET, "session");
+}
+
+test("退出登录只作废当前会话，另一台设备仍保持登录", async () => {
   const env = { SESSION_SECRET: SECRET, MLB_KV: memoryKv() };
-  const token = await seal({ id: 7, login: "bee", exp: Math.floor(Date.now() / 1000) + 3600 }, SECRET);
-  const headers = { origin: ORIGIN, cookie: "mlb_session=" + token };
-  const out = await onLogout({ request: new Request(ORIGIN + "/api/logout", { method: "POST", headers }), env });
+  const here = await sessionToken({ id: 7, login: "bee", sid: "sid-device-a" });
+  const other = await sessionToken({ id: 7, login: "bee", sid: "sid-device-b" });
+  const legacy = await sessionToken({ id: 7, login: "bee" });
+  const out = await onLogout({
+    request: new Request(ORIGIN + "/api/logout", { method: "POST", headers: { origin: ORIGIN, cookie: "mlb_session=" + here } }),
+    env,
+  });
   assert.equal(out.status, 200);
+  assert.equal(out.headers.get("Set-Cookie").includes("all="), false);
   assert.match(out.headers.get("Set-Cookie"), /mlb_session=;/);
-  const me = await onMe({ request: new Request(ORIGIN + "/api/me", { headers: { cookie: "mlb_session=" + token } }), env });
-  assert.equal((await me.json()).user, null);
+  const gone = await onMe({ request: new Request(ORIGIN + "/api/me", { headers: { cookie: "mlb_session=" + here } }), env });
+  assert.equal((await gone.json()).user, null);
+  const stays = await onMe({ request: new Request(ORIGIN + "/api/me", { headers: { cookie: "mlb_session=" + other } }), env });
+  assert.equal((await stays.json()).user.login, "bee");
+  const old = await onMe({ request: new Request(ORIGIN + "/api/me", { headers: { cookie: "mlb_session=" + legacy } }), env });
+  assert.equal((await old.json()).user.login, "bee");
+
+  const denied = await onLogout({
+    request: new Request(ORIGIN + "/api/logout?all=1", { method: "POST", headers: { origin: ORIGIN, cookie: "mlb_session=" + other } }),
+    env,
+  });
+  assert.equal(denied.status, 200);
+  const still = await onMe({ request: new Request(ORIGIN + "/api/me", { headers: { cookie: "mlb_session=" + legacy } }), env });
+  assert.equal((await still.json()).user.login, "bee");
+});
+
+test("没有 Origin 的退出请求被拒绝", async () => {
+  const res = await onLogout({
+    request: new Request(ORIGIN + "/api/logout", { method: "POST" }),
+    env: { SESSION_SECRET: SECRET },
+  });
+  assert.equal(res.status, 403);
+  assert.equal((await res.json()).error, "forbidden");
+});
+
+test("作废名单读失败时鉴权失败关闭，过期记录会被清掉", async () => {
+  const kv = {
+    get: async (k) => {
+      if (String(k).startsWith("rsid:")) throw new Error("down");
+      return null;
+    },
+    put: async () => {},
+    delete: async () => {},
+  };
+  const token = await sessionToken({ id: 3, login: "cat", sid: "sid-broken1" });
+  const req = new Request(ORIGIN + "/api/me", { headers: { cookie: "mlb_session=" + token } });
+  await assert.rejects(() => getSession(req, { SESSION_SECRET: SECRET, MLB_KV: kv }), (err) => err.code === "auth_unavailable");
+
+  const db = new DatabaseSync(":memory:");
+  const env = {
+    SESSION_SECRET: SECRET,
+    MLB_DB: { prepare: (sql) => new Stmt(db, sql), async batch(stmts) { return stmts.map((s) => s.exec()); } },
+  };
+  const sid = "sid-expired1";
+  await getSession(new Request(ORIGIN + "/api/me", { headers: { cookie: "mlb_session=" + await sessionToken({ id: 4, login: "d", sid }) } }), env);
+  db.prepare("INSERT OR REPLACE INTO revoked_sessions (sid, account_id, expires_at) VALUES (?, ?, ?)").run(sid, "4", Math.floor(Date.now() / 1000) - 5);
+  const live = await getSession(new Request(ORIGIN + "/api/me", { headers: { cookie: "mlb_session=" + await sessionToken({ id: 4, login: "d", sid }) } }), env);
+  assert.equal(live.login, "d");
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM revoked_sessions").get().n, 0);
+});
+
+test("KV 一次性令牌写过 used 标记后不能再用", async () => {
+  const kv = memoryKv();
+  assert.equal(await claimOnce(kv, "pend:1"), true);
+  assert.equal(await claimOnce(kv, "pend:1"), false);
+  const env = { PASSKEYS: kv, SESSION_SECRET: SECRET };
+  await kv.put("chal:abc", JSON.stringify({ kind: "auth", userId: "", exp: Date.now() + 60000 }));
+  await kv.put("used:chal:abc", "taken");
+  const set = await challengeCookie(env, "abc", "auth");
+  const req = new Request(ORIGIN + "/api/auth/passkey/login/verify", {
+    method: "POST",
+    headers: { origin: ORIGIN, cookie: set.split(";")[0] },
+  });
+  assert.equal(await takeChallenge(env, "abc", "auth", req), null);
+  assert.equal(await kv.get("chal:abc"), null);
 });
 
 test("墓碑存储出错时鉴权失败关闭，返回 503", async () => {
