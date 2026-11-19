@@ -1,0 +1,2 @@
+Temporary GitHub connector read/write permission test.
+This file is intended to be deleted immediately.
