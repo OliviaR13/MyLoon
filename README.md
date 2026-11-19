@@ -8,10 +8,10 @@
 
 <a href="https://www.nsloon.com/"><img src="https://readme-typing-svg.demolab.com/?lines=Loon+%E6%8F%92%E4%BB%B6%E5%90%88%E9%9B%86+%C2%B7+%E5%9C%A8%E7%BA%BF%E5%AE%89%E8%A3%85%E5%B9%B3%E5%8F%B0;%E8%A7%84%E5%88%99%E5%88%86%E6%B5%81+%C2%B7+%E5%B1%9E%E5%9C%B0%E6%8E%A7%E5%88%B6+%C2%B7+%E7%99%BB%E5%BD%95%E4%BF%AE%E5%A4%8D;%E4%B8%80%E9%94%AE%E5%94%A4%E8%B5%B7+Loon+%E5%AE%89%E8%A3%85&font=Noto+Sans+SC&size=20&duration=3200&pause=900&color=0F7F69&center=true&vCenter=true&width=520&height=50" alt="Loon 插件合集 · 在线安装平台"></a>
 
-[![License](https://img.shields.io/badge/License-All_Rights_Reserved-8a8a85?style=flat-square)](LICENSE)
-[![Last commit](https://img.shields.io/github/last-commit/OliviaR13/MyLoon?style=flat-square&logo=github)](https://github.com/OliviaR13/MyLoon/commits/main)
-[![Plugins](https://img.shields.io/badge/Plugins-16-0f7f69?style=flat-square)](plugin/)
-[![Cloudflare Pages](https://img.shields.io/badge/Hosted_on-Cloudflare_Pages-f38020?style=flat-square&logo=cloudflare&logoColor=white)](https://olivia-loon-box.pages.dev/)
+[![License](https://img.shields.io/badge/License-All_Rights_Reserved-8a8a85?style=plastic)](LICENSE)
+[![Last commit](https://img.shields.io/github/last-commit/OliviaR13/MyLoon?style=plastic&logo=github)](https://github.com/OliviaR13/MyLoon/commits/main)
+[![Plugins](https://img.shields.io/badge/Plugins-16-0f7f69?style=plastic)](plugin/)
+[![Cloudflare Pages](https://img.shields.io/badge/Hosted_on-Cloudflare_Pages-f38020?style=plastic&logo=cloudflare&logoColor=white)](https://olivia-loon-box.pages.dev/)
 
 **[打开 Loon Box](https://olivia-loon-box.pages.dev/)**
 ·
