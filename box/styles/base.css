@@ -92,8 +92,9 @@ button,a,.tab,.tile,.row-btn,.chip-filter,.star{-webkit-touch-callout:none;-webk
 .head .btn{background:var(--ap-bg);border-color:var(--ap-line);-webkit-backdrop-filter:var(--ap-filter);backdrop-filter:var(--ap-filter)}
 @media (hover:hover){.head .btn-ghost:hover:not(:disabled){background:color-mix(in srgb,var(--card) 72%,transparent)}}
 .btn-icon{display:grid;place-items:center;width:40px;height:40px;padding:0;flex:none;border-radius:50%}
-.btn-google{display:inline-flex;align-items:center;gap:8px;flex:none;background:var(--card)}
-.btn-google .g-logo{flex:none;display:block}
+/* 三个登录按钮（GitHub / Google / 通行密钥）共用：同样的底色、描边、宽度，图标 + 文字 */
+.btn-login{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:none;min-width:140px;background:var(--card);text-decoration:none}
+.btn-login .b-ico{flex:none;display:block}
 /* 已登录时页头的头像：点一下打开设置里的账号 */
 .head-acct{flex:none;display:grid;place-items:center;width:40px;height:40px;padding:0;border:1px solid var(--ap-line);border-radius:50%;background:var(--ap-bg);color:var(--text);cursor:pointer;-webkit-backdrop-filter:var(--ap-filter);backdrop-filter:var(--ap-filter)}
 .head-acct[hidden]{display:none}
