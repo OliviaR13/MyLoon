@@ -37,7 +37,7 @@ function fakeD1() {
 }
 function memoryKv(fail = false) {
   const m = new Map();
-  return {
+  const kv = {
     get: async (k) => {
       if (fail) throw new Error("kv down");
       return m.has(k) ? m.get(k) : null;
@@ -45,6 +45,8 @@ function memoryKv(fail = false) {
     put: async (k, v) => { m.set(k, v); },
     delete: async (k) => { m.delete(k); },
   };
+  kv.DB = fakeD1();
+  return kv;
 }
 
 test("没有 sv 的旧 Cookie 在代数为 0 时仍有效，抬高后失效", async () => {
@@ -68,7 +70,8 @@ function sessionToken(fields) {
 }
 
 test("退出登录只作废当前会话，另一台设备仍保持登录", async () => {
-  const env = { SESSION_SECRET: SECRET, MLB_KV: memoryKv() };
+  const kv = memoryKv();
+  const env = { SESSION_SECRET: SECRET, MLB_KV: kv, MLB_DB: kv.DB };
   const here = await sessionToken({ id: 7, login: "bee", sid: "sid-device-a" });
   const other = await sessionToken({ id: 7, login: "bee", sid: "sid-device-b" });
   const legacy = await sessionToken({ id: 7, login: "bee" });
@@ -134,7 +137,7 @@ test("一次性挑战必须由 D1 原子消费，重复提交不能再次使用"
   const kv = memoryKv();
   assert.equal(await claimOnce(kv, "pend:1"), true);
   assert.equal(await claimOnce(kv, "pend:1"), false);
-  const env = { PASSKEYS: kv, SESSION_SECRET: SECRET, MLB_DB: fakeD1() };
+  const env = { PASSKEYS: kv, SESSION_SECRET: SECRET, MLB_DB: kv.DB };
   await saveChallenge(env, "abc", "auth");
   const set = await challengeCookie(env, "abc", "auth");
   const req = new Request(ORIGIN + "/api/auth/passkey/login/verify", {
@@ -182,6 +185,8 @@ test("限流超过窗口后返回 429 和 Retry-After；存储出错时放行", 
     },
   };
   assert.equal(await rateLimit(req(), broken, "install"), null);
+  assert.equal((await rateLimit(req(), {}, "passkey-login-ver")).status, 503);
+  assert.equal((await rateLimit(req(), { MLB_DB: { prepare() { return { run: async () => { throw new Error("down"); }, bind() { return this; }, all: async () => { throw new Error("down"); } }; } } }, "passkey-login-ver")).status, 503);
 });
 
 test("安全头写上 HSTS 和 CSP，接口去掉通配 CORS", async () => {
@@ -223,4 +228,16 @@ test("旧的直接签名令牌在指定用途时仍然能解开", async () => {
   assert.equal((await unseal(legacy, SECRET, "session")).id, 1);
   assert.equal((await unseal(next, SECRET, "session")).id, 2);
   assert.equal(await unseal(next, SECRET), null);
+});
+
+
+test("旧格式会话注销后通过兼容 sid 在服务端失效", async () => {
+  const kv = memoryKv();
+  const env = { SESSION_SECRET: SECRET, MLB_KV: kv, MLB_DB: kv.DB };
+  const legacy = await seal({ id: 81, login: "legacy", exp: Math.floor(Date.now() / 1000) + 3600 }, SECRET);
+  const cookie = "mlb_session=" + legacy;
+  const out = await onLogout({ request: new Request(ORIGIN + "/api/logout", { method: "POST", headers: { origin: ORIGIN, cookie } }), env });
+  assert.equal(out.status, 200);
+  const after = await onMe({ request: new Request(ORIGIN + "/api/me", { headers: { cookie } }), env });
+  assert.equal((await after.json()).user, null);
 });
