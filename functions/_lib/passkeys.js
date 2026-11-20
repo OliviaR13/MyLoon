@@ -3,7 +3,6 @@
 //   user:<userId>        这个账号的凭证 ID 列表
 //   chal:<challenge>     一次性挑战，TTL 5 分钟，用过即删
 import { SESSION_TTL, cookie, getCookie, seal, unseal } from "./auth.js";
-import { claimOnce } from "./kv-once.js";
 import { b64urlDecode, b64urlEncode } from "./webauthn.js";
 
 export const CHALLENGE_TTL = 300;
@@ -12,6 +11,7 @@ export const MAX_PASSKEYS = 8;
 export function passkeyConfigError(env) {
   if (!env?.PASSKEYS && !env?.SESSION_SECRET) return "需要在 Pages 绑定 KV 命名空间 PASSKEYS，并设置 SESSION_SECRET";
   if (!env?.PASSKEYS) return "需要在 Pages 绑定 KV 命名空间 PASSKEYS";
+  if (!env?.MLB_DB) return "需要绑定现有 D1 数据库 MLB_DB，以保证挑战和凭证 ID 原子唯一";
   if (!env?.SESSION_SECRET) return "需要设置 SESSION_SECRET 才能签发登录 Cookie";
   return "";
 }
@@ -39,14 +39,12 @@ function ensureChalTable(DB) {
 export async function saveChallenge(env, challenge, kind, extra = {}) {
   const exp = Date.now() + CHALLENGE_TTL * 1000;
   const userId = extra.userId || "";
+  if (!env?.MLB_DB) throw new Error("passkey_d1_required");
   if (env?.MLB_DB) {
     await ensureChalTable(env.MLB_DB);
     await env.MLB_DB.prepare(
       "INSERT OR REPLACE INTO passkey_challenges (challenge, kind, user_id, exp) VALUES (?1, ?2, ?3, ?4)",
     ).bind(challenge, kind, userId, exp).run();
-  }
-  if (env?.PASSKEYS) {
-    await env.PASSKEYS.put(chalKey(challenge), JSON.stringify({ kind, userId, exp }), { expirationTtl: CHALLENGE_TTL });
   }
 }
 
@@ -104,13 +102,9 @@ async function takeFromKv(kv, challenge, kind) {
 export async function takeChallenge(env, challenge, kind, request) {
   if (!challenge || challenge.length > 200) return null;
   if (!(await challengeCookieOk(request, env, challenge, kind))) return null;
-  if (env?.MLB_DB) {
-    const row = await takeFromD1(env.MLB_DB, challenge, kind);
-    if (env?.PASSKEYS) await env.PASSKEYS.delete(chalKey(challenge));
-    if (row) return row;
-  }
-  if (!env?.PASSKEYS) return null;
-  return takeFromKv(env.PASSKEYS, challenge, kind);
+  // 一次性挑战只允许走 D1 的原子 DELETE … RETURNING；KV 回退无法防止并发重放。
+  if (!env?.MLB_DB) return null;
+  return takeFromD1(env.MLB_DB, challenge, kind);
 }
 
 function cleanText(v, max) {
@@ -175,7 +169,37 @@ export async function listCredentials(kv, userId) {
   return out;
 }
 
-export async function putCredential(kv, record) {
+const credentialReady = new WeakMap();
+
+async function ensureCredentialTable(DB) {
+  let pending = credentialReady.get(DB);
+  if (!pending) {
+    pending = DB.prepare(
+      "CREATE TABLE IF NOT EXISTS passkey_credential_claims (credential_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, created_at INTEGER NOT NULL)",
+    ).run().catch((err) => {
+      credentialReady.delete(DB);
+      throw err;
+    });
+    credentialReady.set(DB, pending);
+  }
+  return pending;
+}
+
+async function claimCredential(DB, record) {
+  if (!DB) throw new Error("passkey_d1_required");
+  await ensureCredentialTable(DB);
+  const out = await DB.prepare(
+    "INSERT INTO passkey_credential_claims (credential_id, user_id, created_at) VALUES (?1, ?2, ?3) ON CONFLICT(credential_id) DO NOTHING RETURNING credential_id",
+  ).bind(record.credentialId, String(record.userId), Date.now()).all();
+  if (!out.results?.length) {
+    const err = new Error("credential_exists");
+    err.code = "credential_exists";
+    throw err;
+  }
+}
+
+export async function putCredential(kv, record, DB) {
+  await claimCredential(DB, record);
   const existing = await kv.get(credKey(record.credentialId));
   if (existing) {
     const err = new Error("credential_exists");
@@ -216,11 +240,15 @@ export async function updateSignCount(kv, credentialId, signCount) {
   await kv.put(credKey(credentialId), JSON.stringify(rec));
 }
 
-export async function deleteCredential(kv, userId, credentialId) {
+export async function deleteCredential(kv, userId, credentialId, DB) {
   const ids = await readIndex(kv, String(userId));
   if (!ids.includes(credentialId)) return false;
   await kv.delete(credKey(credentialId));
   await kv.put(userKey(String(userId)), JSON.stringify(ids.filter((id) => id !== credentialId)));
+  if (DB) {
+    await ensureCredentialTable(DB);
+    await DB.prepare("DELETE FROM passkey_credential_claims WHERE credential_id = ?1 AND user_id = ?2").bind(credentialId, String(userId)).run();
+  }
   return true;
 }
 
