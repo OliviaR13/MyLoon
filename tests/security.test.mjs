@@ -137,6 +137,7 @@ test("一次性挑战必须由 D1 原子消费，重复提交不能再次使用"
   const kv = memoryKv();
   assert.equal(await claimOnce(kv, "pend:1"), true);
   assert.equal(await claimOnce(kv, "pend:1"), false);
+  assert.equal(await claimOnce({ get: async () => { throw new Error("down"); }, put: async () => {} }, "pend:2"), false);
   const env = { PASSKEYS: kv, SESSION_SECRET: SECRET, MLB_DB: kv.DB };
   await saveChallenge(env, "abc", "auth");
   const set = await challengeCookie(env, "abc", "auth");
@@ -240,4 +241,18 @@ test("旧格式会话注销后通过兼容 sid 在服务端失效", async () => 
   assert.equal(out.status, 200);
   const after = await onMe({ request: new Request(ORIGIN + "/api/me", { headers: { cookie } }), env });
   assert.equal((await after.json()).user, null);
+});
+
+test("并发注册同一 credential ID 只能有一个账号成功占用", async () => {
+  const kv = memoryKv();
+  const base = { provider: "github", login: "user", name: "", email: "", picture: "", credentialId: "shared-id", coseKey: "AA", alg: -7, signCount: 0, createdAt: Date.now() };
+  const results = await Promise.allSettled([
+    putCredential(kv, { ...base, userId: "account-a" }),
+    putCredential(kv, { ...base, userId: "account-b" }),
+  ]);
+  assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
+  const rejected = results.find((r) => r.status === "rejected");
+  assert.equal(rejected.reason.code, "credential_exists");
+  const stored = JSON.parse(await kv.get("cred:shared-id"));
+  assert.ok(stored.userId === "account-a" || stored.userId === "account-b");
 });
