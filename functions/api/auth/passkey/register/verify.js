@@ -51,7 +51,7 @@ export async function onRequestPost({ request, env }) {
       signCount: verified.signCount,
       createdAt: Date.now(),
       ...profile,
-    });
+    }, env.MLB_DB);
     return json({ ok: true, id: credentialId });
   } catch (err) {
     return httpError(err);
