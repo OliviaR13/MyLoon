@@ -72,7 +72,7 @@ async function takeFromD1(DB, challenge, kind) {
   return { kind, userId: row.user_id || "" };
 }
 
-// 取出并删除。有 D1 时用 DELETE … RETURNING，避免两个请求同时读到同一条。
+// 取出并删除。必须使用 D1 DELETE … RETURNING，避免两个请求同时读到同一条。
 // 另外必须带上签发挑战时写下的 Cookie，这样别人拿到挑战值也用不了。
 export async function takeChallenge(env, challenge, kind, request) {
   if (!challenge || challenge.length > 200) return null;
