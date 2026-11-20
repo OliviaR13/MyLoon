@@ -188,8 +188,15 @@ export async function putCredential(kv, record, DB = kv.DB) {
   }
   await claimCredential(DB, record);
   const next = ids.includes(record.credentialId) ? ids : [...ids, record.credentialId];
-  await kv.put(credKey(record.credentialId), JSON.stringify(record));
-  await kv.put(userKey(record.userId), JSON.stringify(next));
+  try {
+    await kv.put(credKey(record.credentialId), JSON.stringify(record));
+    await kv.put(userKey(record.userId), JSON.stringify(next));
+  } catch (err) {
+    // KV 写失败：释放刚占的 D1 位置，免得这个 credential ID 一直被占着
+    await DB.prepare("DELETE FROM passkey_credential_claims WHERE credential_id = ?1 AND user_id = ?2").bind(record.credentialId, String(record.userId)).run().catch(() => {});
+    await kv.delete(credKey(record.credentialId)).catch(() => {});
+    throw err;
+  }
 }
 
 export async function getCredential(kv, credentialId) {
