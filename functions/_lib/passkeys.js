@@ -1,4 +1,4 @@
-// 通行密钥存在 KV 绑定 PASSKEYS。不占用同步用的 MLB_KV / MLB_DB。
+// 通行密钥资料保存在 PASSKEYS；挑战消费与 credential ID 唯一性由现有 MLB_DB 原子保证。
 //   cred:<credentialId>  公钥、计数器、所属账号
 //   user:<userId>        这个账号的凭证 ID 列表
 //   chal:<challenge>     一次性挑战，TTL 5 分钟，用过即删
@@ -18,7 +18,6 @@ export function passkeyConfigError(env) {
 
 const credKey = (id) => `cred:${id}`;
 const userKey = (id) => `user:${id}`;
-const chalKey = (id) => `chal:${id}`;
 
 const chalReady = new WeakMap();
 
@@ -71,30 +70,6 @@ async function takeFromD1(DB, challenge, kind) {
   const row = out.results?.[0];
   if (!row || !Number.isFinite(row.exp) || row.exp < Date.now()) return null;
   return { kind, userId: row.user_id || "" };
-}
-
-async function takeFromKv(kv, challenge, kind) {
-  const key = chalKey(challenge);
-  const raw = await kv.get(key);
-  if (!raw) return null;
-  let data;
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    await kv.delete(key);
-    return null;
-  }
-  if (!data || data.kind !== kind || !Number.isFinite(data.exp) || data.exp < Date.now()) {
-    await kv.delete(key);
-    return null;
-  }
-  // 先占住 used 标记再删。两个并发请求里后写标记的那个会失败；仍有极小窗口，见 kv-once.js。
-  if (!(await claimOnce(kv, key))) {
-    await kv.delete(key);
-    return null;
-  }
-  await kv.delete(key);
-  return data;
 }
 
 // 取出并删除。有 D1 时用 DELETE … RETURNING，避免两个请求同时读到同一条。
@@ -199,7 +174,6 @@ async function claimCredential(DB, record) {
 }
 
 export async function putCredential(kv, record, DB = kv.DB) {
-  await claimCredential(DB, record);
   const existing = await kv.get(credKey(record.credentialId));
   if (existing) {
     const err = new Error("credential_exists");
@@ -212,6 +186,7 @@ export async function putCredential(kv, record, DB = kv.DB) {
     err.code = "too_many";
     throw err;
   }
+  await claimCredential(DB, record);
   const next = ids.includes(record.credentialId) ? ids : [...ids, record.credentialId];
   await kv.put(credKey(record.credentialId), JSON.stringify(record));
   await kv.put(userKey(record.userId), JSON.stringify(next));
