@@ -27,6 +27,7 @@ export async function onRequestPost({ request, env }) {
     await confirmConflict(env, user, token, getCookie(request, "mlb_conflict"));
     return json({ ok: true });
   } catch (err) {
+    if (err?.code === "pending_deletion") return json({ error: "pending_deletion", message: "账号正在注销，不能合并" }, 409);
     if (err?.code === "conflict_d1_required") {
       return json({ error: "conflict_d1_required", message: "需要绑定 D1（MLB_DB）才能确认合并账号" }, 503);
     }

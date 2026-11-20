@@ -118,6 +118,29 @@ CREATE TABLE IF NOT EXISTS passkey_credential_claims (
   created_at    INTEGER NOT NULL
 );
 
+-- 账号注销冷静期。user_id 主键保证同一账号只有一条申请。时间为 Unix 毫秒。
+-- 函数第一次用到时会自动建表。已取消或已完成的记录保留约 30 天后删除。
+-- deleted_accounts 仍保留，用来让旧登录 Cookie 失效，里面没有个人资料。
+CREATE TABLE IF NOT EXISTS account_deletions (
+  user_id      TEXT PRIMARY KEY,
+  status       TEXT    NOT NULL, -- pending / purging / cancelled / completed
+  requested_at INTEGER, -- pending 时必有；取消后清空
+  scheduled_at INTEGER, -- pending 时必有；取消后清空
+  cancelled_at INTEGER,
+  completed_at INTEGER,
+  lease_until  INTEGER NOT NULL DEFAULT 0,
+  updated_at   INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS account_deletions_due ON account_deletions (status, scheduled_at);
+
+-- 注销状态页的一次性票据。取消或继续注销时用 DELETE … RETURNING 消费。exp 是 Unix 秒。
+CREATE TABLE IF NOT EXISTS deletion_tickets (
+  jti        TEXT PRIMARY KEY,
+  user_id    TEXT    NOT NULL,
+  exp        INTEGER NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
 -- 接口限流计数。窗口过了就没用了，函数第一次用到时会自动建表。
 CREATE TABLE IF NOT EXISTS rate_limits (
   k   TEXT    NOT NULL,

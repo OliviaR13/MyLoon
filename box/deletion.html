@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f6f4ef" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#12110f" media="(prefers-color-scheme: dark)">
+  <meta name="description" content="账号注销冷静期：查看删除日期，继续注销或取消注销。">
+  <link rel="icon" href="./icon.png" type="image/png">
+  <title>注销账号 · OliviaR13's Loon Box</title>
+  <script>(function(d){var s={};try{s=JSON.parse(localStorage.getItem("myloon_box_settings")||"{}")}catch(e){}
+    if(s.theme==="light"||s.theme==="dark")d.dataset.theme=s.theme})(document.documentElement)</script>
+  <link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="./styles/base.css">
+  <style>
+    .doc{user-select:text;-webkit-user-select:text}
+    .card{margin-top:18px;padding:18px 16px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card)}
+    .card p{margin:0 0 10px;font-size:14.5px;line-height:1.7}
+    .card strong{font-weight:650}
+    .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+    .btn-danger{background:#e5484d;border-color:#e5484d;color:#fff}
+    .btn-danger:disabled,.btn:disabled{opacity:.55}
+    .err{color:#c0392b;margin:12px 0 0;font-size:14px}
+    .confirm-box{margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--chip)}
+    .confirm-box p{margin:0 0 10px}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="head">
+      <a href="./" aria-label="返回首页"><img class="logo" src="./icon.png" alt="" width="44" height="44"></a>
+      <div class="head-text">
+        <h1><span class="h1-eyebrow">OliviaR13's</span>注销账号</h1>
+        <p>冷静期内可以取消</p>
+      </div>
+    </header>
+    <article class="doc">
+      <p id="loading">正在读取注销状态…</p>
+      <p id="error" class="err" hidden></p>
+      <section class="card" id="panel" hidden>
+        <p>这个账号正处于注销冷静期，还不能进入正常登录。</p>
+        <p>申请日期：<strong id="requested"></strong></p>
+        <p>预计永久删除日期：<strong id="scheduled"></strong></p>
+        <p>剩余天数：<strong id="days"></strong></p>
+        <p id="actionError" class="err" hidden></p>
+        <div class="actions">
+          <button class="btn btn-ghost" id="continueBtn" type="button">继续注销</button>
+          <button class="btn btn-danger" id="cancelBtn" type="button">取消注销</button>
+        </div>
+        <div class="confirm-box" id="cancelBox" hidden>
+          <p>取消后，这个账号会恢复正常，原来的 14 天不再保留。确定要取消注销吗？</p>
+          <div class="actions">
+            <button class="btn btn-ghost" id="cancelNo" type="button">返回</button>
+            <button class="btn btn-danger" id="cancelYes" type="button">确认取消注销</button>
+          </div>
+        </div>
+      </section>
+    </article>
+  </main>
+  <script type="module" src="./js/deletion.js"></script>
+</body>
+</html>

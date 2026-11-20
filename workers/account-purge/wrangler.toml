@@ -1,0 +1,24 @@
+# 不随 Pages 一起发布。部署前把下面的 ID 换成现有 MLB_DB / MLB_KV / PASSKEYS，不要新建库，也不要改生产密钥。
+# 从仓库根目录执行：
+#   npx wrangler deploy --config workers/account-purge/wrangler.toml
+# 确认定时任务：
+#   npx wrangler triggers list --config workers/account-purge/wrangler.toml
+name = "myloon-account-purge"
+main = "index.js"
+compatibility_date = "2026-11-20"
+
+[triggers]
+crons = ["15 * * * *"]
+
+[[d1_databases]]
+binding = "MLB_DB"
+database_name = "REPLACE_WITH_EXISTING_D1_NAME"
+database_id = "REPLACE_WITH_EXISTING_D1_ID"
+
+[[kv_namespaces]]
+binding = "MLB_KV"
+id = "REPLACE_WITH_EXISTING_MLB_KV_ID"
+
+[[kv_namespaces]]
+binding = "PASSKEYS"
+id = "REPLACE_WITH_EXISTING_PASSKEYS_KV_ID"

@@ -3,6 +3,7 @@ import { allowListed, cookie, issueSession, json, SESSION_TTL } from "../../../.
 import { rateLimit } from "../../../../_lib/rate-limit.js";
 import { bytesField, httpError, readBody, rpOrError, unavailable } from "../../../../_lib/passkey-http.js";
 import { getCredential, sessionFromProfile, takeChallenge, updateSignCount } from "../../../../_lib/passkeys.js";
+import { loginGate } from "../../../../_lib/account-deletion.js";
 import { b64urlEncode, counterOk, verifyAssertion } from "../../../../_lib/webauthn.js";
 
 export async function onRequestPost({ request, env }) {
@@ -52,6 +53,14 @@ export async function onRequestPost({ request, env }) {
     if (!counterOk(record.signCount || 0, verified.signCount)) return json({ error: "counter" }, 400);
     if (!allowListed(env, record.login, record.email)) return json({ error: "denied" }, 403);
     if (verified.signCount > (record.signCount || 0)) await updateSignCount(env.PASSKEYS, credentialId, verified.signCount);
+    const gate = await loginGate(env, record.userId);
+    if (gate.action === "unavailable") return json({ error: "storage_error" }, 500);
+    if (gate.action === "deleted") return json({ error: "account_deleted" }, 403);
+    if (gate.action === "pending") {
+      const headers = new Headers({ "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+      headers.append("Set-Cookie", gate.cookie);
+      return new Response(JSON.stringify({ ok: true, pendingDeletion: true }), { status: 200, headers });
+    }
     const session = await issueSession(env, sessionFromProfile(record));
     return json({ ok: true }, 200, { "Set-Cookie": cookie("mlb_session", session, { maxAge: SESSION_TTL }) });
   } catch (err) {

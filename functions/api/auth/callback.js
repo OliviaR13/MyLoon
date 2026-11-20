@@ -3,6 +3,7 @@
 // 带了有效的 mlb_link 时，把这个 GitHub 账号绑到当前会话，不更换账号 ID。
 import { SESSION_TTL, allowListed, clearCookie, cookie, getCookie, getSessionOr503, issueSession } from "../../_lib/auth.js";
 import { conflictMarker, githubProfile, issueConflictToken, linkAccount, loginAccount, readLinkIntent, sessionAccountId, sessionPayload } from "../../_lib/accounts.js";
+import { loginGate, readReauthIntent } from "../../_lib/account-deletion.js";
 
 export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
@@ -13,6 +14,7 @@ export async function onRequestGet({ request, env }) {
     headers.append("Set-Cookie", clearCookie("mlb_state", "/api/auth"));
     headers.append("Set-Cookie", clearCookie("mlb_gh_pkce", "/api/auth"));
     headers.append("Set-Cookie", clearCookie("mlb_link", "/api/auth"));
+    headers.append("Set-Cookie", clearCookie("mlb_reauth", "/api/auth"));
     return new Response(null, { status: 302, headers });
   };
 
@@ -82,6 +84,7 @@ export async function onRequestGet({ request, env }) {
       }
       if (err?.code === "already_linked") return fail("already_linked&provider=github");
       if (err?.code === "accounts_not_configured") return fail("accounts_config");
+      if (err?.code === "pending_deletion") return fail("pending_deletion");
       return fail("storage");
     }
     const headers = new Headers({ Location: "/?login=linked_github", "cache-control": "no-store" });
@@ -91,17 +94,37 @@ export async function onRequestGet({ request, env }) {
     return new Response(null, { status: 302, headers });
   }
 
+  const reauth = await readReauthIntent(request, env);
+  if (reauth.present && !reauth.valid) return fail("reauth_state");
+
   let accountId;
   try {
     accountId = await loginAccount(env, profile);
   } catch {
     return fail("storage");
   }
-  const session = await issueSession(env, sessionPayload(accountId, profile));
-  const headers = new Headers({ Location: "/?login=github", "cache-control": "no-store" });
+  const gate = await loginGate(env, accountId);
+  if (gate.action === "unavailable") return fail("storage");
+  if (gate.action === "deleted") return fail("account_deleted");
+  if (gate.action === "pending") {
+    const headers = new Headers({ Location: "/deletion.html", "cache-control": "no-store" });
+    headers.append("Set-Cookie", clearCookie("mlb_state", "/api/auth"));
+    headers.append("Set-Cookie", clearCookie("mlb_gh_pkce", "/api/auth"));
+    headers.append("Set-Cookie", clearCookie("mlb_link", "/api/auth"));
+    headers.append("Set-Cookie", clearCookie("mlb_reauth", "/api/auth"));
+    headers.append("Set-Cookie", clearCookie("mlb_session"));
+    headers.append("Set-Cookie", gate.cookie);
+    return new Response(null, { status: 302, headers });
+  }
+  if (reauth.present && String(accountId) !== reauth.accountId) return fail("reauth_mismatch");
+  const payload = sessionPayload(accountId, profile);
+  if (reauth.present) payload.ra = Math.floor(Date.now() / 1000);
+  const session = await issueSession(env, payload);
+  const headers = new Headers({ Location: reauth.present ? "/?reauth=1" : "/?login=github", "cache-control": "no-store" });
   headers.append("Set-Cookie", clearCookie("mlb_state", "/api/auth"));
   headers.append("Set-Cookie", clearCookie("mlb_gh_pkce", "/api/auth"));
   headers.append("Set-Cookie", clearCookie("mlb_link", "/api/auth"));
+  headers.append("Set-Cookie", clearCookie("mlb_reauth", "/api/auth"));
   headers.append("Set-Cookie", cookie("mlb_session", session, { maxAge: SESSION_TTL }));
   return new Response(null, { status: 302, headers });
 }

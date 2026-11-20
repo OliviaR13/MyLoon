@@ -88,6 +88,8 @@ export async function getSession(request, env) {
   const user = await unseal(getCookie(request, "mlb_session"), env.SESSION_SECRET, "session");
   if (!user || user.id == null) return null;
   if (await isAccountDeleted(env, String(user.id))) return null;
+  const { isAccountBlocked } = await import("./account-deletion.js");
+  if (await isAccountBlocked(env, String(user.id))) return null;
   const epoch = await currentEpoch(env, String(user.id));
   if (!epochAllows(user, epoch)) return null;
   // 迁移期旧 Cookie 没有 sid：用账号级稳定标识纳入作废名单。
