@@ -198,7 +198,7 @@ async function claimCredential(DB, record) {
   }
 }
 
-export async function putCredential(kv, record, DB) {
+export async function putCredential(kv, record, DB = kv.DB) {
   await claimCredential(DB, record);
   const existing = await kv.get(credKey(record.credentialId));
   if (existing) {
@@ -240,7 +240,7 @@ export async function updateSignCount(kv, credentialId, signCount) {
   await kv.put(credKey(credentialId), JSON.stringify(rec));
 }
 
-export async function deleteCredential(kv, userId, credentialId, DB) {
+export async function deleteCredential(kv, userId, credentialId, DB = kv.DB) {
   const ids = await readIndex(kv, String(userId));
   if (!ids.includes(credentialId)) return false;
   await kv.delete(credKey(credentialId));
