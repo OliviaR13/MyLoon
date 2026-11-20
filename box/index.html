@@ -242,10 +242,10 @@
       <h3 class="group-title">危险区域</h3>
       <div class="group" id="dangerZone" hidden>
         <button class="row row-btn row-danger" id="deleteAccountBtn" type="button">
-          <span class="row-text"><span>注销账号</span><span class="sub">14 天冷静期后永久删除账号和云端数据</span></span>
+          <span class="row-text"><span>注销账号</span><span class="sub">14 天冷静期内可以取消，到期后永久删除</span></span><i class="row-chev"></i>
         </button>
       </div>
-      <p class="group-foot" id="dangerFoot" hidden>冷静期内可以取消。到期后，账号、通行密钥、收藏和插件设置都会删除，且无法恢复。</p>
+      <p class="group-foot" id="dangerFoot" hidden>到期后，账号、通行密钥、云端收藏和插件设置都会删除，且无法恢复。本机浏览器里的收藏和设置不受影响。详见 <a href="./privacy.html#delete">隐私政策</a>。</p>
 
       <h3 class="group-title">关于</h3>
       <div class="group">
@@ -328,23 +328,42 @@
     </div>
   </dialog>
 
-  <dialog class="conflict-dialog" id="deleteDialog" aria-labelledby="deleteTitle">
-    <form class="conflict-card" id="deleteForm">
-      <h2 id="deleteTitle">注销账号</h2>
-      <ul>
-        <li>账号将在 14 天后永久删除。</li>
-        <li>删除范围包括账号关联的个人数据、通行密钥、收藏、插件设置及其他用户数据。</li>
-        <li>冷静期内可以取消注销。</li>
-        <li>14 天到期后无法恢复。</li>
-      </ul>
-      <p id="deleteError" class="delete-error" hidden></p>
-      <div id="deleteReauth" hidden>
-        <a class="btn btn-ghost" id="deleteReauthGithub" href="/api/auth/login?intent=reauth">用 GitHub 重新验证</a>
-        <a class="btn btn-ghost" id="deleteReauthGoogle" href="/api/auth/google?intent=reauth">用 Google 重新验证</a>
+  <dialog class="conflict-dialog del-dialog" id="deleteDialog" aria-labelledby="deleteTitle" aria-describedby="deleteLead">
+    <form class="conflict-card del-card" id="deleteForm" novalidate>
+      <div class="del-view" id="deleteAsk">
+        <span class="del-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8v5M12 16.5v.01"/><path d="M10.3 3.9 2.6 17.2A2 2 0 0 0 4.3 20.2h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></span>
+        <h2 id="deleteTitle">注销账号</h2>
+        <p class="del-lead" id="deleteLead">提交后会立即退出登录，账号进入 14 天冷静期。</p>
+        <ol class="del-steps">
+          <li style="--i:0"><span><b>现在</b>提交申请并退出登录</span></li>
+          <li style="--i:1"><span><b>14 天内</b>重新登录，可以取消注销</span></li>
+          <li style="--i:2"><span><b>第 14 天</b>账号和云端数据永久删除，无法恢复</span></li>
+        </ol>
+        <p class="del-scope"><strong>会删除：</strong>账号、登录方式、通行密钥、云端收藏和设置。<br><strong>不受影响：</strong>本机浏览器里的收藏和设置，以及你的 GitHub / Google 账号本身。</p>
+        <p class="del-note" id="deleteNote" hidden>已重新验证身份，勾选确认后即可提交。</p>
+        <label class="del-ack">
+          <input type="checkbox" id="deleteAck">
+          <span class="del-box" aria-hidden="true"></span>
+          <span>我已了解，到期后无法恢复</span>
+        </label>
+        <p id="deleteError" class="delete-error" role="alert" hidden></p>
+        <div id="deleteReauth" hidden>
+          <p>为确认是你本人，请先重新验证身份，验证后会回到这里。</p>
+          <div class="del-reauth-btns">
+            <a class="btn btn-ghost" id="deleteReauthGithub" href="/api/auth/login?intent=reauth">用 GitHub 重新验证</a>
+            <a class="btn btn-ghost" id="deleteReauthGoogle" href="/api/auth/google?intent=reauth">用 Google 重新验证</a>
+          </div>
+        </div>
+        <div class="conflict-actions">
+          <button class="btn btn-ghost" id="deleteDismiss" type="button">取消</button>
+          <button class="btn btn-danger" id="deleteConfirm" type="submit" disabled><i class="del-spin" aria-hidden="true"></i><span id="deleteConfirmLbl">确认注销</span></button>
+        </div>
       </div>
-      <div class="conflict-actions">
-        <button class="btn btn-ghost" id="deleteDismiss" type="button">取消</button>
-        <button class="btn btn-danger" id="deleteConfirm" type="submit">确认注销</button>
+      <div class="del-view del-done" id="deleteDone" hidden>
+        <svg class="del-check" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="24"/><path d="M17 29l8 8 14-16"/></svg>
+        <h2>申请已提交</h2>
+        <p id="deleteDoneText" role="status"></p>
+        <div class="conflict-actions"><button class="btn btn-ghost" id="deleteDoneBtn" type="button">完成</button></div>
       </div>
     </form>
   </dialog>

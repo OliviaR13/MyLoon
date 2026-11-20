@@ -5,7 +5,7 @@
 import { assertPasskey, loginPasskey, passkeySupported, registerPasskey } from "./passkey.js";
 
 import { SYNC_KEYS, LEGACY_AT, TOMBSTONE_TTL, SORT_KEY, LOGIN_HINT_KEY } from "./config.js";
-import { $id, setSwitch, lsGet, lsSet, lsRemove, confirmable } from "./dom.js";
+import { $id, setSwitch, lsGet, lsSet, lsRemove, confirmable, motionOff } from "./dom.js";
 import { validSort, state, getSettings, setSettings } from "./state.js";
 import { toast } from "./toast.js";
 import { render, setFavorites } from "./render.js";
@@ -595,58 +595,136 @@ export function initAccount() {
     refreshPasskeys();
   }
 
-  let deleting = false;
-  $id("deleteAccountBtn")?.addEventListener("click", () => {
-    if (!user || deleting) return;
-    const err = $id("deleteError");
-    if (err) { err.hidden = true; err.textContent = ""; }
-    const reauth = $id("deleteReauth");
-    if (reauth) reauth.hidden = true;
+  /* 注销账号：弹窗里先勾选确认 → 验证身份（通行密钥，或 10 分钟内用 GitHub / Google 重新登录）→ 提交 → 成功页 → 退出登录。
+     提交中不能用 Esc / 点遮罩 / 取消关掉弹窗；需要重新验证时按钮保持禁用，验证完回到页面会自动重新打开弹窗。 */
+  const delDialog = $id("deleteDialog");
+  const delAck = $id("deleteAck");
+  const delConfirm = $id("deleteConfirm");
+  const delLabel = $id("deleteConfirmLbl");
+  const delErr = $id("deleteError");
+  const delReauth = $id("deleteReauth");
+  const DEL_LABEL = "确认注销";
+  let deleting = false;       // 请求进行中
+  let deleteSubmitted = false; // 已提交成功，正在显示成功页
+  let needReauth = false;
+  let doneTimer = 0;
+
+  const showDelError = (text) => { if (!delErr) return; delErr.hidden = !text; delErr.textContent = text || ""; };
+  function syncDelBtn() {
+    if (!delConfirm) return;
+    delConfirm.disabled = deleting || needReauth || !delAck?.checked;
+    delConfirm.toggleAttribute("data-busy", deleting);
+    if ($id("deleteDismiss")) $id("deleteDismiss").disabled = deleting;
+  }
+  function setDelBusy(on, label) {
+    deleting = on;
+    if (delLabel) delLabel.textContent = on ? label : DEL_LABEL;
+    syncDelBtn();
+  }
+  function askReauth() {
+    needReauth = true;
+    showDelError("为了安全，注销前需要先重新验证身份。");
+    if (delReauth) delReauth.hidden = false;
     const gh = linked.some((row) => row.kind === "github");
     const google = linked.some((row) => row.kind === "google");
-    const ghLink = $id("deleteReauthGithub");
-    const gLink = $id("deleteReauthGoogle");
-    if (ghLink) ghLink.hidden = !gh && google;
-    if (gLink) gLink.hidden = !google && gh;
-    $id("deleteDialog")?.showModal();
-  });
-  $id("deleteDismiss")?.addEventListener("click", () => $id("deleteDialog")?.close());
+    if ($id("deleteReauthGithub")) $id("deleteReauthGithub").hidden = !gh && google;
+    if ($id("deleteReauthGoogle")) $id("deleteReauthGoogle").hidden = !google && gh;
+    syncDelBtn();
+  }
+  function openDelete({ reauthed = false } = {}) {
+    if (!user || deleting || !delDialog || delDialog.open) return;
+    clearTimeout(doneTimer);
+    deleteSubmitted = false;
+    needReauth = false;
+    if (delAck) delAck.checked = false;
+    showDelError("");
+    if (delReauth) delReauth.hidden = true;
+    if ($id("deleteNote")) $id("deleteNote").hidden = !reauthed;
+    $id("deleteAsk").hidden = false;
+    $id("deleteDone").hidden = true;
+    setDelBusy(false);
+    delDialog.removeAttribute("data-closing");
+    delDialog.showModal();
+    delAck?.focus({ preventScroll: true });
+  }
+  function closeDelete(force = false) {
+    if (!delDialog?.open || (!force && (deleting || deleteSubmitted))) return;
+    if (delDialog.hasAttribute("data-closing")) return;
+    const card = $id("deleteForm");
+    let finished = false;
+    const onEnd = (e) => { if (e.target === card) finish(); };
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      card?.removeEventListener("animationend", onEnd);
+      delDialog.removeAttribute("data-closing");
+      if (delDialog.open) delDialog.close();
+    };
+    if (motionOff()) { finish(); return; }
+    delDialog.setAttribute("data-closing", "");
+    card?.addEventListener("animationend", onEnd);
+    setTimeout(finish, 320);
+  }
+  function finishDelete() {
+    clearTimeout(doneTimer);
+    closeDelete(true);
+    forgetSession("你已退出登录，14 天内重新登录可以取消注销");
+  }
+  const fmtDay = (ms) => new Date(ms).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" });
+
+  $id("deleteAccountBtn")?.addEventListener("click", () => openDelete());
+  $id("deleteDismiss")?.addEventListener("click", () => closeDelete());
+  $id("deleteDoneBtn")?.addEventListener("click", finishDelete);
+  delAck?.addEventListener("change", () => { if (!deleting) { showDelError(""); syncDelBtn(); } });
+  // Esc 和点遮罩都走同一个关闭动画；提交中、成功页时不能关
+  delDialog?.addEventListener("cancel", (e) => { e.preventDefault(); closeDelete(); });
+  delDialog?.addEventListener("click", (e) => { if (e.target === delDialog) closeDelete(); });
+
   $id("deleteForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (deleting) return;
-    const confirm = $id("deleteConfirm");
-    const err = $id("deleteError");
-    const showErr = (text) => { if (err) { err.hidden = false; err.textContent = text; } };
-    deleting = true;
-    if (confirm) confirm.disabled = true;
+    if (deleting || deleteSubmitted || needReauth || !delAck?.checked) return;
+    showDelError("");
+    setDelBusy(true, "正在确认…");
+    let submitted = false;
     try {
       const optRes = await api("POST", "/api/account/deletion/options", {});
       const opt = await optRes.json().catch(() => ({}));
-      if (!optRes.ok) throw new Error(opt.message || "暂时不能注销");
+      if (!optRes.ok) throw Object.assign(new Error(opt.message || "暂时不能注销，请稍后再试"), { status: optRes.status });
       let body = {};
-      if (opt.mode === "passkey") body = await assertPasskey(opt);
-      else if (!opt.reauthFresh) {
-        const reauth = $id("deleteReauth");
-        if (reauth) reauth.hidden = false;
-        showErr("请先重新登录，确认是你本人，然后再注销。");
+      if (opt.mode === "passkey") {
+        if (delLabel) delLabel.textContent = "请在系统弹窗里验证";
+        body = await assertPasskey(opt);
+      } else if (!opt.reauthFresh) {
+        askReauth();
         return;
       }
+      if (delLabel) delLabel.textContent = "正在提交…";
       const res = await api("POST", "/api/account/deletion", body);
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || "注销失败，请重试");
-      $id("deleteDialog")?.close();
-      forgetSession("注销申请已提交，账号将在 14 天后永久删除。你已退出登录。");
+      if (!res.ok) {
+        if (data.error === "reauth_required") { askReauth(); return; }
+        throw Object.assign(new Error(data.message || "注销失败，请重试"), { status: res.status });
+      }
+      submitted = true;
+      deleteSubmitted = true;
+      const when = data.scheduledAt ? fmtDay(data.scheduledAt) : "14 天后";
+      $id("deleteDoneText").textContent = "账号将在 " + when + " 永久删除。在此之前重新登录，可以在注销状态页取消。";
+      $id("deleteAsk").hidden = true;
+      $id("deleteDone").hidden = false;
+      $id("deleteDoneBtn")?.focus({ preventScroll: true });
+      doneTimer = setTimeout(finishDelete, 6000);
     } catch (error) {
-      if (error?.name === "NotAllowedError") showErr("已取消通行密钥确认");
-      else showErr(error?.message || "注销失败，请重试");
+      if (error?.name === "NotAllowedError") showDelError("已取消通行密钥确认，可以再试一次。");
+      else if (error?.status === 429) showDelError("操作太频繁了，请稍等一会儿再试。");
+      else showDelError(error?.message || "注销失败，请重试");
     } finally {
-      deleting = false;
-      if (confirm) confirm.disabled = false;
+      if (!submitted) setDelBusy(false);
     }
   });
 
   async function initSession() {
     const q = new URLSearchParams(location.search);
+    let reopenDelete = false;
     const err = q.get("login_error");
     const logged = q.get("login");
     if (err || logged || q.get("reauth") === "1") {
@@ -686,10 +764,14 @@ export function initAccount() {
       } else if (logged === "linked_github") {
         toast("已绑定 GitHub 账号");
       }
-      if (q.get("reauth") === "1") toast("已重新验证，请再次确认注销");
+      if (q.get("reauth") === "1") reopenDelete = true;
       history.replaceState(null, "", location.pathname);
     }
     await pullSession();
+    if (reopenDelete) {
+      if (user) openDelete({ reauthed: true });
+      else toast("已重新验证，请再次打开设置里的注销账号");
+    }
   }
 
   async function pullSession() {
