@@ -16,10 +16,14 @@
 //       MLB_KV    u:<id>、acct:<id>、acct:id:<kind>:<subject>、epoch:<id>
 //                 rsid:<sid>（值等于这个账号时才删）
 //   保留  deleted_accounts / MLB_KV dead:<id>：旧 Cookie 必须继续失效，只存账号 ID 和时间，没有个人资料。
+//
+// 清账号必须同时有 MLB_DB、PASSKEYS、MLB_KV。通行密钥和云端同步都会写进这两个 KV，
+// 绑定不在就不能证明已经删干净，所以不能跳过再标 completed。
+// 顺序：先删 KV 里的记录，再删指向它们的索引；D1 的 passkey_credential_claims 最后删，
+// 这样中途失败下次还能找到要删的 cred:<id>。
 import { authUnavailable } from "./auth-error.js";
 import { clearCookie, cookie, getCookie, seal, unseal } from "./auth.js";
 import { markAccountDeleted } from "./account-tomb.js";
-import { deleteCredential, listCredentials } from "./passkeys.js";
 import { bumpEpoch } from "./session-epoch.js";
 
 export const DELETION_GRACE_MS = 14 * 24 * 60 * 60 * 1000;
@@ -40,6 +44,30 @@ function httpError(code) {
 function requireDb(env) {
   if (!env?.MLB_DB) throw httpError("deletion_d1_required");
   return env.MLB_DB;
+}
+
+function bindingError(name) {
+  const err = new Error("missing_binding:" + name);
+  err.code = "missing_binding";
+  return err;
+}
+
+// 启动和每次清除都用这一份。PASSKEYS 和 MLB_KV 不是可选项：
+// 没绑就无法知道这个账号有没有通行密钥或旧的 KV 同步数据。
+export function missingPurgeBindings(env) {
+  const missing = [];
+  if (!env?.MLB_DB || typeof env.MLB_DB.prepare !== "function") missing.push("MLB_DB");
+  const passkeys = env?.PASSKEYS;
+  if (!passkeys || typeof passkeys.get !== "function" || typeof passkeys.delete !== "function") missing.push("PASSKEYS");
+  const kv = env?.MLB_KV;
+  if (!kv || typeof kv.get !== "function" || typeof kv.delete !== "function" || typeof kv.list !== "function") missing.push("MLB_KV");
+  return missing;
+}
+
+function assertPurgeBindings(env) {
+  const missing = missingPurgeBindings(env);
+  if (missing.includes("MLB_DB")) throw httpError("deletion_d1_required");
+  if (missing.length) throw bindingError(missing[0]);
 }
 
 export function ensureDeletionSchema(DB) {
@@ -146,6 +174,41 @@ export async function cancelDeletion(env, userId, now = Date.now()) {
   return true;
 }
 
+// 票据删除和状态更新在同一次 batch（一个事务）里。
+// 先改 pending 行；changes() 仍是这次 UPDATE 的行数时才删票据。
+// 行不是 pending 时两条都不生效，票据还在。正在 purging 的行不会被取消。
+export async function cancelWithTicket(env, ticket, now = Date.now()) {
+  const DB = requireDb(env);
+  const id = String(ticket?.accountId || "");
+  const jti = String(ticket?.jti || "");
+  if (!id || !jti) throw httpError("not_pending");
+  await ensureDeletionSchema(DB);
+  const nowSec = Math.floor(now / 1000);
+  const [updated] = await DB.batch([
+    DB.prepare(
+      `UPDATE account_deletions
+       SET status = 'cancelled', requested_at = NULL, scheduled_at = NULL,
+           cancelled_at = ?2, lease_until = 0, updated_at = ?2
+       WHERE user_id = ?1 AND status = 'pending'
+         AND EXISTS (
+           SELECT 1 FROM deletion_tickets WHERE jti = ?3 AND user_id = ?1 AND exp >= ?4
+         )
+       RETURNING user_id`,
+    ).bind(id, now, jti, nowSec),
+    DB.prepare(
+      `DELETE FROM deletion_tickets
+       WHERE jti = ?3 AND user_id = ?1 AND exp >= ?4 AND (SELECT changes()) = 1
+       RETURNING user_id`,
+    ).bind(id, now, jti, nowSec),
+  ]);
+  if (!updated.results?.length) {
+    const row = await rowOf(DB, id);
+    if (row?.status === "purging" || row?.status === "completed") throw httpError("deletion_in_progress");
+    throw httpError("not_pending");
+  }
+  return true;
+}
+
 function publicRow(row, now) {
   const scheduledAt = Number(row.scheduled_at);
   const remainingMs = Math.max(0, scheduledAt - now);
@@ -190,12 +253,7 @@ async function markCompleted(DB, userId, now) {
   return !!out.results?.length;
 }
 
-async function deleteKvValue(kv, key) {
-  if (kv?.delete) await kv.delete(key);
-}
-
 async function deleteRevokedKv(kv, accountId) {
-  if (!kv?.list || !kv.delete) return;
   let cursor;
   do {
     const page = await kv.list({ prefix: "rsid:", cursor });
@@ -207,56 +265,93 @@ async function deleteRevokedKv(kv, accountId) {
   } while (cursor);
 }
 
+function idsFromIndex(raw) {
+  if (raw == null || raw === "") return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((id) => typeof id === "string" && id) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function claimCredentialIds(DB, accountId) {
+  await DB.prepare(
+    "CREATE TABLE IF NOT EXISTS passkey_credential_claims (credential_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, created_at INTEGER NOT NULL)",
+  ).run();
+  const out = await DB.prepare(
+    "SELECT credential_id FROM passkey_credential_claims WHERE user_id = ?1",
+  ).bind(accountId).all();
+  return (out.results || []).map((row) => row.credential_id).filter((id) => typeof id === "string" && id);
+}
+
+// 不调用 deleteCredential：那条路径会先删 D1 占位。这里必须先删 KV，占位留到 deleteD1Rows。
 async function deletePasskeys(env, accountId) {
   const kv = env.PASSKEYS;
-  if (!kv) return;
-  let ids = [];
-  try {
-    const listed = await listCredentials(kv, accountId);
-    ids = listed.map((row) => row.id);
-  } catch {
-    ids = [];
-  }
-  const raw = await kv.get("user:" + accountId);
-  if (raw) {
+  const fromIndex = idsFromIndex(await kv.get("user:" + accountId));
+  const fromClaims = await claimCredentialIds(env.MLB_DB, accountId);
+  const ids = [...new Set([...fromIndex, ...fromClaims])];
+  const owned = [];
+  for (const id of ids) {
+    const raw = await kv.get("cred:" + id);
+    if (raw == null || raw === "") continue;
+    let record;
     try {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        for (const id of parsed) if (typeof id === "string" && !ids.includes(id)) ids.push(id);
-      }
+      record = JSON.parse(raw);
     } catch {
-      /* 坏索引交给下面的 D1 占位清理 */
+      throw new Error("passkey_record_unreadable");
+    }
+    if (record && String(record.userId) === String(accountId)) owned.push(id);
+  }
+  for (const id of owned) await kv.delete("cred:" + id);
+  await kv.delete("user:" + accountId);
+}
+
+async function pointerSubjects(env, accountId) {
+  const kv = env.MLB_KV;
+  const subjects = [];
+  const raw = await kv.get("acct:" + accountId);
+  let parsed = null;
+  if (raw != null && raw !== "") {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      parsed = undefined;
     }
   }
-  for (const id of ids) {
-    await deleteCredential(kv, accountId, id, env.MLB_DB);
-    await deleteKvValue(kv, "cred:" + id);
+  const identities = parsed?.identities;
+  if (identities && typeof identities === "object") {
+    for (const [kind, profile] of Object.entries(identities)) {
+      if (profile?.subject) subjects.push([kind, String(profile.subject)]);
+    }
   }
-  await deleteKvValue(kv, "user:" + accountId);
+  await env.MLB_DB.prepare(
+    `CREATE TABLE IF NOT EXISTS identities (
+      kind TEXT NOT NULL, subject TEXT NOT NULL, account_id TEXT NOT NULL,
+      label TEXT NOT NULL DEFAULT '', name TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '',
+      picture TEXT NOT NULL DEFAULT '', linked_at INTEGER NOT NULL, PRIMARY KEY (kind, subject))`,
+  ).run();
+  const rows = await env.MLB_DB.prepare(
+    "SELECT kind, subject FROM identities WHERE account_id = ?1",
+  ).bind(accountId).all();
+  for (const row of rows.results || []) {
+    if (row?.kind && row?.subject) subjects.push([String(row.kind), String(row.subject)]);
+  }
+  if (parsed === undefined && !(rows.results || []).length) throw new Error("acct_unreadable");
+  return subjects;
 }
 
 async function deleteSyncedKv(env, accountId) {
   const kv = env.MLB_KV;
-  if (!kv) return;
-  let identities = {};
-  try {
-    const account = await kv.get("acct:" + accountId, "json");
-    if (account?.identities && typeof account.identities === "object") identities = account.identities;
-  } catch {
-    const raw = await kv.get("acct:" + accountId);
-    try {
-      identities = JSON.parse(raw || "{}").identities || {};
-    } catch {
-      identities = {};
-    }
+  const subjects = await pointerSubjects(env, accountId);
+  for (const [kind, subject] of subjects) {
+    const value = await kv.get(`acct:id:${kind}:${subject}`);
+    if (value != null && String(value) === String(accountId)) await kv.delete(`acct:id:${kind}:${subject}`);
   }
-  for (const [kind, profile] of Object.entries(identities)) {
-    if (profile?.subject) await deleteKvValue(kv, `acct:id:${kind}:${profile.subject}`);
-  }
-  await deleteKvValue(kv, "u:" + accountId);
-  await deleteKvValue(kv, "acct:" + accountId);
-  await deleteKvValue(kv, "epoch:" + accountId);
+  await kv.delete("u:" + accountId);
+  await kv.delete("epoch:" + accountId);
   await deleteRevokedKv(kv, accountId);
+  await kv.delete("acct:" + accountId);
 }
 
 async function deleteD1Rows(DB, accountId) {
@@ -287,12 +382,14 @@ async function deleteD1Rows(DB, accountId) {
   ]);
 }
 
-// KV 先删，D1 后删。每一步都可以重跑。中断后租约到期，下次再从认领开始。
+// 认领之后才检查绑定。缺绑定或任何一步抛错都停在 purging，不标 completed。
+// KV 记录先于它的索引删除；passkey_credential_claims 在 deleteD1Rows 里最后删。
 export async function purgeAccount(env, userId, now = Date.now()) {
   const DB = requireDb(env);
   const id = String(userId || "");
   if (!id) return false;
   if (!(await claimPurge(DB, id, now))) return false;
+  assertPurgeBindings(env);
   await deletePasskeys(env, id);
   await deleteSyncedKv(env, id);
   await deleteD1Rows(DB, id);

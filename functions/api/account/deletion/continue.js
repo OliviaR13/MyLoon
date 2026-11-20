@@ -1,4 +1,5 @@
 // POST /api/account/deletion/continue：消耗票据并退出。不改申请时间，也不重新计算 14 天。
+// 这里没有第二步状态更新，所以单独一条 DELETE 就是全部操作。取消注销不能这样做。
 import { json, sameOrigin } from "../../../_lib/auth.js";
 import { clearDeletionCookie, consumeDeletionTicket } from "../../../_lib/account-deletion.js";
 import { rateLimit } from "../../../_lib/rate-limit.js";

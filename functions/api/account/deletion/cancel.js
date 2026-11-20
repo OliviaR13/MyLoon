@@ -1,6 +1,6 @@
 // POST /api/account/deletion/cancel：消耗一次性票据，且只有 status=pending 才能取消。
 import { cookie, issueSession, json, sameOrigin, SESSION_TTL } from "../../../_lib/auth.js";
-import { cancelDeletion, clearDeletionCookie, consumeDeletionTicket, deletionStatus } from "../../../_lib/account-deletion.js";
+import { cancelWithTicket, clearDeletionCookie, deletionStatus, readDeletionTicket } from "../../../_lib/account-deletion.js";
 import { openAccountStore, sessionPayload } from "../../../_lib/accounts.js";
 import { rateLimit } from "../../../_lib/rate-limit.js";
 import { deletionDbError } from "../../../_lib/deletion-http.js";
@@ -11,10 +11,11 @@ export async function onRequestPost({ request, env }) {
   if (unavailable) return unavailable;
   const limited = await rateLimit(request, env, "account-delete-act");
   if (limited) return limited;
-  const accountId = await consumeDeletionTicket(request, env);
-  if (!accountId) return json({ error: "unauthorized", message: "请重新登录后再取消注销" }, 401);
+  const ticket = await readDeletionTicket(request, env);
+  if (!ticket) return json({ error: "unauthorized", message: "请重新登录后再取消注销" }, 401);
+  const accountId = ticket.accountId;
   try {
-    await cancelDeletion(env, accountId);
+    await cancelWithTicket(env, ticket);
   } catch (err) {
     if (err?.code === "deletion_in_progress") return json({ error: "deletion_in_progress", message: "账号正在删除，不能取消" }, 409);
     if (err?.code === "not_pending") return json({ error: "not_pending" }, 409);

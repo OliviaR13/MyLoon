@@ -28,6 +28,7 @@ import { onRequestPost as deletionOptions } from "../functions/api/account/delet
 import { onRequestGet as deletionStatus } from "../functions/api/account/deletion/status.js";
 import { onRequestPost as cancelRoute } from "../functions/api/account/deletion/cancel.js";
 import { onRequestPost as continueRoute } from "../functions/api/account/deletion/continue.js";
+import worker from "../workers/account-purge/index.js";
 
 const SECRET = "test-session-secret";
 const ORIGIN = "https://olivia-loon-box.pages.dev";
@@ -509,4 +510,207 @@ test("未重新验证不能申请；票据只属于拿到它的账号", async ()
   assert.equal(body.userId, undefined);
   assert.equal(body.requestedAt > 0, true);
   assert.equal(setCookie(other, "mlb_deletion"), "");
+});
+
+function credRecord(id, userId) {
+  return JSON.stringify({ credentialId: id, userId, coseKey: "aa", signCount: 0 });
+}
+
+test("user 索引丢失或损坏时仍按 D1 占位删除，且不删别人的通行密钥", async () => {
+  const env = envBase();
+  await requestDeletion(env, "victim");
+  const now = Date.now();
+  await env.MLB_DB.prepare("UPDATE account_deletions SET scheduled_at = ?1 WHERE user_id = 'victim'").bind(now - 1000).run();
+  const mine = b64urlEncode(crypto.getRandomValues(new Uint8Array(16)));
+  const other = b64urlEncode(crypto.getRandomValues(new Uint8Array(16)));
+  await env.MLB_DB.prepare(
+    "CREATE TABLE IF NOT EXISTS passkey_credential_claims (credential_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, created_at INTEGER NOT NULL)",
+  ).run();
+  await env.MLB_DB.prepare(
+    "INSERT INTO passkey_credential_claims (credential_id, user_id, created_at) VALUES (?1, 'victim', ?2)",
+  ).bind(mine, now).run();
+  await env.MLB_DB.prepare(
+    "INSERT INTO passkey_credential_claims (credential_id, user_id, created_at) VALUES (?1, 'other', ?2)",
+  ).bind(other, now).run();
+  await env.PASSKEYS.put("cred:" + mine, credRecord(mine, "victim"));
+  await env.PASSKEYS.put("cred:" + other, credRecord(other, "other"));
+  await env.PASSKEYS.put("user:victim", JSON.stringify([other]));
+  await env.PASSKEYS.put("user:other", JSON.stringify([other]));
+
+  assert.equal(await purgeAccount(env, "victim", now), true);
+  assert.equal(await env.PASSKEYS.get("cred:" + mine), null);
+  assert.equal(await env.PASSKEYS.get("user:victim"), null);
+  assert.equal(await env.MLB_DB.prepare("SELECT credential_id FROM passkey_credential_claims WHERE user_id = 'victim'").first(), null);
+  assert.equal(await env.PASSKEYS.get("cred:" + other), credRecord(other, "other"));
+  assert.equal(await env.PASSKEYS.get("user:other"), JSON.stringify([other]));
+  assert.ok(await env.MLB_DB.prepare("SELECT credential_id FROM passkey_credential_claims WHERE user_id = 'other'").first());
+
+  const env2 = envBase();
+  await requestDeletion(env2, "victim");
+  const now2 = Date.now();
+  await env2.MLB_DB.prepare("UPDATE account_deletions SET scheduled_at = ?1 WHERE user_id = 'victim'").bind(now2 - 1000).run();
+  const lone = b64urlEncode(crypto.getRandomValues(new Uint8Array(16)));
+  await env2.MLB_DB.prepare(
+    "CREATE TABLE IF NOT EXISTS passkey_credential_claims (credential_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, created_at INTEGER NOT NULL)",
+  ).run();
+  await env2.MLB_DB.prepare(
+    "INSERT INTO passkey_credential_claims (credential_id, user_id, created_at) VALUES (?1, 'victim', ?2)",
+  ).bind(lone, now2).run();
+  await env2.PASSKEYS.put("cred:" + lone, credRecord(lone, "victim"));
+  await env2.PASSKEYS.put("user:victim", "{");
+  assert.equal(await purgeAccount(env2, "victim", now2), true);
+  assert.equal(await env2.PASSKEYS.get("cred:" + lone), null);
+  assert.equal(await env2.MLB_DB.prepare("SELECT credential_id FROM passkey_credential_claims WHERE user_id = 'victim'").first(), null);
+});
+
+test("通行密钥清理失败或绑定缺失时不标记完成，租约到期后可以继续", async () => {
+  const env = envBase();
+  await requestDeletion(env, "victim");
+  const now = Date.now();
+  await env.MLB_DB.prepare("UPDATE account_deletions SET scheduled_at = ?1 WHERE user_id = 'victim'").bind(now - 1000).run();
+  const id = b64urlEncode(crypto.getRandomValues(new Uint8Array(16)));
+  await putCredential(env.PASSKEYS, {
+    credentialId: id, userId: "victim", coseKey: b64urlEncode(new Uint8Array([1])), signCount: 0,
+  }, env.MLB_DB);
+  let fail = true;
+  const original = env.PASSKEYS.delete.bind(env.PASSKEYS);
+  env.PASSKEYS.delete = async (key) => {
+    if (fail && key.startsWith("cred:")) throw new Error("cred down");
+    return original(key);
+  };
+  await assert.rejects(() => purgeAccount(env, "victim", now), /cred down/);
+  const mid = await row(env, "victim");
+  assert.equal(mid.status, "purging");
+  assert.equal(mid.completed_at, null);
+  assert.ok(await env.PASSKEYS.get("cred:" + id));
+  assert.ok(await env.MLB_DB.prepare("SELECT credential_id FROM passkey_credential_claims WHERE user_id = 'victim'").first());
+  assert.equal(await purgeAccount(env, "victim", now + 1000), false);
+
+  fail = false;
+  assert.equal(await purgeAccount(env, "victim", now + 6 * 60 * 1000), true);
+  assert.equal((await row(env, "victim")).status, "completed");
+  assert.equal(await env.PASSKEYS.get("cred:" + id), null);
+  assert.equal(await env.MLB_DB.prepare("SELECT credential_id FROM passkey_credential_claims WHERE user_id = 'victim'").first(), null);
+
+  for (const name of ["PASSKEYS", "MLB_KV"]) {
+    const bare = envBase();
+    await requestDeletion(bare, "victim");
+    const at = Date.now();
+    await bare.MLB_DB.prepare("UPDATE account_deletions SET scheduled_at = ?1 WHERE user_id = 'victim'").bind(at - 1000).run();
+    delete bare[name];
+    await assert.rejects(() => purgeAccount(bare, "victim", at), new RegExp("missing_binding:" + name));
+    const stuck = await row(bare, "victim");
+    assert.equal(stuck.status, "purging");
+    assert.notEqual(stuck.status, "completed");
+  }
+});
+
+test("清除删到一半会停在 purging，租约到期后从头继续", async () => {
+  const env = envBase();
+  await requestDeletion(env, "victim");
+  const now = Date.now();
+  await env.MLB_DB.prepare("UPDATE account_deletions SET scheduled_at = ?1 WHERE user_id = 'victim'").bind(now - 1000).run();
+  const id = b64urlEncode(crypto.getRandomValues(new Uint8Array(16)));
+  await putCredential(env.PASSKEYS, {
+    credentialId: id, userId: "victim", coseKey: b64urlEncode(new Uint8Array([1])), signCount: 0,
+  }, env.MLB_DB);
+  await env.MLB_KV.put("u:victim", "{}");
+  let fail = true;
+  const original = env.MLB_KV.delete.bind(env.MLB_KV);
+  env.MLB_KV.delete = async (key) => {
+    if (fail && key === "u:victim") throw new Error("interrupted");
+    return original(key);
+  };
+  await assert.rejects(() => purgeAccount(env, "victim", now), /interrupted/);
+  assert.equal((await row(env, "victim")).status, "purging");
+  assert.equal(await env.PASSKEYS.get("cred:" + id), null);
+  assert.ok(await env.MLB_DB.prepare("SELECT credential_id FROM passkey_credential_claims WHERE user_id = 'victim'").first());
+  assert.equal(await env.MLB_KV.get("u:victim"), "{}");
+  assert.equal(await purgeAccount(env, "victim", now + 1000), false);
+  fail = false;
+  assert.equal(await purgeAccount(env, "victim", now + 6 * 60 * 1000), true);
+  assert.equal((await row(env, "victim")).status, "completed");
+  assert.equal(await env.MLB_KV.get("u:victim"), null);
+  assert.equal(await env.MLB_DB.prepare("SELECT credential_id FROM passkey_credential_claims WHERE user_id = 'victim'").first(), null);
+});
+
+test("取消没有生效时票据还在；和清除并发只有一边成功", async () => {
+  const env = envBase();
+  await requestDeletion(env, "42");
+  const gate = await loginGate(env, "42");
+  const ticket = gate.cookie.split(";")[0];
+  await env.MLB_DB.prepare(
+    "UPDATE account_deletions SET status = 'purging', lease_until = ?1 WHERE user_id = '42'",
+  ).bind(Date.now() + 10 * 60 * 1000).run();
+  const denied = await cancelRoute({
+    request: post(ORIGIN + "/api/account/deletion/cancel", {}, ticket),
+    env,
+  });
+  assert.equal(denied.status, 409);
+  assert.equal((await denied.json()).error, "deletion_in_progress");
+  assert.equal((await env.MLB_DB.prepare("SELECT jti FROM deletion_tickets").all()).results.length, 1);
+  await env.MLB_DB.prepare(
+    "UPDATE account_deletions SET status = 'pending', lease_until = 0 WHERE user_id = '42'",
+  ).run();
+  const accepted = await cancelRoute({
+    request: post(ORIGIN + "/api/account/deletion/cancel", {}, ticket),
+    env,
+  });
+  assert.equal(accepted.status, 200);
+  assert.equal((await env.MLB_DB.prepare("SELECT jti FROM deletion_tickets").all()).results.length, 0);
+  assert.equal((await row(env, "42")).status, "cancelled");
+
+  const env2 = envBase();
+  await requestDeletion(env2, "race");
+  const fresh = await loginGate(env2, "race");
+  const cookieHeader = fresh.cookie.split(";")[0];
+  const start = Date.now();
+  await env2.MLB_DB.prepare("UPDATE account_deletions SET scheduled_at = ?1 WHERE user_id = 'race'").bind(start - 1000).run();
+  const [cancelled, purged] = await Promise.all([
+    cancelRoute({ request: post(ORIGIN + "/api/account/deletion/cancel", {}, cookieHeader), env: env2 }),
+    purgeAccount(env2, "race", start),
+  ]);
+  const cancelOk = cancelled.status === 200;
+  const purgeOk = purged === true;
+  assert.equal(Number(cancelOk) + Number(purgeOk), 1);
+  const final = await row(env2, "race");
+  if (cancelOk) {
+    assert.equal(final.status, "cancelled");
+    assert.equal(purgeOk, false);
+  } else {
+    assert.equal(final.status, "completed");
+    assert.ok(cancelled.status === 401 || cancelled.status === 409);
+  }
+});
+
+test("定时任务缺少绑定会失败，配齐后记一条完成日志", async () => {
+  const env = envBase();
+  await requestDeletion(env, "victim");
+  const now = Date.now();
+  await env.MLB_DB.prepare("UPDATE account_deletions SET scheduled_at = ?1 WHERE user_id = 'victim'").bind(now - 1000).run();
+  const errors = [];
+  const originalError = console.error;
+  console.error = (...args) => errors.push(args.join(" "));
+  let failed;
+  try {
+    worker.scheduled({}, { MLB_DB: env.MLB_DB }, { waitUntil(job) { failed = job; } });
+    await assert.rejects(() => failed, /account_purge missing bindings/);
+  } finally {
+    console.error = originalError;
+  }
+  assert.match(errors.join("\n"), /account_purge missing bindings: PASSKEYS,MLB_KV/);
+  assert.equal((await row(env, "victim")).status, "pending");
+
+  const lines = [];
+  const originalLog = console.log;
+  console.log = (...args) => lines.push(args.join(" "));
+  let done;
+  try {
+    worker.scheduled({}, env, { waitUntil(job) { done = job; } });
+    await done;
+  } finally {
+    console.log = originalLog;
+  }
+  assert.match(lines.join("\n"), /account_purge_done 1/);
+  assert.equal((await row(env, "victim")).status, "completed");
 });
