@@ -6,8 +6,9 @@
 //
 // 存储优先用已有的 D1（MLB_DB）。没绑 D1 时退回已有的 KV（MLB_KV）。两个都没有时，
 // 登录仍按老的会话 ID 工作，只是不能绑定或解绑。
+// 冲突确认会注销另一个账号，必须用 D1 的 DELETE … RETURNING 一次性消费。
+// 没有 MLB_DB 时直接拒绝，不再走 KV 上非原子的一次性标记。
 import { SESSION_TTL, getCookie, seal, unseal } from "./auth.js";
-import { claimOnce } from "./kv-once.js";
 import { isAccountDeleted, markAccountDeleted } from "./account-tomb.js";
 
 const KINDS = new Set(["github", "google"]);
@@ -426,25 +427,11 @@ function kvStore(KV) {
       const pointer = await read(pointerKey(kind, target.subject));
       if (pointer === accountId && KV.delete) await KV.delete(pointerKey(kind, target.subject));
     },
-    async savePending(record) {
-      const jti = crypto.randomUUID();
-      const exp = Math.floor(Date.now() / 1000) + CONFLICT_TTL;
-      await KV.put("pend:" + jti, JSON.stringify({ ...record, exp }), { expirationTtl: CONFLICT_TTL });
-      return { jti, exp };
+    async savePending() {
+      throw httpError("conflict_d1_required");
     },
-    async takePending(jti) {
-      const key = "pend:" + jti;
-      const row = await read(key);
-      if (!row || row.exp < Math.floor(Date.now() / 1000)) {
-        if (KV.delete) await KV.delete(key);
-        return null;
-      }
-      if (!(await claimOnce(KV, key))) {
-        if (KV.delete) await KV.delete(key);
-        return null;
-      }
-      if (KV.delete) await KV.delete(key);
-      return row;
+    async takePending() {
+      throw httpError("conflict_d1_required");
     },
     async moveIdentity(accountId, otherAccountId, profile) {
       const pointer = await read(pointerKey(profile.kind, profile.subject));
@@ -496,6 +483,7 @@ export async function loginAccount(env, profile) {
 }
 
 export async function issueConflictToken(env, user, profile) {
+  if (!env?.MLB_DB) throw httpError("conflict_d1_required");
   const store = openAccountStore(env);
   if (!store || !env?.SESSION_SECRET) return "";
   const accountId = sessionAccountId(user);
@@ -505,6 +493,7 @@ export async function issueConflictToken(env, user, profile) {
 }
 
 export async function stageConflictToken(env, accountId, otherAccountId, profile) {
+  if (!env?.MLB_DB) throw httpError("conflict_d1_required");
   const store = openAccountStore(env);
   if (!store || !env?.SESSION_SECRET) return "";
   const saved = await store.savePending({
@@ -534,6 +523,7 @@ export async function conflictMarker(token) {
 }
 
 export async function confirmConflict(env, user, token, marker = "") {
+  if (!env?.MLB_DB) throw httpError("conflict_d1_required");
   if (!env?.SESSION_SECRET) throw httpError("pending");
   const data = await unseal(token, env.SESSION_SECRET, "conflict");
   if (!marker || marker !== await conflictMarker(token)) throw httpError("pending");
@@ -590,7 +580,7 @@ async function deleteAccountPasskeys(env, accountId) {
   if (!env?.PASSKEYS) return;
   const { listCredentials, deleteCredential } = await import("./passkeys.js");
   const list = await listCredentials(env.PASSKEYS, accountId);
-  for (const cred of list) await deleteCredential(env.PASSKEYS, accountId, cred.id);
+  for (const cred of list) await deleteCredential(env.PASSKEYS, accountId, cred.id, env.MLB_DB);
 }
 
 export async function linkAccount(env, user, profile) {

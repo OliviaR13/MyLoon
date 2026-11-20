@@ -68,7 +68,12 @@ export async function onRequestGet({ request, env }) {
     } catch (err) {
       if (err?.code === "conflict") {
         let token = "";
-        try { token = await issueConflictToken(env, sessionUser, identity); } catch { token = ""; }
+        try {
+          token = await issueConflictToken(env, sessionUser, identity);
+        } catch (issueErr) {
+          if (issueErr?.code === "conflict_d1_required") return fail("conflict_d1_required");
+          token = "";
+        }
         const pending = token ? "&pending=" + encodeURIComponent(token) : "";
         const conflict = fail("link_conflict&provider=google" + pending);
         if (token) conflict.headers.append("Set-Cookie", cookie("mlb_conflict", await conflictMarker(token), { maxAge: 300 }));

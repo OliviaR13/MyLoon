@@ -9,8 +9,8 @@ import { rateLimit } from "../functions/_lib/rate-limit.js";
 import { onRequestGet as onGithubLogin } from "../functions/api/auth/login.js";
 import { bumpEpoch } from "../functions/_lib/session-epoch.js";
 import { applySecurityHeaders } from "../functions/_lib/security-headers.js";
-import { challengeCookie, putCredential, saveChallenge, takeChallenge } from "../functions/_lib/passkeys.js";
-import { claimOnce } from "../functions/_lib/kv-once.js";
+import { challengeCookie, deleteCredential, putCredential, saveChallenge, takeChallenge } from "../functions/_lib/passkeys.js";
+import { confirmConflict, stageConflictToken } from "../functions/_lib/accounts.js";
 import { resetSyncCache } from "../functions/_lib/sync-store.js";
 
 const SECRET = "test-session-secret";
@@ -135,9 +135,6 @@ test("作废名单读失败时鉴权失败关闭，过期记录会被清掉", as
 
 test("一次性挑战必须由 D1 原子消费，重复提交不能再次使用", async () => {
   const kv = memoryKv();
-  assert.equal(await claimOnce(kv, "pend:1"), true);
-  assert.equal(await claimOnce(kv, "pend:1"), false);
-  assert.equal(await claimOnce({ get: async () => { throw new Error("down"); }, put: async () => {} }, "pend:2"), false);
   const env = { PASSKEYS: kv, SESSION_SECRET: SECRET, MLB_DB: kv.DB };
   await saveChallenge(env, "abc", "auth");
   const set = await challengeCookie(env, "abc", "auth");
@@ -255,4 +252,51 @@ test("并发注册同一 credential ID 只能有一个账号成功占用", async
   assert.equal(rejected.reason.code, "credential_exists");
   const stored = JSON.parse(await kv.get("cred:shared-id"));
   assert.ok(stored.userId === "account-a" || stored.userId === "account-b");
+});
+
+test("D1 删除失败时通行密钥仍留在原账号，过期的空占位可以被重新注册", async () => {
+  const kv = memoryKv();
+  const row = { provider: "github", login: "a", name: "", email: "", picture: "", coseKey: "AA", alg: -7, signCount: 0, createdAt: 1 };
+  await putCredential(kv, { ...row, userId: "1", credentialId: "keep" });
+  const real = kv.DB;
+  const failing = {
+    prepare(sql) {
+      if (/DELETE\s+FROM\s+passkey_credential_claims/i.test(sql)) {
+        return { bind() { return this; }, async run() { throw new Error("d1 down"); }, async all() { throw new Error("d1 down"); } };
+      }
+      return real.prepare(sql);
+    },
+  };
+  await assert.rejects(() => deleteCredential(kv, "1", "keep", failing), (err) => err.message === "d1 down");
+  assert.ok(await kv.get("cred:keep"));
+  await assert.rejects(
+    () => putCredential(kv, { ...row, userId: "2", credentialId: "keep" }, real),
+    (err) => err.code === "credential_exists",
+  );
+  assert.equal(JSON.parse(await kv.get("cred:keep")).userId, "1");
+
+  await kv.delete("cred:keep");
+  await assert.rejects(
+    () => putCredential(kv, { ...row, userId: "2", credentialId: "keep" }, real),
+    (err) => err.code === "credential_exists",
+  );
+  await real.prepare("UPDATE passkey_credential_claims SET created_at = ?1 WHERE credential_id = ?2")
+    .bind(Date.now() - 120_000, "keep").run();
+  const raced = await Promise.allSettled([
+    putCredential(kv, { ...row, userId: "2", credentialId: "keep" }, real),
+    putCredential(kv, { ...row, userId: "3", credentialId: "keep" }, real),
+  ]);
+  assert.equal(raced.filter((r) => r.status === "fulfilled").length, 1);
+  assert.equal(raced.find((r) => r.status === "rejected").reason.code, "credential_exists");
+  const owner = JSON.parse(await kv.get("cred:keep")).userId;
+  assert.ok(owner === "2" || owner === "3");
+  const claim = await real.prepare("SELECT user_id FROM passkey_credential_claims WHERE credential_id = ?1").bind("keep").first();
+  assert.equal(claim.user_id, owner);
+});
+
+test("没有 D1 时不能签发或确认账号冲突", async () => {
+  const env = { SESSION_SECRET: SECRET, MLB_KV: memoryKv() };
+  const profile = { kind: "github", subject: "9", label: "x", name: "", email: "", picture: "" };
+  await assert.rejects(() => stageConflictToken(env, "1", "2", profile), (err) => err.code === "conflict_d1_required");
+  await assert.rejects(() => confirmConflict(env, { id: 1 }, "token-token-token-token", "marker"), (err) => err.code === "conflict_d1_required");
 });

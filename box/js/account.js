@@ -607,6 +607,7 @@ export function initAccount() {
           google_verify: "Google 账号校验未通过，请重试",
           link_state: "绑定已过期，请重新操作",
           accounts_config: "暂时不能管理登录方式",
+          conflict_d1_required: "需要绑定数据库才能合并账号",
           storage: "暂时无法保存登录方式，请重试",
           link_conflict: q.get("provider") === "google" ? "该 Google 账号已绑定其他账号" : "该 GitHub 账号已绑定其他账号",
           already_linked: q.get("provider") === "google"

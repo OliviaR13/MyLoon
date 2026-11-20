@@ -144,6 +144,9 @@ export async function listCredentials(kv, userId) {
   return out;
 }
 
+// 刚写入的占位可能还没把公钥写进 KV。这段时间内即使 KV 还是空的，也不许别人抢走。
+const CLAIM_HOLD_MS = 60_000;
+
 const credentialReady = new WeakMap();
 
 async function ensureCredentialTable(DB) {
@@ -160,17 +163,46 @@ async function ensureCredentialTable(DB) {
   return pending;
 }
 
-async function claimCredential(DB, record) {
+function credentialTaken() {
+  const err = new Error("credential_exists");
+  err.code = "credential_exists";
+  return err;
+}
+
+// 返回被替换掉的旧账号；没有旧账号时返回空字符串。
+// 新 ID 用 INSERT … ON CONFLICT DO NOTHING，并发时只有一个成功。
+// KV 记录已经不在、且占位超过 CLAIM_HOLD_MS 时，用 created_at 做条件更新接管。
+// 条件对不上就放弃，所以不会有两个账号同时拥有同一把密钥。
+async function claimCredential(DB, kv, record) {
   if (!DB) throw new Error("passkey_d1_required");
   await ensureCredentialTable(DB);
-  const out = await DB.prepare(
+  const id = record.credentialId;
+  const userId = String(record.userId);
+  const now = Date.now();
+  const inserted = await DB.prepare(
     "INSERT INTO passkey_credential_claims (credential_id, user_id, created_at) VALUES (?1, ?2, ?3) ON CONFLICT(credential_id) DO NOTHING RETURNING credential_id",
-  ).bind(record.credentialId, String(record.userId), Date.now()).all();
-  if (!out.results?.length) {
-    const err = new Error("credential_exists");
-    err.code = "credential_exists";
-    throw err;
-  }
+  ).bind(id, userId, now).all();
+  if (inserted.results?.length) return "";
+
+  if (await kv.get(credKey(id))) throw credentialTaken();
+  const row = await DB.prepare(
+    "SELECT user_id, created_at FROM passkey_credential_claims WHERE credential_id = ?1",
+  ).bind(id).first();
+  if (!row || Date.now() - Number(row.created_at) < CLAIM_HOLD_MS) throw credentialTaken();
+  const won = await DB.prepare(
+    `UPDATE passkey_credential_claims SET user_id = ?1, created_at = ?2
+     WHERE credential_id = ?3 AND user_id = ?4 AND created_at = ?5
+     RETURNING credential_id`,
+  ).bind(userId, now, id, String(row.user_id), row.created_at).all();
+  if (!won.results?.length) throw credentialTaken();
+  return String(row.user_id) === userId ? "" : String(row.user_id);
+}
+
+async function releaseClaim(DB, credentialId, userId) {
+  if (!DB) return;
+  await DB.prepare(
+    "DELETE FROM passkey_credential_claims WHERE credential_id = ?1 AND user_id = ?2",
+  ).bind(credentialId, String(userId)).run();
 }
 
 export async function putCredential(kv, record, DB = kv.DB) {
@@ -186,15 +218,25 @@ export async function putCredential(kv, record, DB = kv.DB) {
     err.code = "too_many";
     throw err;
   }
-  await claimCredential(DB, record);
+  const previousUser = await claimCredential(DB, kv, record);
   const next = ids.includes(record.credentialId) ? ids : [...ids, record.credentialId];
   try {
+    if (previousUser) {
+      const prevIds = await readIndex(kv, previousUser);
+      if (prevIds.includes(record.credentialId)) {
+        await kv.put(userKey(previousUser), JSON.stringify(prevIds.filter((id) => id !== record.credentialId)));
+      }
+    }
     await kv.put(credKey(record.credentialId), JSON.stringify(record));
     await kv.put(userKey(record.userId), JSON.stringify(next));
   } catch (err) {
-    // KV 写失败：释放刚占的 D1 位置，免得这个 credential ID 一直被占着
-    await DB.prepare("DELETE FROM passkey_credential_claims WHERE credential_id = ?1 AND user_id = ?2").bind(record.credentialId, String(record.userId)).run().catch(() => {});
-    await kv.delete(credKey(record.credentialId)).catch(() => {});
+    // 公钥没写上就撤掉占位。撤掉失败时保留 KV，避免只留下一个无法再注册的 ID。
+    try {
+      await releaseClaim(DB, record.credentialId, record.userId);
+      await kv.delete(credKey(record.credentialId));
+    } catch {
+      /* 占位还在且超过 CLAIM_HOLD_MS 后，注册可以再接管 */
+    }
     throw err;
   }
 }
@@ -223,14 +265,16 @@ export async function updateSignCount(kv, credentialId, signCount) {
 }
 
 export async function deleteCredential(kv, userId, credentialId, DB = kv.DB) {
-  const ids = await readIndex(kv, String(userId));
+  const uid = String(userId);
+  const ids = await readIndex(kv, uid);
   if (!ids.includes(credentialId)) return false;
-  await kv.delete(credKey(credentialId));
-  await kv.put(userKey(String(userId)), JSON.stringify(ids.filter((id) => id !== credentialId)));
+  // 先放开 D1 占位。删除失败就不动 KV，这把密钥仍然只属于当前账号，可以重试。
   if (DB) {
     await ensureCredentialTable(DB);
-    await DB.prepare("DELETE FROM passkey_credential_claims WHERE credential_id = ?1 AND user_id = ?2").bind(credentialId, String(userId)).run();
+    await releaseClaim(DB, credentialId, uid);
   }
+  await kv.delete(credKey(credentialId));
+  await kv.put(userKey(uid), JSON.stringify(ids.filter((id) => id !== credentialId)));
   return true;
 }
 

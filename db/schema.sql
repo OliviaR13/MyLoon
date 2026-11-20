@@ -102,12 +102,20 @@ CREATE TABLE IF NOT EXISTS revoked_sessions (
   expires_at INTEGER NOT NULL
 );
 
--- 通行密钥挑战。有 D1 时用 DELETE … RETURNING 一次性消费；没有 D1 时仍放在 PASSKEYS KV。
+-- 通行密钥挑战。只放在 D1，用 DELETE … RETURNING 一次性消费。
 CREATE TABLE IF NOT EXISTS passkey_challenges (
   challenge TEXT PRIMARY KEY,
   kind      TEXT NOT NULL,
   user_id   TEXT NOT NULL DEFAULT '',
   exp       INTEGER NOT NULL
+);
+
+-- 通行密钥 credential ID 占位。删除时先删这一行，再删 KV。
+-- KV 记录已经不在、且 created_at 超过一分钟时，注册会按 created_at 条件更新来接管，避免 ID 永久占死。
+CREATE TABLE IF NOT EXISTS passkey_credential_claims (
+  credential_id TEXT PRIMARY KEY,
+  user_id       TEXT    NOT NULL,
+  created_at    INTEGER NOT NULL
 );
 
 -- 接口限流计数。窗口过了就没用了，函数第一次用到时会自动建表。
