@@ -1,7 +1,7 @@
 // 通行密钥资料保存在 PASSKEYS；挑战消费与 credential ID 唯一性由现有 MLB_DB 原子保证。
 //   cred:<credentialId>  公钥、计数器、所属账号
 //   user:<userId>        这个账号的凭证 ID 列表
-//   chal:<challenge>     一次性挑战，TTL 5 分钟，用过即删
+//   D1 passkey_challenges 一次性挑战，TTL 5 分钟，用过即原子删除
 import { SESSION_TTL, cookie, getCookie, seal, unseal } from "./auth.js";
 import { b64urlDecode, b64urlEncode } from "./webauthn.js";
 
