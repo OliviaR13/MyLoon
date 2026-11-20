@@ -212,7 +212,7 @@ test("已存在的通行密钥 ID 不能被另一个账号覆盖", async () => {
 test("GitHub 授权带上 S256，允许名单同时看 GitHub 用户名和 Google 邮箱", async () => {
   const start = await onGithubLogin({
     request: new Request(ORIGIN + "/api/auth/login"),
-    env: { GITHUB_CLIENT_ID: "id", SESSION_SECRET: SECRET },
+    env: { GITHUB_CLIENT_ID: "id", SESSION_SECRET: SECRET, MLB_DB: fakeD1() },
   });
   const loc = new URL(start.headers.get("Location"));
   assert.equal(loc.searchParams.get("code_challenge_method"), "S256");

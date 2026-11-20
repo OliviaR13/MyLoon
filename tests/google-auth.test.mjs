@@ -1,6 +1,7 @@
 // Google 登录：ID Token 校验、授权跳转、回调发 Cookie。node --test tests/google-auth.test.mjs
 import test from "node:test";
 import assert from "node:assert/strict";
+import { DatabaseSync } from "node:sqlite";
 import { onRequestGet } from "../functions/api/auth/google/index.js";
 import { onRequestGet as onCallback } from "../functions/api/auth/google/callback.js";
 import { onRequestGet as onMe } from "../functions/api/me.js";
@@ -12,6 +13,25 @@ import {
   safeGooglePicture,
   verifyGoogleIdToken,
 } from "../functions/_lib/google-auth.js";
+
+class Stmt {
+  constructor(db, sql, params = []) { this.db = db; this.sql = sql; this.params = params; }
+  bind(...p) { return new Stmt(this.db, this.sql, p); }
+  exec() {
+    const st = this.db.prepare(this.sql);
+    const read = /^\s*(SELECT|DELETE)/i.test(this.sql) || /RETURNING/i.test(this.sql);
+    return read
+      ? { results: st.all(...this.params).map((r) => ({ ...r })) }
+      : (st.run(...this.params), { results: [] });
+  }
+  async all() { return this.exec(); }
+  async run() { return this.exec(); }
+}
+
+function fakeD1() {
+  const db = new DatabaseSync(":memory:");
+  return { prepare: (sql) => new Stmt(db, sql) };
+}
 
 const CLIENT_ID = "123-abc.apps.googleusercontent.com";
 const SECRET = "test-session-secret";
@@ -159,7 +179,7 @@ serial("配齐之后，页面询问得到 enabled:true，浏览器跳转才去 G
 
   const nav = await onRequestGet({
     request: new Request(url, { headers: { "Sec-Fetch-Mode": "navigate", Accept: "text/html,application/json" } }),
-    env: ENV,
+    env: { ...ENV, MLB_DB: fakeD1() },
   });
   assert.equal(nav.status, 302);
   const loc = new URL(nav.headers.get("Location"));
