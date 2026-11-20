@@ -16,6 +16,7 @@ const LIMITS = {
 };
 
 const ready = new WeakMap();
+const FAIL_CLOSED = new Set(["passkey-reg-opt", "passkey-reg-ver", "passkey-login-opt", "passkey-login-ver", "auth-github", "auth-google", "conflict"]);
 const enc = new TextEncoder();
 
 function ensureTable(DB) {
@@ -71,6 +72,7 @@ export async function rateLimit(request, env, route) {
   const win = Math.floor(Date.now() / 1000 / WINDOW);
   const retryAfter = WINDOW - (Math.floor(Date.now() / 1000) % WINDOW);
   try {
+    if (FAIL_CLOSED.has(route) && !env?.MLB_DB) return json({ error: "rate_limit_unavailable" }, 503);
     if (!env?.MLB_DB && !env?.MLB_KV) return null;
     const k = await bucketKey(request, env, route);
     const n = env.MLB_DB ? await hitD1(env.MLB_DB, k, win) : await hitKv(env.MLB_KV, k, win);
@@ -78,6 +80,7 @@ export async function rateLimit(request, env, route) {
     return null;
   } catch (err) {
     console.error("rate_limit_storage", route, err?.message || "error");
+    if (FAIL_CLOSED.has(route)) return json({ error: "rate_limit_unavailable" }, 503);
     return null;
   }
 }
