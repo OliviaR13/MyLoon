@@ -1,6 +1,7 @@
 // 通行密钥：挑战一次性、ES256 / RS256 签名、rpId / origin / UP / 计数器。
 // node --test tests/passkey.test.mjs
 import test from "node:test";
+import { DatabaseSync } from "node:sqlite";
 import assert from "node:assert/strict";
 import { seal } from "../functions/_lib/auth.js";
 import { encodeCbor } from "../functions/_lib/cbor.js";
@@ -18,17 +19,34 @@ const SECRET = "test-session-secret";
 const ORIGIN = "https://olivia-loon-box.pages.dev";
 const RP_ID = "olivia-loon-box.pages.dev";
 
+function fakeD1() {
+  const db = new DatabaseSync(":memory:");
+  return { prepare(sql) {
+    let params = [];
+    const stmt = db.prepare(sql);
+    const api = {
+      bind(...values) { params = values; return api; },
+      async run() { stmt.run(...params); return { results: [] }; },
+      async all() { return { results: stmt.all(...params) }; },
+      async first() { return stmt.get(...params) || null; },
+    };
+    return api;
+  } };
+}
+
 function memoryKv() {
   const m = new Map();
-  return {
+  const kv = {
     async get(k) { return m.has(k) ? m.get(k) : null; },
     async put(k, v) { m.set(k, String(v)); },
     async delete(k) { m.delete(k); },
   };
+  kv.DB = fakeD1();
+  return kv;
 }
 
 function envWith(kv = memoryKv()) {
-  return { PASSKEYS: kv, SESSION_SECRET: SECRET };
+  return { PASSKEYS: kv, SESSION_SECRET: SECRET, MLB_DB: kv.DB };
 }
 
 function concat(...parts) {
