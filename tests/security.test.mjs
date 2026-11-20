@@ -9,7 +9,7 @@ import { rateLimit } from "../functions/_lib/rate-limit.js";
 import { onRequestGet as onGithubLogin } from "../functions/api/auth/login.js";
 import { bumpEpoch } from "../functions/_lib/session-epoch.js";
 import { applySecurityHeaders } from "../functions/_lib/security-headers.js";
-import { challengeCookie, putCredential, takeChallenge } from "../functions/_lib/passkeys.js";
+import { challengeCookie, putCredential, saveChallenge, takeChallenge } from "../functions/_lib/passkeys.js";
 import { claimOnce } from "../functions/_lib/kv-once.js";
 import { resetSyncCache } from "../functions/_lib/sync-store.js";
 
@@ -37,7 +37,7 @@ function fakeD1() {
 }
 function memoryKv(fail = false) {
   const m = new Map();
-  return {
+  const kv = {
     get: async (k) => {
       if (fail) throw new Error("kv down");
       return m.has(k) ? m.get(k) : null;
@@ -45,6 +45,8 @@ function memoryKv(fail = false) {
     put: async (k, v) => { m.set(k, v); },
     delete: async (k) => { m.delete(k); },
   };
+  kv.DB = fakeD1();
+  return kv;
 }
 
 test("没有 sv 的旧 Cookie 在代数为 0 时仍有效，抬高后失效", async () => {
@@ -68,7 +70,8 @@ function sessionToken(fields) {
 }
 
 test("退出登录只作废当前会话，另一台设备仍保持登录", async () => {
-  const env = { SESSION_SECRET: SECRET, MLB_KV: memoryKv() };
+  const kv = memoryKv();
+  const env = { SESSION_SECRET: SECRET, MLB_KV: kv, MLB_DB: kv.DB };
   const here = await sessionToken({ id: 7, login: "bee", sid: "sid-device-a" });
   const other = await sessionToken({ id: 7, login: "bee", sid: "sid-device-b" });
   const legacy = await sessionToken({ id: 7, login: "bee" });
@@ -130,20 +133,21 @@ test("作废名单读失败时鉴权失败关闭，过期记录会被清掉", as
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM revoked_sessions").get().n, 0);
 });
 
-test("KV 一次性令牌写过 used 标记后不能再用", async () => {
+test("一次性挑战必须由 D1 原子消费，重复提交不能再次使用", async () => {
   const kv = memoryKv();
   assert.equal(await claimOnce(kv, "pend:1"), true);
   assert.equal(await claimOnce(kv, "pend:1"), false);
-  const env = { PASSKEYS: kv, SESSION_SECRET: SECRET };
-  await kv.put("chal:abc", JSON.stringify({ kind: "auth", userId: "", exp: Date.now() + 60000 }));
-  await kv.put("used:chal:abc", "taken");
+  assert.equal(await claimOnce({ get: async () => { throw new Error("down"); }, put: async () => {} }, "pend:2"), false);
+  const env = { PASSKEYS: kv, SESSION_SECRET: SECRET, MLB_DB: kv.DB };
+  await saveChallenge(env, "abc", "auth");
   const set = await challengeCookie(env, "abc", "auth");
   const req = new Request(ORIGIN + "/api/auth/passkey/login/verify", {
     method: "POST",
     headers: { origin: ORIGIN, cookie: set.split(";")[0] },
   });
+  assert.deepEqual(await takeChallenge(env, "abc", "auth", req), { kind: "auth", userId: "" });
   assert.equal(await takeChallenge(env, "abc", "auth", req), null);
-  assert.equal(await kv.get("chal:abc"), null);
+  assert.equal(await takeChallenge({ PASSKEYS: kv, SESSION_SECRET: SECRET }, "abc", "auth", req), null);
 });
 
 test("墓碑存储出错时鉴权失败关闭，返回 503", async () => {
@@ -182,6 +186,8 @@ test("限流超过窗口后返回 429 和 Retry-After；存储出错时放行", 
     },
   };
   assert.equal(await rateLimit(req(), broken, "install"), null);
+  assert.equal((await rateLimit(req(), {}, "passkey-login-ver")).status, 503);
+  assert.equal((await rateLimit(req(), { MLB_DB: { prepare() { return { run: async () => { throw new Error("down"); }, bind() { return this; }, all: async () => { throw new Error("down"); } }; } } }, "passkey-login-ver")).status, 503);
 });
 
 test("安全头写上 HSTS 和 CSP，接口去掉通配 CORS", async () => {
@@ -206,7 +212,7 @@ test("已存在的通行密钥 ID 不能被另一个账号覆盖", async () => {
 test("GitHub 授权带上 S256，允许名单同时看 GitHub 用户名和 Google 邮箱", async () => {
   const start = await onGithubLogin({
     request: new Request(ORIGIN + "/api/auth/login"),
-    env: { GITHUB_CLIENT_ID: "id", SESSION_SECRET: SECRET },
+    env: { GITHUB_CLIENT_ID: "id", SESSION_SECRET: SECRET, MLB_DB: fakeD1() },
   });
   const loc = new URL(start.headers.get("Location"));
   assert.equal(loc.searchParams.get("code_challenge_method"), "S256");
@@ -223,4 +229,30 @@ test("旧的直接签名令牌在指定用途时仍然能解开", async () => {
   assert.equal((await unseal(legacy, SECRET, "session")).id, 1);
   assert.equal((await unseal(next, SECRET, "session")).id, 2);
   assert.equal(await unseal(next, SECRET), null);
+});
+
+
+test("旧格式会话注销后通过兼容 sid 在服务端失效", async () => {
+  const kv = memoryKv();
+  const env = { SESSION_SECRET: SECRET, MLB_KV: kv, MLB_DB: kv.DB };
+  const legacy = await seal({ id: 81, login: "legacy", exp: Math.floor(Date.now() / 1000) + 3600 }, SECRET);
+  const cookie = "mlb_session=" + legacy;
+  const out = await onLogout({ request: new Request(ORIGIN + "/api/logout", { method: "POST", headers: { origin: ORIGIN, cookie } }), env });
+  assert.equal(out.status, 200);
+  const after = await onMe({ request: new Request(ORIGIN + "/api/me", { headers: { cookie } }), env });
+  assert.equal((await after.json()).user, null);
+});
+
+test("并发注册同一 credential ID 只能有一个账号成功占用", async () => {
+  const kv = memoryKv();
+  const base = { provider: "github", login: "user", name: "", email: "", picture: "", credentialId: "shared-id", coseKey: "AA", alg: -7, signCount: 0, createdAt: Date.now() };
+  const results = await Promise.allSettled([
+    putCredential(kv, { ...base, userId: "account-a" }),
+    putCredential(kv, { ...base, userId: "account-b" }),
+  ]);
+  assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
+  const rejected = results.find((r) => r.status === "rejected");
+  assert.equal(rejected.reason.code, "credential_exists");
+  const stored = JSON.parse(await kv.get("cred:shared-id"));
+  assert.ok(stored.userId === "account-a" || stored.userId === "account-b");
 });

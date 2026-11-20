@@ -1,6 +1,7 @@
 // 通行密钥：挑战一次性、ES256 / RS256 签名、rpId / origin / UP / 计数器。
 // node --test tests/passkey.test.mjs
 import test from "node:test";
+import { DatabaseSync } from "node:sqlite";
 import assert from "node:assert/strict";
 import { seal } from "../functions/_lib/auth.js";
 import { encodeCbor } from "../functions/_lib/cbor.js";
@@ -12,23 +13,54 @@ import { onRequestPost as loginVerify } from "../functions/api/auth/passkey/logi
 import { onRequestDelete } from "../functions/api/auth/passkey/[id].js";
 import { onRequestGet as onMe } from "../functions/api/me.js";
 import { putCredential } from "../functions/_lib/passkeys.js";
+import { resetSyncCache } from "../functions/_lib/sync-store.js";
 import { b64urlDecode, b64urlEncode, counterOk, rpIdFromHost } from "../functions/_lib/webauthn.js";
 
 const SECRET = "test-session-secret";
 const ORIGIN = "https://olivia-loon-box.pages.dev";
 const RP_ID = "olivia-loon-box.pages.dev";
 
+class Stmt {
+  constructor(db, sql, params = []) { this.db = db; this.sql = sql; this.params = params; }
+  bind(...p) { return new Stmt(this.db, this.sql, p); }
+  exec() {
+    const st = this.db.prepare(this.sql);
+    const read = /^\s*(SELECT|DELETE)/i.test(this.sql) || /RETURNING/i.test(this.sql);
+    return read
+      ? { results: st.all(...this.params).map((r) => ({ ...r })) }
+      : (st.run(...this.params), { results: [] });
+  }
+  async first() { return this.exec().results[0] ?? null; }
+  async all() { return this.exec(); }
+  async run() { return this.exec(); }
+}
+
+function fakeD1() {
+  resetSyncCache();
+  const db = new DatabaseSync(":memory:");
+  return {
+    prepare: (sql) => new Stmt(db, sql),
+    async batch(stmts) {
+      db.exec("BEGIN");
+      try { const out = stmts.map((s) => s.exec()); db.exec("COMMIT"); return out; }
+      catch (e) { db.exec("ROLLBACK"); throw e; }
+    },
+  };
+}
+
 function memoryKv() {
   const m = new Map();
-  return {
+  const kv = {
     async get(k) { return m.has(k) ? m.get(k) : null; },
     async put(k, v) { m.set(k, String(v)); },
     async delete(k) { m.delete(k); },
   };
+  kv.DB = fakeD1();
+  return kv;
 }
 
 function envWith(kv = memoryKv()) {
-  return { PASSKEYS: kv, SESSION_SECRET: SECRET };
+  return { PASSKEYS: kv, SESSION_SECRET: SECRET, MLB_DB: kv.DB };
 }
 
 function concat(...parts) {

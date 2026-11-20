@@ -12,7 +12,7 @@ import { onRequestDelete as onDeletePasskey } from "../functions/api/auth/passke
 import { onRequestPost as onConflict } from "../functions/api/account/conflict.js";
 import { onRequestGet as onMe, onRequestPut } from "../functions/api/me.js";
 import { seal, unseal } from "../functions/_lib/auth.js";
-import { conflictMarker, stageConflictToken } from "../functions/_lib/accounts.js";
+import { conflictMarker, sealLinkIntent, stageConflictToken } from "../functions/_lib/accounts.js";
 import { listCredentials, putCredential } from "../functions/_lib/passkeys.js";
 import { b64urlEncode } from "../functions/_lib/webauthn.js";
 import { resetGoogleCerts } from "../functions/_lib/google-auth.js";
@@ -382,7 +382,7 @@ serial("取消确认时两个账号都还在；确认后才注销另一个账号
   await putCredential(passkeys, {
     credentialId: "other-key", userId: "google:10001", provider: "google", login: "阿达",
     name: "阿达", email: "ada@gmail.com", picture: "", coseKey: b64urlEncode(new Uint8Array([1])), alg: -7, signCount: 0, createdAt: 1,
-  });
+  }, env.MLB_DB);
   mockGithub(99, "side");
   const sideStart = await onGithubLogin({
     request: new Request(ORIGIN + "/api/auth/login?intent=link", { headers: { cookie: googleSession } }),
@@ -409,7 +409,7 @@ serial("取消确认时两个账号都还在；确认后才注销另一个账号
   await putCredential(passkeys, {
     credentialId: "keep-key", userId: "42", provider: "github", login: "ada",
     name: "", email: "", picture: "", coseKey: b64urlEncode(new Uint8Array([2])), alg: -7, signCount: 0, createdAt: 2,
-  });
+  }, env.MLB_DB);
 
   mockGoogle({ sub: "10001", email: "ada@gmail.com" });
   const start = await onGoogleLogin({
@@ -530,7 +530,7 @@ serial("不能解绑最后一种登录方式；有通行密钥时可以解绑，
     alg: -7,
     signCount: 0,
     createdAt: 1,
-  });
+  }, env.MLB_DB);
   const removed = await onUnlink({
     request: new Request(ORIGIN + "/api/account/identities/github", { method: "DELETE", headers: { origin: ORIGIN, cookie: session } }),
     env,
@@ -598,15 +598,39 @@ serial("state 不对或绑定 Cookie 被改过时，不会登录，也不会绑�
   assert.deepEqual(after.identities, [{ kind: "github", login: "bee" }]);
 });
 
+function stagedStart(cookies) {
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(cookies)) {
+    headers.append("Set-Cookie", `${name}=${value}; HttpOnly; Path=/api/auth`);
+  }
+  return new Response(null, { status: 302, headers });
+}
+
 serial("没有 D1 时用已有的 KV 保存绑定；两个都没有时登录仍可用，但不能绑定", async () => {
   const kv = memoryKv();
   const env = envWith({ MLB_KV: kv });
-  const first = await githubCallback(env, "", 42, "ada");
+  const blocked = await onGithubLogin({ request: new Request(ORIGIN + "/api/auth/login"), env });
+  assert.equal(blocked.status, 503);
+  assert.equal((await blocked.json()).error, "rate_limit_unavailable");
+
+  // 授权入口现在没有 D1 会直接失败关闭。回调本身不限流，仍用它确认 KV 能存绑定。
+  const state = crypto.randomUUID();
+  mockGithub(42, "ada");
+  const first = await onGithubCallback({
+    request: new Request(ORIGIN + "/api/auth/callback?code=c&state=" + state, {
+      headers: { cookie: `mlb_state=${state}; mlb_gh_pkce=verifier` },
+    }),
+    env,
+  });
+  assert.match(first.headers.get("Location"), /login=github$/);
   const session = "mlb_session=" + cookieValue(first, "mlb_session");
   mockGoogle({ sub: "20002", email: "bee@gmail.com", name: "蜜蜂" });
-  const start = await onGoogleLogin({
-    request: new Request(ORIGIN + "/api/auth/google?intent=link", { headers: { cookie: session, "Sec-Fetch-Mode": "navigate" } }),
-    env,
+  const gState = crypto.randomUUID();
+  const start = stagedStart({
+    mlb_state: gState,
+    mlb_pkce: "pkce",
+    mlb_nonce: "nonce-kv",
+    mlb_link: await sealLinkIntent("42", SECRET),
   });
   const linked = await finishGoogle(env, start, session);
   assert.match(linked.headers.get("Location"), /login=linked_google$/);
@@ -614,17 +638,25 @@ serial("没有 D1 时用已有的 KV 保存绑定；两个都没有时登录仍�
   assert.equal(account.identities.find((i) => i.kind === "google").email, "bee@gmail.com");
 
   const bare = envWith({});
-  const alone = await githubCallback(bare, "", 9, "solo");
-  const solo = await unseal(cookieValue(alone, "mlb_session"), SECRET, "session");
-  assert.equal(solo.id, 9);
-  const linkStart = await onGithubLogin({
-    request: new Request(ORIGIN + "/api/auth/login?intent=link", { headers: { cookie: "mlb_session=" + cookieValue(alone, "mlb_session") } }),
+  const bareStart = await onGithubLogin({ request: new Request(ORIGIN + "/api/auth/login"), env: bare });
+  assert.equal(bareStart.status, 503);
+  const aloneState = crypto.randomUUID();
+  mockGithub(9, "solo");
+  const alone = await onGithubCallback({
+    request: new Request(ORIGIN + "/api/auth/callback?code=c&state=" + aloneState, {
+      headers: { cookie: `mlb_state=${aloneState}; mlb_gh_pkce=verifier` },
+    }),
     env: bare,
   });
+  const solo = await unseal(cookieValue(alone, "mlb_session"), SECRET, "session");
+  assert.equal(solo.id, 9);
+  const linkState = crypto.randomUUID();
   mockGithub(8, "other");
   const denied = await onGithubCallback({
-    request: new Request(ORIGIN + "/api/auth/callback?code=c&state=" + cookieValue(linkStart, "mlb_state"), {
-      headers: { cookie: jar(linkStart, "mlb_session=" + cookieValue(alone, "mlb_session")) },
+    request: new Request(ORIGIN + "/api/auth/callback?code=c&state=" + linkState, {
+      headers: {
+        cookie: `mlb_state=${linkState}; mlb_gh_pkce=verifier; mlb_link=${await sealLinkIntent("9", SECRET)}; mlb_session=${cookieValue(alone, "mlb_session")}`,
+      },
     }),
     env: bare,
   });

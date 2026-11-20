@@ -18,7 +18,7 @@ export async function onRequestDelete({ request, env, params }) {
     const creds = await listCredentials(env.PASSKEYS, user.id);
     if (!creds.some((c) => c.id === id)) return json({ error: "credential" }, 404);
     await assertPasskeyRemovable(env, user);
-    const ok = await deleteCredential(env.PASSKEYS, user.id, id);
+    const ok = await deleteCredential(env.PASSKEYS, user.id, id, env.MLB_DB);
     if (!ok) return json({ error: "credential" }, 404);
     return json({ ok: true }, 200, { "Set-Cookie": await rotateSession(env, user) });
   } catch (err) {

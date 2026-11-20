@@ -90,6 +90,13 @@ export async function getSession(request, env) {
   if (await isAccountDeleted(env, String(user.id))) return null;
   const epoch = await currentEpoch(env, String(user.id));
   if (!epochAllows(user, epoch)) return null;
+  // 迁移期旧 Cookie 没有 sid：用账号级稳定标识纳入作废名单。
+  // 旧设备会共享这个兼容 sid，因此注销一个旧会话会同时注销该账号的所有旧格式会话；
+  // 新签发的会话仍使用独立随机 sid，不影响其他新设备。
+  if (!user.sid) {
+    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode("legacy-session|" + String(user.id))));
+    user.sid = "legacy-" + [...digest.slice(0, 16)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
   if (await isSessionRevoked(env, user.sid)) return null;
   return user;
 }
