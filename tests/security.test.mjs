@@ -9,7 +9,7 @@ import { rateLimit } from "../functions/_lib/rate-limit.js";
 import { onRequestGet as onGithubLogin } from "../functions/api/auth/login.js";
 import { bumpEpoch } from "../functions/_lib/session-epoch.js";
 import { applySecurityHeaders } from "../functions/_lib/security-headers.js";
-import { challengeCookie, putCredential, takeChallenge } from "../functions/_lib/passkeys.js";
+import { challengeCookie, putCredential, saveChallenge, takeChallenge } from "../functions/_lib/passkeys.js";
 import { claimOnce } from "../functions/_lib/kv-once.js";
 import { resetSyncCache } from "../functions/_lib/sync-store.js";
 
@@ -130,20 +130,20 @@ test("作废名单读失败时鉴权失败关闭，过期记录会被清掉", as
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM revoked_sessions").get().n, 0);
 });
 
-test("KV 一次性令牌写过 used 标记后不能再用", async () => {
+test("一次性挑战必须由 D1 原子消费，重复提交不能再次使用", async () => {
   const kv = memoryKv();
   assert.equal(await claimOnce(kv, "pend:1"), true);
   assert.equal(await claimOnce(kv, "pend:1"), false);
-  const env = { PASSKEYS: kv, SESSION_SECRET: SECRET };
-  await kv.put("chal:abc", JSON.stringify({ kind: "auth", userId: "", exp: Date.now() + 60000 }));
-  await kv.put("used:chal:abc", "taken");
+  const env = { PASSKEYS: kv, SESSION_SECRET: SECRET, MLB_DB: fakeD1() };
+  await saveChallenge(env, "abc", "auth");
   const set = await challengeCookie(env, "abc", "auth");
   const req = new Request(ORIGIN + "/api/auth/passkey/login/verify", {
     method: "POST",
     headers: { origin: ORIGIN, cookie: set.split(";")[0] },
   });
+  assert.deepEqual(await takeChallenge(env, "abc", "auth", req), { kind: "auth", userId: "" });
   assert.equal(await takeChallenge(env, "abc", "auth", req), null);
-  assert.equal(await kv.get("chal:abc"), null);
+  assert.equal(await takeChallenge({ PASSKEYS: kv, SESSION_SECRET: SECRET }, "abc", "auth", req), null);
 });
 
 test("墓碑存储出错时鉴权失败关闭，返回 503", async () => {
