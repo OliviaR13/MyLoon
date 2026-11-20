@@ -85,5 +85,21 @@ export async function loginPasskey({ mediation, signal } = {}) {
     },
   });
   if (!cred) throw Object.assign(new Error("cancel"), { name: "NotAllowedError" });
-  return post("/api/auth/passkey/login/verify", credentialBody(cred, false));
+  const data = await post("/api/auth/passkey/login/verify", credentialBody(cred, false));
+  if (data.pendingDeletion) location.assign("/deletion.html");
+  return data;
+}
+
+export async function assertPasskey(opt) {
+  const cred = await navigator.credentials.get({
+    publicKey: {
+      challenge: b64urlDecode(opt.challenge),
+      rpId: opt.rpId,
+      timeout: opt.timeout,
+      userVerification: opt.userVerification || "required",
+      allowCredentials: (opt.allowCredentials || []).map((c) => ({ type: "public-key", id: b64urlDecode(c.id) })),
+    },
+  });
+  if (!cred) throw Object.assign(new Error("cancel"), { name: "NotAllowedError" });
+  return credentialBody(cred, false);
 }

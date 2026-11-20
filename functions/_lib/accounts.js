@@ -10,6 +10,7 @@
 // 没有 MLB_DB 时直接拒绝，不再走 KV 上非原子的一次性标记。
 import { SESSION_TTL, getCookie, seal, unseal } from "./auth.js";
 import { isAccountDeleted, markAccountDeleted } from "./account-tomb.js";
+import { isAccountBlocked } from "./account-deletion.js";
 
 const KINDS = new Set(["github", "google"]);
 const CONFLICT_TTL = 300;
@@ -530,6 +531,7 @@ export async function confirmConflict(env, user, token, marker = "") {
   if (!data || data.typ !== "conflict" || typeof data.jti !== "string") throw httpError("pending");
   const accountId = sessionAccountId(user);
   if (!accountId || data.accountId !== accountId) throw httpError("pending");
+  if (await isAccountBlocked(env, accountId) || await isAccountBlocked(env, data.otherAccountId)) throw httpError("pending_deletion");
   const store = openAccountStore(env);
   if (!store) throw httpError("pending");
   const pending = await store.takePending(data.jti);
@@ -588,6 +590,9 @@ export async function linkAccount(env, user, profile) {
   if (!store) throw httpError("accounts_not_configured");
   const accountId = sessionAccountId(user);
   if (!accountId) throw httpError("link_state");
+  if (await isAccountBlocked(env, accountId)) throw httpError("pending_deletion");
+  const found = await store.find(profile.kind, profile.subject);
+  if (found && await isAccountBlocked(env, found.accountId)) throw httpError("pending_deletion");
   await store.ensureFromSession(user);
   await store.link(accountId, profile);
 }

@@ -66,6 +66,11 @@ html:has(.sheet[open],.tour[open]){overflow:hidden;padding-right:var(--page-sbw,
 .conflict-card{width:min(420px,calc(100vw - 32px));background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px 18px 16px}
 .conflict-card h2{margin:0 0 8px;font-size:17px;letter-spacing:-.02em}
 .conflict-card p{margin:0 0 16px;color:var(--muted);font-size:14.5px;line-height:1.65}
+.conflict-card ul{margin:0 0 16px;padding-left:1.15em;color:var(--muted);font-size:14.5px;line-height:1.6}
+.conflict-card li{margin:6px 0}
+.delete-error{color:#c0392b;margin:0 0 12px}
+#deleteReauth{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+#deleteReauth[hidden]{display:none}
 .conflict-actions{display:flex;justify-content:flex-end;gap:8px}
 .btn-danger{background:#e5484d;border-color:#e5484d;color:#fff}
 .btn-danger:disabled{opacity:.55}

@@ -13,10 +13,12 @@ const LIMITS = {
   "auth-github": 30,
   "auth-google": 30,
   conflict: 10,
+  "account-delete": 5,
+  "account-delete-act": 10,
 };
 
 const ready = new WeakMap();
-const FAIL_CLOSED = new Set(["passkey-reg-opt", "passkey-reg-ver", "passkey-login-opt", "passkey-login-ver", "auth-github", "auth-google", "conflict"]);
+const FAIL_CLOSED = new Set(["passkey-reg-opt", "passkey-reg-ver", "passkey-login-opt", "passkey-login-ver", "auth-github", "auth-google", "conflict", "account-delete", "account-delete-act"]);
 const enc = new TextEncoder();
 
 function ensureTable(DB) {

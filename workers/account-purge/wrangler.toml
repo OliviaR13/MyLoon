@@ -1,0 +1,35 @@
+# 不随 Pages 一起发布，也不要在这个文件里填写生产密钥。
+# 部署前只替换下面三个已有资源的 ID，不要新建 D1 或 KV，也不要改 Pages 的生产配置。
+#
+# name: myloon-account-purge
+# main: index.js（脚本文件是本目录的 index.js）
+# compatibility_date: 2026-11-20
+# compatibility_flags: 无
+# cron: 15 * * * *（每小时第 15 分钟）
+# bindings:
+#   MLB_DB    D1，和 Pages 同一个库
+#   MLB_KV    KV，和 Pages 同一个命名空间
+#   PASSKEYS  KV，和 Pages 同一个命名空间
+#
+# 从仓库根目录：
+#   npx wrangler deploy --config workers/account-purge/wrangler.toml
+#   npx wrangler triggers list --config workers/account-purge/wrangler.toml
+name = "myloon-account-purge"
+main = "index.js"
+compatibility_date = "2026-11-20"
+
+[triggers]
+crons = ["15 * * * *"]
+
+[[d1_databases]]
+binding = "MLB_DB"
+database_name = "REPLACE_WITH_EXISTING_D1_NAME"
+database_id = "REPLACE_WITH_EXISTING_D1_ID"
+
+[[kv_namespaces]]
+binding = "MLB_KV"
+id = "REPLACE_WITH_EXISTING_MLB_KV_ID"
+
+[[kv_namespaces]]
+binding = "PASSKEYS"
+id = "REPLACE_WITH_EXISTING_PASSKEYS_KV_ID"

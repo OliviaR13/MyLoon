@@ -2,6 +2,7 @@
 import { getSessionOr503, json } from "../../../../_lib/auth.js";
 import { bytesField, httpError, readBody, rpOrError, unavailable } from "../../../../_lib/passkey-http.js";
 import { profileFromSession, putCredential, takeChallenge } from "../../../../_lib/passkeys.js";
+import { isAccountBlocked } from "../../../../_lib/account-deletion.js";
 import { rateLimit } from "../../../../_lib/rate-limit.js";
 import { b64urlEncode, verifyRegistration } from "../../../../_lib/webauthn.js";
 
@@ -14,6 +15,7 @@ export async function onRequestPost({ request, env }) {
   if (got.response) return got.response;
   const user = got.user;
   if (!user) return json({ error: "unauthorized" }, 401);
+  if (await isAccountBlocked(env, user.id)) return json({ error: "pending_deletion" }, 403);
   const { rp, error } = rpOrError(request);
   if (error) return error;
   const { body, error: bad } = await readBody(request);

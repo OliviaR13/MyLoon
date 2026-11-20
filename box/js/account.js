@@ -2,7 +2,7 @@
    支持收藏逐项时间戳（Tombstone CRDT）合并，以及外观、插件卡片、设置页偏好三组独立时间戳同步。
    没配 Google 客户端或 PASSKEYS 时，对应按钮保持停用，浏览和安装不受影响。 */
 
-import { loginPasskey, passkeySupported, registerPasskey } from "./passkey.js";
+import { assertPasskey, loginPasskey, passkeySupported, registerPasskey } from "./passkey.js";
 
 import { SYNC_KEYS, LEGACY_AT, TOMBSTONE_TTL, SORT_KEY, LOGIN_HINT_KEY } from "./config.js";
 import { $id, setSwitch, lsGet, lsSet, lsRemove, confirmable } from "./dom.js";
@@ -119,6 +119,10 @@ export function initAccount() {
     const head = $id("headAcct");
     if (head) head.hidden = !user;
     $id("syncSection").hidden = !user;
+    const danger = $id("dangerZone");
+    if (danger) danger.hidden = !user;
+    const dangerFoot = $id("dangerFoot");
+    if (dangerFoot) dangerFoot.hidden = !user;
     if (!user) $id("loginSub").textContent = SIGNED_OUT_SUB;
     const loginFoot = $id("loginFoot");
     if (loginFoot) loginFoot.hidden = !!user;
@@ -574,6 +578,10 @@ export function initAccount() {
       return;
     }
     logoutBtn.disabled = false;
+    forgetSession("已退出登录，本地收藏与设置已保留");
+  });
+
+  function forgetSession(message) {
     user = null;
     linked = [];
     accountsConfigured = false;
@@ -583,15 +591,65 @@ export function initAccount() {
     pushWarned = false;
     setHint(false);
     renderAccount();
-    toast("已退出登录，本地收藏与设置已保留");
+    toast(message);
     refreshPasskeys();
+  }
+
+  let deleting = false;
+  $id("deleteAccountBtn")?.addEventListener("click", () => {
+    if (!user || deleting) return;
+    const err = $id("deleteError");
+    if (err) { err.hidden = true; err.textContent = ""; }
+    const reauth = $id("deleteReauth");
+    if (reauth) reauth.hidden = true;
+    const gh = linked.some((row) => row.kind === "github");
+    const google = linked.some((row) => row.kind === "google");
+    const ghLink = $id("deleteReauthGithub");
+    const gLink = $id("deleteReauthGoogle");
+    if (ghLink) ghLink.hidden = !gh && google;
+    if (gLink) gLink.hidden = !google && gh;
+    $id("deleteDialog")?.showModal();
+  });
+  $id("deleteDismiss")?.addEventListener("click", () => $id("deleteDialog")?.close());
+  $id("deleteForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (deleting) return;
+    const confirm = $id("deleteConfirm");
+    const err = $id("deleteError");
+    const showErr = (text) => { if (err) { err.hidden = false; err.textContent = text; } };
+    deleting = true;
+    if (confirm) confirm.disabled = true;
+    try {
+      const optRes = await api("POST", "/api/account/deletion/options", {});
+      const opt = await optRes.json().catch(() => ({}));
+      if (!optRes.ok) throw new Error(opt.message || "暂时不能注销");
+      let body = {};
+      if (opt.mode === "passkey") body = await assertPasskey(opt);
+      else if (!opt.reauthFresh) {
+        const reauth = $id("deleteReauth");
+        if (reauth) reauth.hidden = false;
+        showErr("请先重新登录，确认是你本人，然后再注销。");
+        return;
+      }
+      const res = await api("POST", "/api/account/deletion", body);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "注销失败，请重试");
+      $id("deleteDialog")?.close();
+      forgetSession("注销申请已提交，账号将在 14 天后永久删除。你已退出登录。");
+    } catch (error) {
+      if (error?.name === "NotAllowedError") showErr("已取消通行密钥确认");
+      else showErr(error?.message || "注销失败，请重试");
+    } finally {
+      deleting = false;
+      if (confirm) confirm.disabled = false;
+    }
   });
 
   async function initSession() {
     const q = new URLSearchParams(location.search);
     const err = q.get("login_error");
     const logged = q.get("login");
-    if (err || logged) {
+    if (err || logged || q.get("reauth") === "1") {
       const pending = q.get("pending");
       if (err === "link_conflict" && pending) {
         openConflict(q.get("provider") === "google" ? "google" : "github", pending);
@@ -608,6 +666,10 @@ export function initAccount() {
           link_state: "绑定已过期，请重新操作",
           accounts_config: "暂时不能管理登录方式",
           conflict_d1_required: "需要绑定数据库才能合并账号",
+          account_deleted: "这个账号已永久删除",
+          pending_deletion: "这个账号正在注销，请到注销状态页处理",
+          reauth_state: "重新验证已过期，请重试",
+          reauth_mismatch: "重新验证的不是当前账号",
           storage: "暂时无法保存登录方式，请重试",
           link_conflict: q.get("provider") === "google" ? "该 Google 账号已绑定其他账号" : "该 GitHub 账号已绑定其他账号",
           already_linked: q.get("provider") === "google"
@@ -624,6 +686,7 @@ export function initAccount() {
       } else if (logged === "linked_github") {
         toast("已绑定 GitHub 账号");
       }
+      if (q.get("reauth") === "1") toast("已重新验证，请再次确认注销");
       history.replaceState(null, "", location.pathname);
     }
     await pullSession();

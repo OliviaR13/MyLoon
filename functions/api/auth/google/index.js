@@ -4,6 +4,7 @@
 // - 浏览器点「Google 登录」跳到这里时，签发 state 与 PKCE，再转到 Google 授权页。
 import { clearCookie, cookie, getSessionOr503, json } from "../../../_lib/auth.js";
 import { sealLinkIntent, sessionAccountId } from "../../../_lib/accounts.js";
+import { sealReauthIntent } from "../../../_lib/account-deletion.js";
 import { codeChallenge, googleConfigured, googleRedirectUri, randomToken } from "../../../_lib/google-auth.js";
 import { rateLimit } from "../../../_lib/rate-limit.js";
 
@@ -26,9 +27,11 @@ export async function onRequestGet({ request, env }) {
 
   const limited = await rateLimit(request, env, "auth-google");
   if (limited) return limited;
-  const link = new URL(request.url).searchParams.get("intent") === "link";
+  const intent = new URL(request.url).searchParams.get("intent");
+  const link = intent === "link";
+  const reauth = intent === "reauth";
   const headers = new Headers({ "cache-control": "no-store" });
-  if (link) {
+  if (link || reauth) {
     const got = await getSessionOr503(request, env);
     if (got.response) return got.response;
     const user = got.user;
@@ -37,9 +40,16 @@ export async function onRequestGet({ request, env }) {
       headers.set("Location", new URL("/?login_error=link_state", request.url).href);
       return new Response(null, { status: 302, headers });
     }
-    headers.append("Set-Cookie", cookie("mlb_link", await sealLinkIntent(accountId, env.SESSION_SECRET), { maxAge: 600, path: "/api/auth" }));
+    if (link) {
+      headers.append("Set-Cookie", cookie("mlb_link", await sealLinkIntent(accountId, env.SESSION_SECRET), { maxAge: 600, path: "/api/auth" }));
+      headers.append("Set-Cookie", clearCookie("mlb_reauth", "/api/auth"));
+    } else {
+      headers.append("Set-Cookie", cookie("mlb_reauth", await sealReauthIntent(accountId, env.SESSION_SECRET), { maxAge: 600, path: "/api/auth" }));
+      headers.append("Set-Cookie", clearCookie("mlb_link", "/api/auth"));
+    }
   } else {
     headers.append("Set-Cookie", clearCookie("mlb_link", "/api/auth"));
+    headers.append("Set-Cookie", clearCookie("mlb_reauth", "/api/auth"));
   }
 
   const state = crypto.randomUUID();

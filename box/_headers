@@ -30,6 +30,9 @@
 /license.html
   Cache-Control: no-cache
 
+/deletion.html
+  Cache-Control: no-cache
+
 /app.js
   Cache-Control: no-cache
 

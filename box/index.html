@@ -239,6 +239,14 @@
         </div>
       </div>
 
+      <h3 class="group-title">危险区域</h3>
+      <div class="group" id="dangerZone" hidden>
+        <button class="row row-btn row-danger" id="deleteAccountBtn" type="button">
+          <span class="row-text"><span>注销账号</span><span class="sub">14 天冷静期后永久删除账号和云端数据</span></span>
+        </button>
+      </div>
+      <p class="group-foot" id="dangerFoot" hidden>冷静期内可以取消。到期后，账号、通行密钥、收藏和插件设置都会删除，且无法恢复。</p>
+
       <h3 class="group-title">关于</h3>
       <div class="group">
         <div class="about-card">
@@ -318,6 +326,27 @@
         <button class="btn btn-primary" id="tourNext" type="button" hidden>开始使用</button>
       </div>
     </div>
+  </dialog>
+
+  <dialog class="conflict-dialog" id="deleteDialog" aria-labelledby="deleteTitle">
+    <form class="conflict-card" id="deleteForm">
+      <h2 id="deleteTitle">注销账号</h2>
+      <ul>
+        <li>账号将在 14 天后永久删除。</li>
+        <li>删除范围包括账号关联的个人数据、通行密钥、收藏、插件设置及其他用户数据。</li>
+        <li>冷静期内可以取消注销。</li>
+        <li>14 天到期后无法恢复。</li>
+      </ul>
+      <p id="deleteError" class="delete-error" hidden></p>
+      <div id="deleteReauth" hidden>
+        <a class="btn btn-ghost" id="deleteReauthGithub" href="/api/auth/login?intent=reauth">用 GitHub 重新验证</a>
+        <a class="btn btn-ghost" id="deleteReauthGoogle" href="/api/auth/google?intent=reauth">用 Google 重新验证</a>
+      </div>
+      <div class="conflict-actions">
+        <button class="btn btn-ghost" id="deleteDismiss" type="button">取消</button>
+        <button class="btn btn-danger" id="deleteConfirm" type="submit">确认注销</button>
+      </div>
+    </form>
   </dialog>
 
   <dialog class="conflict-dialog" id="conflictDialog" aria-labelledby="conflictTitle">
