@@ -8,16 +8,23 @@ import { loadFromD1, saveToD1, MAX_FAVS } from "../_lib/sync-store.js";
 
 const MAX_BODY = 64 * 1024;
 const TOMBSTONE_TTL = 90 * 24 * 3600 * 1000; // 「已取消」记录保留 90 天
+const MAX_FUTURE_SKEW = 5 * 60 * 1000; // 客户端时钟最多允许比服务端快 5 分钟
+
+// 客户端时间戳参与「较新者胜」合并，必须限制未来值，避免单个异常客户端长期锁住数据。
+function validTimestamp(value, now) {
+  return Number.isFinite(value) && value >= 0 && value <= now + MAX_FUTURE_SKEW;
+}
 
 // 只保留已知字段，限制数量和长度
 function clean(d) {
+  const now = Date.now();
   // favMeta：{ id: [时间戳, 1 已收藏 / 0 已取消] }，用于多设备合并
   const favMeta = {};
   const fm = d?.favMeta;
   if (fm && typeof fm === "object" && !Array.isArray(fm)) {
     for (const [id, v] of Object.entries(fm).slice(0, MAX_FAVS)) {
-      if (id.length > 0 && id.length <= 80 && Array.isArray(v) && Number.isFinite(v[0]) && (v[1] === 0 || v[1] === 1)) {
-        if (v[1] === 0 && Date.now() - v[0] > TOMBSTONE_TTL) continue; // 太旧的取消记录不再保存
+      if (id.length > 0 && id.length <= 80 && Array.isArray(v) && validTimestamp(v[0], now) && (v[1] === 0 || v[1] === 1)) {
+        if (v[1] === 0 && now - v[0] > TOMBSTONE_TTL) continue; // 太旧的取消记录不再保存
         favMeta[id] = [Math.floor(v[0]), v[1]];
       }
     }
@@ -28,15 +35,15 @@ function clean(d) {
     : Array.isArray(d?.favorites)
       ? [...new Set(d.favorites.filter((x) => typeof x === "string" && x.length > 0 && x.length <= 80))].slice(0, 300)
       : [];
-  const settingsAt = Number.isFinite(d?.settingsAt) ? Math.floor(d.settingsAt) : 0;
+  const settingsAt = validTimestamp(d?.settingsAt, now) ? Math.floor(d.settingsAt) : 0;
   // 外观 / 插件卡片设置各有各的「最后修改时间」。只有旧客户端（两个都没带）才用统一的 settingsAt 顶替；
   // 新客户端只带它开着同步的那一组，没带的那组 null，由 PUT 里保留云端原值。
-  const hasGroupAt = Number.isFinite(d?.lookAt) || Number.isFinite(d?.cardsAt);
-  const legacyAt = !hasGroupAt && Number.isFinite(d?.settingsAt) ? settingsAt : null;
-  const lookAt = Number.isFinite(d?.lookAt) ? Math.floor(d.lookAt) : legacyAt;
-  const cardsAt = Number.isFinite(d?.cardsAt) ? Math.floor(d.cardsAt) : legacyAt;
+  const hasGroupAt = validTimestamp(d?.lookAt, now) || validTimestamp(d?.cardsAt, now);
+  const legacyAt = !hasGroupAt && validTimestamp(d?.settingsAt, now) ? settingsAt : null;
+  const lookAt = validTimestamp(d?.lookAt, now) ? Math.floor(d.lookAt) : legacyAt;
+  const cardsAt = validTimestamp(d?.cardsAt, now) ? Math.floor(d.cardsAt) : legacyAt;
   // 设置页选项是后加的一组，旧客户端和旧数据都没有它：没带就是 null（PUT 里保留云端原值），不用统一时间戳顶替
-  const panelAt = Number.isFinite(d?.panelAt) ? Math.floor(d.panelAt) : null;
+  const panelAt = validTimestamp(d?.panelAt, now) ? Math.floor(d.panelAt) : null;
   const s = d?.settings || {};
   const settings = {};
   if (["system", "light", "dark"].includes(s.theme)) settings.theme = s.theme;
