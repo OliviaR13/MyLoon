@@ -221,3 +221,23 @@ test("存储出错时鉴权失败关闭，不泄露细节", async () => {
   assert.equal(JSON.stringify(body).includes("secret"), false);
   resetSyncCache();
 });
+
+
+test("拒绝异常客户端时间戳，避免未来时间锁住收藏和设置", async () => {
+  const env = newEnv();
+  const now = Date.now();
+  await put(env, {
+    favMeta: { poisoned: [now + 24 * 60 * 60 * 1000, 1] },
+    settings: { theme: "dark" },
+    lookAt: now + 24 * 60 * 60 * 1000,
+  });
+  await put(env, {
+    favMeta: { valid: [Date.now() + 1000, 1] },
+    settings: { theme: "light" },
+    lookAt: Date.now() + 1000,
+  });
+  const data = await get(env);
+  assert.deepEqual(data.favorites, ["valid"]);
+  assert.equal("poisoned" in data.favMeta, false);
+  assert.equal(data.settings.theme, "light");
+});
