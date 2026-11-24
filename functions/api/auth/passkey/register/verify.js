@@ -1,5 +1,5 @@
 // POST /api/auth/passkey/register/verify：核对注册响应，把公钥存进 PASSKEYS。
-import { getSessionOr503, json } from "../../../../_lib/auth.js";
+import { getSessionOr503, json, sameOrigin } from "../../../../_lib/auth.js";
 import { bytesField, httpError, readBody, rpOrError, unavailable } from "../../../../_lib/passkey-http.js";
 import { profileFromSession, putCredential, takeChallenge } from "../../../../_lib/passkeys.js";
 import { isAccountBlocked } from "../../../../_lib/account-deletion.js";
@@ -7,6 +7,7 @@ import { rateLimit } from "../../../../_lib/rate-limit.js";
 import { b64urlEncode, verifyRegistration } from "../../../../_lib/webauthn.js";
 
 export async function onRequestPost({ request, env }) {
+  if (!sameOrigin(request)) return json({ error: "forbidden" }, 403);
   const missing = unavailable(env);
   if (missing) return missing;
   const limited = await rateLimit(request, env, "passkey-reg-ver");
