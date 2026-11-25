@@ -22,7 +22,7 @@ export default class Topography{
  c.lineWidth=o.lineWidth;c.lineCap="round";c.lineJoin="round";c.strokeStyle=color;
  for(let j=0;j<rows;j++){for(let i=0;i<cols;i++){const v=[vals[j][i],vals[j][i+1],vals[j+1][i+1],vals[j+1][i]],pts=[[i/cols*w,j/rows*h],[ (i+1)/cols*w,j/rows*h],[(i+1)/cols*w,(j+1)/rows*h],[i/cols*w,(j+1)/rows*h]];
  for(let k=0;k<levels.length;k++){const level=levels[k],cross=[];for(let a=0;a<4;a++){const b=(a+1)%4;if((v[a]<level&&v[b]>=level)||(v[b]<level&&v[a]>=level)){const q=(level-v[a])/(v[b]-v[a]);cross.push([pts[a][0]+(pts[b][0]-pts[a][0])*q,pts[a][1]+(pts[b][1]-pts[a][1])*q])}}if(cross.length===2){const depth=j/rows;const fog=1-depth*o.fog*.72;const focus=this.pointer.inside?1-Math.abs(i/cols-this.pointer.x)*o.depthOfField*.45:1;c.globalAlpha=clamp((.15+o.foreground*.7+ k/levels.length*.2)*fog*focus,0,.75);const a=project(...cross[0],v[0]*.0),b=project(...cross[1],v[0]*.0);c.beginPath();c.moveTo(...a);c.lineTo(...b);c.stroke()}}}}
- c.globalAlpha=1;if(o.glow>0){c.save();c.globalCompositeOperation="screen";c.shadowColor=color;c.shadowBlur=12*o.glow;c.globalAlpha=.23*o.glow;c.drawImage(this.canvas,0,0,w,h);c.restore()}}
+ c.globalAlpha=1;c.shadowBlur=0;}
  destroy(){cancelAnimationFrame(this.raf);this.resizeObserver.disconnect();this.intersection.disconnect();this.container.removeEventListener("pointermove",this.onMove);this.container.removeEventListener("pointerdown",this.onDown);this.container.removeEventListener("pointerleave",this.onLeave);document.removeEventListener("visibilitychange",this.onVisibility);this.canvas.remove();this.container.classList.remove("topography-bg")}
 }
 export {DEFAULTS};
