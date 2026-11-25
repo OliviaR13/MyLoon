@@ -111,3 +111,26 @@ html[data-full-cols] .sheet.full.detail{--full-col:760px}
 .detail .sheet-head :is(.btn.ap,.star.ap){border:1px solid transparent;box-shadow:0 6px 16px rgb(var(--shadow) / .15),0 1px 3px rgb(var(--shadow) / .1)}
 /* 概览条也不描边（上面 .d-meta 的发丝线会盖掉悬浮卡片的无边线样式） */
 .detail .d-meta{border-color:transparent}
+
+/* ══ 共享元素转场：卡片 ⇄ 详情页（逻辑在 js/detail.js） ══════════════════
+   命名规则：同一时刻每个 view-transition-name 只能挂在一个元素上，所以新旧两侧错开挂——
+   卡片侧用 .vt-src，详情侧用 [data-vt]（"all" = 连图标和标题一起；"card" = 只有整页，详情已滚过头部时用）。 */
+.card.vt-src{view-transition-name:plugin-card}
+.card.vt-hide{visibility:hidden}
+.card.vt-src .card-icon{view-transition-name:plugin-icon}
+/* 标题在卡片里是 inline，inline 盒子不能单独截图；转场期间临时改成 inline-block，宽度也贴着文字，配对时两边才对得上 */
+.card.vt-src .card-title h2{view-transition-name:plugin-title;display:inline-block}
+
+.detail[data-vt]{view-transition-name:plugin-card;transition:none}
+.detail[data-vt]::backdrop{display:none}
+.detail[data-vt="all"] .d-icon{view-transition-name:plugin-icon}
+.detail[data-vt="all"] #detailName{view-transition-name:plugin-title;width:fit-content;max-width:100%}
+
+/* 共享元素自己在转场里移动，不再播详情页原本的入场弹出 */
+.detail.vt-in.enter .d-icon,.detail.vt-in.enter .d-id{animation:none}
+
+::view-transition-group(plugin-card),::view-transition-group(plugin-icon),::view-transition-group(plugin-title){
+  animation-duration:.5s;animation-timing-function:cubic-bezier(.2,.8,.2,1)}
+/* 卡片和详情页宽高比差很多：快照按原尺寸贴在左上角、被组的边界裁切，而不是拉伸，
+   视觉上是一个容器逐步展开露出详情内容，同时卡片内容淡出 */
+::view-transition-old(plugin-card),::view-transition-new(plugin-card){height:100%;object-fit:none;object-position:left top}

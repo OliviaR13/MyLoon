@@ -2,7 +2,7 @@
    展示插件介绍、安装前须知、故障排查与插件元数据，复用列表的收藏与唤起安装逻辑。 */
 
 import { sourceUrl } from "./config.js";
-import { $, el, svgIcon, starIcon, confirmable } from "./dom.js";
+import { $, el, svgIcon, starIcon, confirmable, motionOff } from "./dom.js";
 import { state, statOf, splitDescription } from "./state.js";
 import { fmtCount } from "./stats.js";
 
@@ -153,17 +153,75 @@ function cancelDetailClose() {
   detailEls.dlg.classList.remove("closing");
 }
 
+/* ---------- 共享元素转场：卡片 ⇄ 详情页 ----------
+   用 View Transitions 给「卡片整体 / 图标 / 标题」各起一个名字（plugin-card / plugin-icon / plugin-title），
+   两边同名的元素浏览器会自动配对：卡片扩展成详情页，图标和标题从卡片里的位置平滑移到详情页的位置。
+   名字只在转场期间挂上（卡片上是 .vt-src，详情上是 [data-vt]），同一时刻每个名字只能有一个元素，所以新旧两侧要错开挂。
+   样式见 detail.css 末尾。不支持、开了「减少动画」、或找不到卡片（被筛选掉、滚出屏幕）时，退回原来的抽屉滑入滑出。 */
+
+let morphing = null; // 转场进行中时是一个 Promise，结束后置空
+
+const canMorph = () => typeof document.startViewTransition === "function" && !motionOff();
+
+function cardOf(id) {
+  if (!window.CSS || !CSS.escape) return null;
+  return document.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+}
+
+function cardOnScreen(card) {
+  if (!card || !card.isConnected) return false;
+  const r = card.getBoundingClientRect();
+  return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < window.innerHeight;
+}
+
+function trackMorph(vt, cleanup) {
+  vt.ready.catch(() => {});
+  morphing = vt.finished.catch(() => {}).then(() => {
+    cleanup();
+    morphing = null;
+  });
+  return morphing;
+}
+
+function showDialog(dlg, instant) {
+  dlg.showModal();
+  detailEls.body.scrollTop = 0;
+  dlg.classList.remove("scrolled", "enter");
+  if (instant) dlg.classList.add("open", "vt-in");
+  void dlg.offsetWidth;
+  dlg.classList.add("enter");
+  if (!instant) requestAnimationFrame(() => dlg.classList.add("open"));
+}
+
+function openMorph(dlg, card) {
+  const icon = detailEls.icon;
+  card.classList.add("vt-src");
+  dlg.dataset.vt = "all";
+  const vt = document.startViewTransition(async () => {
+    // 新状态里名字归详情页，卡片要先让出来；同时把卡片藏起来，不然原位还留着一张，会和正在展开的那份叠成两层
+    card.classList.replace("vt-src", "vt-hide");
+    showDialog(dlg, true);
+    // 图标换了个 <img>，等它解码完再让浏览器截新状态，免得转场开头是个空白方块
+    if (!icon.hidden && icon.src) await Promise.race([icon.decode().catch(() => {}), new Promise((r) => setTimeout(r, 160))]);
+  });
+  trackMorph(vt, () => { card.classList.remove("vt-src", "vt-hide"); delete dlg.dataset.vt; });
+}
+
 export function openDetail(p) {
   const dlg = detailEls.dlg;
   cancelDetailClose();
   detailPlugin = p;
   fillDetail(p);
+  dlg.classList.remove("vt-in");
   if (!dlg.open) {
     lastFocus = document.activeElement;
     document.documentElement.style.setProperty("--page-sbw", window.innerWidth - document.documentElement.clientWidth + "px");
-    dlg.showModal();
     // 压入一条历史记录：手机返回键 / 侧滑返回时关闭详情，而不是离开整个页面
     if (!detailPushed) { history.pushState({ mlbDetail: 1 }, ""); detailPushed = true; }
+    const card = canMorph() && !morphing ? cardOf(p.id) : null;
+    if (cardOnScreen(card)) { openMorph(dlg, card); return; }
+    showDialog(dlg, false);
+    return;
   }
   detailEls.body.scrollTop = 0;
   dlg.classList.remove("scrolled", "enter");
@@ -172,25 +230,42 @@ export function openDetail(p) {
   requestAnimationFrame(() => dlg.classList.add("open"));
 }
 
+function finishClose() {
+  const dlg = detailEls.dlg;
+  cancelDetailClose();
+  if (dlg.open) dlg.close();
+  detailPlugin = null;
+  if (lastFocus && lastFocus.isConnected && lastFocus !== document.body) lastFocus.focus({ preventScroll: true });
+  lastFocus = null;
+}
+
+function closeMorph(dlg, card) {
+  // 详情已经滚过头部时，图标和标题不在视野里，就只收卡片本体，不让它们从屏幕外飞回来
+  dlg.dataset.vt = detailEls.body.scrollTop > 24 ? "card" : "all";
+  const vt = document.startViewTransition(() => {
+    finishClose();
+    dlg.classList.remove("open", "enter", "vt-in");
+    delete dlg.dataset.vt; // 新状态里名字归卡片
+    card.classList.add("vt-src");
+  });
+  trackMorph(vt, () => { card.classList.remove("vt-src"); delete dlg.dataset.vt; });
+}
+
 function animateClose() {
   const dlg = detailEls.dlg;
   if (!dlg.open || detailEnd) return;
+  if (morphing) { morphing.then(animateClose); return; } // 比如转场还没播完就按了返回键
+  const card = canMorph() && detailPlugin ? cardOf(detailPlugin.id) : null;
+  if (cardOnScreen(card)) { closeMorph(dlg, card); return; }
   dlg.classList.add("closing");
   dlg.classList.remove("open");
-  const finish = () => {
-    cancelDetailClose();
-    if (dlg.open) dlg.close();
-    detailPlugin = null;
-    if (lastFocus && lastFocus.isConnected && lastFocus !== document.body) lastFocus.focus({ preventScroll: true });
-    lastFocus = null;
-  };
-  const fn = (e) => { if (e.target === dlg && e.propertyName === "transform") finish(); };
-  detailEnd = { fn, timer: setTimeout(finish, 600) };
+  const fn = (e) => { if (e.target === dlg && e.propertyName === "transform") finishClose(); };
+  detailEnd = { fn, timer: setTimeout(finishClose, 600) };
   dlg.addEventListener("transitionend", fn);
 }
 
 export function closeDetail() {
-  if (!detailEls.dlg.open || detailEnd) return;
+  if (!detailEls.dlg.open || detailEnd || morphing) return;
   if (detailPushed) history.back();
   else animateClose();
 }
