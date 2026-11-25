@@ -21,6 +21,7 @@
     var sp="on";try{if(localStorage.getItem("myloon_box_splash")==="off")sp="off"}catch(e){}d.setAttribute("data-splash",sp)})(document.documentElement)</script>
   <link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="./styles/base.css">
+  <link rel="stylesheet" href="./styles/topography.css">
   <link rel="stylesheet" href="./styles/toolbar.css">
   <link rel="stylesheet" href="./styles/cards.css">
   <link rel="stylesheet" href="./styles/toast-pull.css">
@@ -43,6 +44,7 @@
   </div>
   <a class="skip" href="#results">跳到插件列表</a>
   <main class="shell">
+    <div id="topography" aria-hidden="true"></div>
     <header class="head">
       <img class="logo" src="./icon.png" alt="" width="44" height="44">
       <div class="head-text">
