@@ -170,11 +170,60 @@ export function initSettings() {
   sheet.addEventListener("cancel", (e) => { e.preventDefault(); close(); });
   sheet.addEventListener("click", (e) => { if (e.target === sheet) close(); });
 
+  /* ---------- 主题切换动画：从点击位置向外扩散的圆形揭开 ---------- */
+
+  const sysDark = matchMedia("(prefers-color-scheme: dark)");
+  const isDark = (t) => t === "dark" || (t === "system" && sysDark.matches);
+  const THEME_MS = 720;
+  const THEME_EASE = "cubic-bezier(.22,.7,.2,1)";
+  let fadeTimer = 0;
+
+  function themeSwitch(change, from, to, e, btn) {
+    // 实际深浅没变（例如系统本来就是浅色，再选「浅色」）：不需要动画
+    if (isDark(from) === isDark(to) || motionOff()) { change(); return; }
+
+    // 圆心取点击位置；键盘触发的 click 没有坐标，退回到按钮中心
+    let x = e.clientX, y = e.clientY;
+    if (e.detail === 0 || (!x && !y)) {
+      const r = btn.getBoundingClientRect();
+      x = r.left + r.width / 2;
+      y = r.top + r.height / 2;
+    }
+
+    if (!document.startViewTransition) {
+      // 不支持 View Transitions 的浏览器：退回到短暂的颜色渐变
+      root.classList.add("theme-fade");
+      change();
+      clearTimeout(fadeTimer);
+      fadeTimer = setTimeout(() => root.classList.remove("theme-fade"), 450);
+      return;
+    }
+
+    // 圆要铺满的半径 = 圆心到最远一个角的距离
+    const radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+    const vt = document.startViewTransition(change);
+    vt.ready.then(() => {
+      root.animate(
+        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+        { duration: THEME_MS, easing: THEME_EASE, pseudoElement: "::view-transition-new(root)" }
+      );
+    }).catch(() => {});
+  }
+
+
   /* ---------- 设置项点击委托 ---------- */
 
   sheet.addEventListener("click", (e) => {
     const t = e.target.closest("[data-theme-opt]");
-    if (t) { settings.theme = t.dataset.themeOpt; save(); apply(); return; }
+    if (t) {
+      const next = t.dataset.themeOpt;
+      if (next === settings.theme) return;
+      const prev = settings.theme;
+      settings.theme = next;
+      save();
+      themeSwitch(apply, prev, next, e, t);
+      return;
+    }
 
     const c = e.target.closest("[data-cols-opt]");
     if (c) {

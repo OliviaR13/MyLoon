@@ -49,6 +49,16 @@
 }
 :root[data-theme="dark"]{--ap-line:rgb(255 255 255 / .14)}
 
+/* 深浅色切换动画（js/settings.js）：新旧两层快照都关掉默认的淡入淡出，
+   新层由脚本用 clip-path 从点击位置向外扩散一个圆；旧层留在底下不动，圆扩到哪里，新主题就出现在哪里。 */
+::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal}
+::view-transition-old(root){z-index:1}
+::view-transition-new(root){z-index:2}
+/* 不支持 View Transitions 时的退路：短暂的颜色渐变 */
+html.theme-fade,html.theme-fade *,html.theme-fade *::before,html.theme-fade *::after{
+  transition:background-color .4s ease,color .4s ease,border-color .4s ease,fill .4s ease,stroke .4s ease,box-shadow .4s ease !important}
+
+
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;-webkit-tap-highlight-color:transparent}
 /* 顶部 96px 渐变回底色：避免状态栏区域（纯底色）和光晕之间出现一条硬边 */
