@@ -28,6 +28,7 @@ import { initSettings } from "./js/settings.js";
 import { initPullToRefresh } from "./js/pull.js";
 import { initAccount } from "./js/account.js";
 import { load } from "./js/manifest.js";
+import Topography from "./js/topography.js";
 
 /* 每个初始化各自兜底：任何一个功能出错，只影响它自己，不会让后面的 load()（人机验证 + 清单）跟着不执行。
    之前正是一行 els.refresh.addEventListener 抛错，让整个页面停在「请完成人机验证…」。 */
@@ -35,6 +36,15 @@ const run = (name, fn) => {
   try { fn(); } catch (e) { console.error("[init:" + name + "]", e); }
 };
 
+run("topography", () => {
+  const target = document.getElementById("topography");
+  if (target) new Topography(target, {
+    color: "#2554d8", lineCount: 22, lineWidth: 1.2,
+    elevation: 1, foreground: 0.2, tilt: 32, speed: 0.25,
+    direction: "forward", glow: 0.6, depthOfField: 0.4, fog: 0.35,
+    hoverEffect: "lift", clickEffect: "pulse", lightMode: true
+  });
+});
 run("render", initRender);
 run("search", initSearchAndSort);
 run("label-search", initLabelSearch);
