@@ -9,8 +9,11 @@ import { openDetail, syncDetailFav, initDetail } from "./detail.js";
 import { createVerifyCells } from "./verify-cells.js";
 import { createWatcher } from "./watcher.js";
 
-const GLIDE_EASE = "cubic-bezier(.2,.8,.2,1)";
+/* 列表过渡的缓动与时长，和 styles/base.css 的 --ease-ios 保持一致：淡入 / 淡出 180–240ms，位移 ≤ 6px */
+const EASE = "cubic-bezier(.22,1,.36,1)";
+const FADE_IN = 240, FADE_OUT = 200, MOVE = 320, RESIZE = 260;
 let onResetFilters = () => {};
+let listAnim = null; // 列表高度过渡（同一时间最多一个，下一次渲染开始前取消）
 
 export function setResetFiltersHandler(fn) {
   onResetFilters = fn;
@@ -66,25 +69,56 @@ export function highlight(text, terms) {
   return out;
 }
 
-const cardTops = () => {
-  const base = els.list.getBoundingClientRect().top;
-  return new Map([...els.list.querySelectorAll(".card")].map((c) => [c.dataset.id, c.getBoundingClientRect().top - base]));
-};
+/* 重渲染前的快照：每张卡的位置、旧节点（给淡出用）和列表高度。读的是屏幕上此刻的样子（含正在进行的位移），所以连续输入时过渡能接得上 */
+function snapshot() {
+  const box = els.list.getBoundingClientRect();
+  const tops = new Map(), nodes = new Map();
+  els.list.querySelectorAll(".card:not(.card-ghost)").forEach((c) => {
+    tops.set(c.dataset.id, c.getBoundingClientRect().top - box.top);
+    nodes.set(c.dataset.id, c);
+  });
+  return { tops, nodes, h: box.height };
+}
 
+/* 重渲染后的过渡（FLIP）：留下的卡片从旧位置滑到新位置，新出现的淡入并上移 6px，被拿掉的淡出，列表高度平滑过渡。
+   只给视口附近的卡片做动画，长列表不会同时起几十个动画。所有动画都是 WAAPI 且没有 fill，结束后不遗留任何样式。 */
 function glide(before) {
-  const base = els.list.getBoundingClientRect().top;
+  const box = els.list.getBoundingClientRect();
+  const near = (top) => { const y = box.top + top; return y < innerHeight && y > -600; };
+  const kept = new Set();
   els.list.querySelectorAll(".card").forEach((c) => {
-    const to = c.getBoundingClientRect().top - base;
-    const from = before.get(c.dataset.id);
+    const id = c.dataset.id;
+    kept.add(id);
+    const to = c.getBoundingClientRect().top - box.top;
+    const from = before.tops.get(id);
     if (from === undefined) {
-      if (c.getBoundingClientRect().top < innerHeight) {
-        c.animate([{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "none" }], { duration: 240, easing: GLIDE_EASE });
-      }
+      if (near(to)) c.animate([{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "none" }], { duration: FADE_IN, easing: EASE });
       return;
     }
-    if (Math.abs(from - to) < 2) return;
-    c.animate([{ transform: `translateY(${from - to}px)` }, { transform: "none" }], { duration: 320, easing: GLIDE_EASE });
+    if (Math.abs(from - to) < 2 || (!near(from) && !near(to))) return;
+    c.animate([{ transform: `translateY(${from - to}px)` }, { transform: "none" }], { duration: MOVE, easing: EASE });
   });
+
+  /* 被拿掉的卡片：旧节点放回列表末尾、定位到原来的位置，淡出后移除（样式见 .card-ghost） */
+  before.nodes.forEach((node, id) => {
+    const top = before.tops.get(id);
+    if (kept.has(id) || !near(top)) return;
+    node.classList.add("card-ghost");
+    node.classList.remove("vt-src");
+    node.removeAttribute("data-id");
+    node.setAttribute("aria-hidden", "true");
+    node.inert = true;
+    node.style.top = top - els.list.clientTop + "px";
+    els.list.append(node);
+    node.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(-4px)" }], { duration: FADE_OUT, easing: EASE })
+      .onfinish = () => node.remove();
+  });
+
+  /* 列表高度：从屏幕上此刻的高度过渡到新高度，下面的内容不会突然跳 */
+  const h = box.height;
+  if (before.h > 0 && Math.abs(before.h - h) > 2) {
+    listAnim = els.list.animate([{ height: before.h + "px" }, { height: h + "px" }], { duration: RESIZE, easing: EASE });
+  }
 }
 
 export function openInLoon(p, ui) {
@@ -224,7 +258,8 @@ export function notice(title, body, label, onClick) {
 export function render({ animate = false, flip = false } = {}) {
   if (verifying) return;
   syncDetailFav();
-  const before = flip && !animate && !motionOff() && els.list.animate ? cardTops() : null;
+  const before = flip && !animate && !motionOff() && els.list.animate && els.list.querySelector(".card:not(.card-ghost)") ? snapshot() : null;
+  listAnim?.cancel();
   const terms = searchTerms();
   const visible = sortPlugins(state.plugins.filter((p) => matches(p, terms)), terms);
   const total = state.plugins.length;
@@ -249,6 +284,10 @@ export function render({ animate = false, flip = false } = {}) {
     createWatcher(eyes, { size: 64, say: "right" });
     empty.prepend(eyes);
     els.list.replaceChildren(empty);
+    if (before) {
+      glide(before); // 原来的卡片淡出、高度过渡；空状态晚一点点淡入，避免和淡出中的卡片叠在一起
+      if (empty.animate) empty.animate([{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "none" }], { duration: FADE_IN, delay: 80, easing: EASE, fill: "backwards" });
+    }
     return;
   }
   els.list.classList.toggle("enter", animate);
@@ -267,7 +306,7 @@ export function render({ animate = false, flip = false } = {}) {
       c.querySelector(".more").hidden = !overflow;
     })
   );
-  if (before && before.size) glide(before);
+  if (before) glide(before);
 }
 
 export function renderFilters() {
@@ -328,7 +367,27 @@ let verifyCells = null;
 let verifying = false;
 export const setVerifying = (on) => { verifying = on; };
 
-export function renderLoading(text) {
+/* 骨架卡片：结构对着 buildCard 的真实卡片来（图标 / 名称 + 版本 / 三行描述 / 标签 / 作者行 / 安装 + 复制），样式见 styles/cards.css。
+   装饰用，对读屏隐藏；「正在加载」的状态文字在上面的验证面板里（role=status） */
+function skeletonCard(i) {
+  const c = el("div", "sk-card");
+  c.style.setProperty("--i", i);
+  c.setAttribute("aria-hidden", "true");
+  const name = el("div", "sk-name");
+  name.append(el("span", "sk-line sk-title"), el("span", "sk-chip sk-ver"));
+  const desc = el("div", "sk-desc");
+  desc.append(el("div", "sk-line"), el("div", "sk-line"), el("div", "sk-line sk-w2"));
+  const tags = el("div", "sk-tags");
+  tags.append(el("span", "sk-chip"), el("span", "sk-chip"));
+  const body = el("div", "sk-body");
+  body.append(name, desc, tags, el("div", "sk-line sk-meta"));
+  const actions = el("div", "sk-actions");
+  actions.append(el("div", "sk-btn"), el("div", "sk-btn"));
+  c.append(el("div", "sk-icon"), body, actions);
+  return c;
+}
+
+export function renderLoading(text, count = 5) {
   verifying = true;
   verifyCells?.destroy();
   verifyCells = createVerifyCells();
@@ -340,19 +399,8 @@ export function renderLoading(text) {
   const verify = el("div", "verify");
   verify.dataset.interactive = "false";
   verify.append(status, slot);
-  const cards = [0, 1, 2].map((i) => {
-    const c = el("div", "sk-card");
-    c.style.setProperty("--i", i);
-    const lines = el("div", "sk-lines");
-    lines.append(el("div", "sk-line"), el("div", "sk-line"), el("div", "sk-line"));
-    const chips = el("div", "sk-chips");
-    chips.append(el("span", "sk-chip"), el("span", "sk-chip"));
-    lines.append(chips);
-    c.append(el("div", "sk-icon"), lines, el("div", "sk-btn"));
-    return c;
-  });
   els.list.classList.remove("enter");
-  els.list.replaceChildren(verify, ...cards);
+  els.list.replaceChildren(verify, ...Array.from({ length: count }, (_, i) => skeletonCard(i)));
 }
 
 export function setPhase(text, done = false) {
