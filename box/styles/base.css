@@ -21,6 +21,10 @@
   --r-lg:16px;--r-md:10px;--r-sm:6px;
   /* 弹性缓动（轻微回弹），用于按压、箭头和开关 */
   --spring:cubic-bezier(.34,1.4,.64,1);--ease:cubic-bezier(.2,.8,.2,1);
+  /* 列表过渡与骨架屏用的缓动（iOS 风格的快出慢收）；js/render.js 里的 EASE 常量与它保持一致 */
+  --ease-ios:cubic-bezier(.22,1,.36,1);
+  /* 骨架屏：底色跟随主题（由 --text 混进 --card，深浅色自动成立），高光在深色主题里降到很低的透明度；一圈流光 1.6 秒 */
+  --sk-base:color-mix(in srgb,var(--text) 7%,var(--card));--sk-hi:rgb(255 255 255 / .75);--sk-dur:1.6s;
   /* z-index 层级 */
   --z-grain:1;--z-toast:10;
   --font:"Geist Sans",-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Noto Sans SC","Segoe UI",sans-serif;
@@ -48,6 +52,11 @@
   :root:not([data-theme="light"]){--ap-line:rgb(255 255 255 / .14)}
 }
 :root[data-theme="dark"]{--ap-line:rgb(255 255 255 / .14)}
+/* 骨架屏高光：深色主题改成低透明度的浅色，避免过亮的高光破坏暗色界面（写法同上面的 --ap-line，跟随同一套主题机制） */
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--sk-hi:rgb(255 255 255 / .07)}
+}
+:root[data-theme="dark"]{--sk-hi:rgb(255 255 255 / .07)}
 
 /* 深浅色切换动画（js/settings.js）：新旧两层快照都关掉默认的淡入淡出，
    新层由脚本用 clip-path 从点击位置向外扩散一个圆；旧层留在底下不动，圆扩到哪里，新主题就出现在哪里。 */
