@@ -132,13 +132,23 @@ const postJson = (url, payload) =>
     cache: "no-store",
   });
 
+/* 加载中的三种展示：
+   - 第一次加载（还没有清单）：骨架屏 + 状态行（renderLoading）。
+   - 刷新 / 下拉刷新 / 失败后重试（已经有清单）：保留当前列表，只把它压淡（data-refreshing），不清空、不闪白；
+     只有刷新时发现必须重新做人机验证，才换成验证面板（Turnstile 的小组件要挂在里面，用户得看得见）。
+   - 搜索、切页签、排序都不走 load()，不会出现骨架屏。 */
 export async function load(announce = false) {
+  const keep = state.plugins.length > 0;
   els.list.setAttribute("aria-busy", "true");
   els.refresh.disabled = true;
-  els.count.textContent = "加载中";
-  els.updated.textContent = "";
   const needVerify = CONFIG.turnstile.siteKey && !recentlyVerified() && !loggedHint();
-  renderLoading(needVerify ? "正在进行人机验证…" : "正在加载清单…");
+  if (keep && !needVerify) {
+    els.list.dataset.refreshing = "";
+  } else {
+    els.count.textContent = "加载中";
+    els.updated.textContent = "";
+    renderLoading(needVerify ? "正在进行人机验证…" : "正在加载清单…");
+  }
 
   /* 统计和清单并行拉取，互不阻塞；统计失败只是不显示数字 */
   const statsReady = loadStats({ fresh: announce });
@@ -156,6 +166,13 @@ export async function load(announce = false) {
         if (!res.ok) res = null;
       }
       if (!res) {
+        if (!verifyPanel()) {
+          /* 刷新时免验证的请求没通过，需要重新验证：现在才把列表换成验证面板 */
+          delete els.list.dataset.refreshing;
+          els.count.textContent = "加载中";
+          els.updated.textContent = "";
+          renderLoading("正在进行人机验证…");
+        }
         waitingToken = true;
         const token = await getToken();
         waitingToken = false;
@@ -178,11 +195,14 @@ export async function load(announce = false) {
     /* 分类只在它已经不存在时才回到「全部」：验证期间用户可能已经点了 Dock 的「收藏」，不能一加载完又被拉回主页 */
     const known = new Set(state.plugins.map((p) => p.category));
     if (state.category !== FAV && state.category !== CONFIG.all && !known.has(state.category)) state.category = CONFIG.all;
+    /* 列表此刻是验证面板 / 骨架屏吗？是 → 整表淡入；不是（刷新时一直留着旧清单）→ 用 FLIP 对比新旧，没变的卡片原地不动，不闪 */
+    const swapped = !!verifyPanel();
     setVerifying(false);
     /* 正按统计排序时，最多多等 0.8 秒让第一次渲染就是对的顺序；其余情况不等，数字到了再补上 */
     if (SORTS[state.sort.key]?.stat) await Promise.race([statsReady, new Promise((r) => setTimeout(r, 800))]);
     renderFilters();
-    render({ animate: true });
+    delete els.list.dataset.refreshing;
+    render(keep && !swapped ? { flip: true } : { animate: true });
     if (data.generatedAt) {
       els.updated.textContent = "清单更新于 " + new Date(data.generatedAt).toLocaleDateString("zh-CN");
     }
@@ -192,18 +212,26 @@ export async function load(announce = false) {
     console.error(err);
     const msg = String(err.message);
     const verify = msg.startsWith("verify") || msg === "script" || msg.startsWith("turnstile");
-    els.count.textContent = verify ? "人机验证未通过" : "清单加载失败";
-    els.list.replaceChildren(
-      notice(
-        verify ? "人机验证未通过" : "暂时拿不到插件清单",
-        verify
-          ? "请检查网络后重试。如果当前网络访问不到 Cloudflare，验证组件无法加载。错误信息：" + msg
-          : "可能是网络问题，或清单尚未生成。可以重试，也可以到 GitHub 的 plugin 目录手动获取。",
-        "重试",
-        () => load(true)
-      )
-    );
+    if (keep) {
+      /* 刷新失败但手里已经有清单：留着它，用带「重试」的提示告知；刷新时若列表被验证面板顶掉了，把清单画回来。详细错误在上面的 console.error */
+      setVerifying(false);
+      if (verifyPanel()) render({ animate: true });
+      toast(verify ? "人机验证未通过，已保留当前清单" : "刷新失败，已保留当前清单", { label: "重试", run: () => load(true) });
+    } else {
+      els.count.textContent = verify ? "人机验证未通过" : "清单加载失败";
+      els.list.replaceChildren(
+        notice(
+          verify ? "人机验证未通过" : "暂时拿不到插件清单",
+          verify
+            ? "请检查网络后重试。如果当前网络访问不到 Cloudflare，验证组件无法加载。错误信息：" + msg
+            : "可能是网络问题，或清单尚未生成。可以重试，也可以到 GitHub 的 plugin 目录手动获取。",
+          "重试",
+          () => load(true)
+        )
+      );
+    }
   } finally {
+    delete els.list.dataset.refreshing;
     setVerifying(false);
     clearTimeout(slowTimer);
     removeTurnstile();

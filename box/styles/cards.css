@@ -3,13 +3,21 @@
    ========================================================================== */
 
 /* 列表：一个带细线的容器，行与行之间用分隔线 */
-.list{border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card);overflow:hidden}
+/* position / isolation：给被筛掉的卡片的「淡出残影」（.card-ghost）一个定位参照，并让它的 z-index:-1 只停在列表自己的层叠上下文里（压在在位卡片下面、盖在列表底色上面） */
+.list{position:relative;isolation:isolate;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card);overflow:hidden;transition:opacity .22s var(--ease-ios)}
 .list:empty{display:none}
+/* 手动刷新且已有清单时：不清空列表，只把它压淡一点表示「正在刷新」（js/manifest.js 设置与清除 data-refreshing） */
+.list[data-refreshing]{opacity:.7}
 .card{--row:var(--card);display:grid;grid-template-columns:40px 1fr;gap:12px 14px;padding:16px;background:var(--row);cursor:pointer;transition:background-color .2s}
 .card :is(button,a){cursor:pointer}
 .card + .card,.card + .sk-card,.verify + .sk-card,.sk-card + .sk-card{border-top:1px solid var(--line)}
-.list.enter .card{animation:rise .34s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 45ms)}
+/* 整表换内容（首次载入、切页签、清空搜索、换排序）：卡片淡入并上移 6px，错开 30ms。backwards：只在延迟期间保持起点，播完不遗留 opacity / transform */
+.list.enter .card{animation:card-in .26s var(--ease-ios) backwards;animation-delay:calc(var(--i,0) * 30ms)}
+@keyframes card-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+/* 详情页（detail.css）和设置面板（sheet-settings.css）共用的入场关键帧，别删 */
 @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+/* 搜索 / 筛选时被拿掉的卡片：js/render.js 把旧节点放回列表末尾、定位到原来的位置，淡出后移除。不参与点击，也没有 data-id（详情转场、星标同步都按 data-id 找卡片） */
+.card-ghost{position:absolute;left:0;right:0;z-index:-1;pointer-events:none}
 .card-icon{width:40px;height:40px;border-radius:var(--r-md);background:var(--chip);object-fit:cover;box-shadow:0 0 0 1px var(--line)}
 
 /* 标题行：左边「名称 + 版本」、右边详情 ⓘ 与收藏星标，永不换行 */
@@ -120,20 +128,45 @@ html[data-compact] .card-meta{margin-top:6px}
   font-size:13.5px;font-weight:600;letter-spacing:-.01em;color:var(--accent-ink);white-space:nowrap}
 /* defs 里什么也看不见；没有尺寸的 <svg> 会变成流里一个 300x150 的盒子，所以整个移出文档流 */
 .otp-defs{position:absolute;width:0;height:0;overflow:hidden}
+/* 骨架卡片：尺寸、内边距、间距、网格列都对着真实 .card 取（js/render.js 的 renderLoading 生成）。
+   各条占位的高度 + 外边距凑成和真实内容同样的行高：名称行 32px、描述 3 行 × 20.9px、标签 20px、作者行 17.5px、按钮 37px，所以载入完成时列表几乎不跳。 */
 .sk-card{display:grid;grid-template-columns:40px 1fr;gap:12px 14px;padding:16px;
-  animation:rise .4s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 90ms)}
-.sk-icon,.sk-line,.sk-chip,.sk-btn{border-radius:var(--r-sm);background:linear-gradient(90deg,var(--chip) 30%,color-mix(in srgb,var(--chip) 50%,var(--card)) 50%,var(--chip) 70%);
-  background-size:300% 100%;animation:shimmer 1.5s ease-in-out infinite}
-@keyframes shimmer{from{background-position:100% 0}to{background-position:0 0}}
+  animation:card-in .3s var(--ease-ios) backwards;animation-delay:calc(var(--i,0) * 60ms)}
+.sk-body{min-width:0}
+.sk-name{display:flex;align-items:center;gap:8px;min-height:32px}
+.sk-desc{margin-top:5px}
+.sk-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.sk-actions{grid-column:1 / -1;display:grid;grid-template-columns:1fr auto;gap:8px}
+/* 流光：每块占位自己带一条从左扫到右的光带（::after 的 transform，不触发重绘），所有占位共用同一周期，看起来是一整套。
+   isolation:isolate 让 iOS Safari 在带 transform 动画的子元素上也守住父级的圆角裁剪 */
+.sk-icon,.sk-line,.sk-chip,.sk-btn{position:relative;overflow:hidden;isolation:isolate;border-radius:var(--r-sm);background:var(--sk-base)}
+.sk-icon::after,.sk-line::after,.sk-chip::after,.sk-btn::after{content:"";position:absolute;inset:0;pointer-events:none;transform:translateX(-100%);
+  background:linear-gradient(90deg,transparent,var(--sk-hi) 50%,transparent);animation:sk-sweep var(--sk-dur) ease-in-out infinite}
+/* 前 70% 扫过，后 30% 停一下再来，比一直不停的光带耐看 */
+@keyframes sk-sweep{0%{transform:translateX(-100%)}70%,100%{transform:translateX(100%)}}
 .sk-icon{width:40px;height:40px;border-radius:var(--r-md)}
-.sk-lines{display:grid;gap:8px;align-content:start;min-width:0}
-.sk-line{height:11px}
-.sk-line:nth-child(1){width:42%;height:15px}
-.sk-line:nth-child(3){width:72%}
-.sk-chips{display:flex;gap:6px;margin-top:2px}
-.sk-chip{width:52px;height:20px;border-radius:var(--r-sm)}
-.sk-btn{grid-column:1 / -1;height:38px;border-radius:var(--r-md)}
-@media (min-width:600px){.sk-card{grid-template-columns:40px 1fr 92px}.sk-btn{grid-column:auto}}
+.sk-line{height:11px;margin:4.95px 0}
+.sk-title{width:42%;height:15px;margin:0}
+.sk-ver{width:34px;height:18px;flex:none}
+.sk-meta{width:55%;margin:11.25px 0 3.25px}
+.sk-chip{width:52px;height:20px}
+.sk-line.sk-w2{width:72%}
+.sk-btn{height:37px;border-radius:var(--r-md)}
+.sk-btn + .sk-btn{width:88px}
+@media (min-width:600px){
+  .sk-card{grid-template-columns:40px 1fr 92px}
+  .sk-actions{grid-column:auto;grid-template-columns:1fr;align-content:start;min-width:92px}
+  .sk-btn + .sk-btn{width:auto}
+}
+/* 跟着设置里的显示开关走，骨架和真实卡片保持同一个形状 */
+html[data-compact] .sk-card{padding:11px 14px;gap:8px 12px;grid-template-columns:34px 1fr}
+html[data-compact] .sk-icon{width:34px;height:34px}
+html[data-compact] .sk-tags{margin-top:7px}
+@media (min-width:600px){html[data-compact] .sk-card{grid-template-columns:34px 1fr 92px}}
+html[data-hide-desc] .sk-desc{display:none}
+/* 减少动态效果：不要流光，骨架退成静态色块（「正在加载」的状态文字仍在） */
+@media (prefers-reduced-motion:reduce){.sk-icon::after,.sk-line::after,.sk-chip::after,.sk-btn::after{display:none}}
+html[data-reduce-motion] :is(.sk-icon,.sk-line,.sk-chip,.sk-btn)::after{display:none}
 
 /* ══ 会看着你的小方块（js/watcher.js，移植自 Bencho 的 Eye tracker，MIT）══════════
    原版变量就近映射：--fill-slab（球身）→ --accent，--fill-on（眼睛）→ --accent-ink，--font-ui → 继承；

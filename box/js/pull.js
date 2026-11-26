@@ -183,7 +183,8 @@ export function initPullToRefresh() {
         hideToast();
       } else {
         await new Promise((r) => setTimeout(r, RESULT_HOLD));
-        if (box.classList.contains("open")) hideToast();
+        /* 带「重试」按钮的提示（刷新失败）留给它自己的 5 秒计时，不在这里提前收起 */
+        if (box.classList.contains("open") && box.querySelector(".toast-act")?.hidden !== false) hideToast();
       }
       busy = false;
     } else if (box.classList.contains("pulling")) {
