@@ -1,0 +1,73 @@
+#!name = Google 自选节点
+#!desc = 将 Google（搜索、账号登录、Gmail、云端硬盘、地图、Play 商店、Chrome、Google API 与静态资源 CDN）相关域名统一走 PROXY 策略，并屏蔽 QUIC 让连接回落 TCP 更稳定。安装后请在插件详情页的「代理指向的策略」中选择用于代理的策略组或节点，未选择时默认使用全局策略的第一个节点。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前，否则规则可能被提前匹配而失效。
+#!tag = 代理分流
+#!author = OliviaR13
+#!version = 1.0.0
+#!date = 2026-11-27
+#!homepage = https://www.github.com/OliviaR13
+#!icon = https://raw.githubusercontent.com/Koolson/Qure/master/IconSet/Color/Google.png
+
+[Rule]
+# 屏蔽 QUIC，让 Google 服务回落 TCP
+AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,google.com)),REJECT
+AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,gstatic.com)),REJECT
+AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,googleapis.com)),REJECT
+AND,((PROTOCOL,UDP),(DEST-PORT,443),(DOMAIN-SUFFIX,googleusercontent.com)),REJECT
+
+# Google 主域名与各地区域名
+DOMAIN-SUFFIX,google.com,PROXY
+DOMAIN-SUFFIX,google.com.hk,PROXY
+DOMAIN-SUFFIX,google.com.tw,PROXY
+DOMAIN-SUFFIX,google.com.sg,PROXY
+DOMAIN-SUFFIX,google.co.jp,PROXY
+DOMAIN-SUFFIX,google.co.uk,PROXY
+
+# 短链与品牌域名
+DOMAIN-SUFFIX,goo.gl,PROXY
+DOMAIN-SUFFIX,g.co,PROXY
+DOMAIN-SUFFIX,withgoogle.com,PROXY
+DOMAIN-SUFFIX,abc.xyz,PROXY
+
+# 账号 / 邮件 / 云端硬盘 / 文档
+DOMAIN-SUFFIX,gmail.com,PROXY
+DOMAIN-SUFFIX,googlemail.com,PROXY
+DOMAIN-SUFFIX,googledrive.com,PROXY
+DOMAIN-SUFFIX,googledomains.com,PROXY
+
+# API 与静态资源 / 用户内容 CDN
+DOMAIN-SUFFIX,googleapis.com,PROXY
+DOMAIN-SUFFIX,gstatic.com,PROXY
+DOMAIN-SUFFIX,googleusercontent.com,PROXY
+DOMAIN-SUFFIX,ggpht.com,PROXY
+DOMAIN-SUFFIX,gvt1.com,PROXY
+DOMAIN-SUFFIX,gvt2.com,PROXY
+DOMAIN-SUFFIX,gvt3.com,PROXY
+
+# Chrome / Android / 开发者
+DOMAIN-SUFFIX,chrome.com,PROXY
+DOMAIN-SUFFIX,chromium.org,PROXY
+DOMAIN-SUFFIX,android.com,PROXY
+DOMAIN-SUFFIX,ampproject.org,PROXY
+DOMAIN-SUFFIX,ampproject.net,PROXY
+DOMAIN-SUFFIX,web.dev,PROXY
+DOMAIN-SUFFIX,golang.org,PROXY
+DOMAIN-SUFFIX,tensorflow.org,PROXY
+
+# Firebase
+DOMAIN-SUFFIX,firebaseio.com,PROXY
+DOMAIN-SUFFIX,firebaseapp.com,PROXY
+DOMAIN-SUFFIX,firebase.google.com,PROXY
+DOMAIN-SUFFIX,web.app,PROXY
+
+# Blogger
+DOMAIN-SUFFIX,blogger.com,PROXY
+DOMAIN-SUFFIX,blogspot.com,PROXY
+DOMAIN-SUFFIX,blogspot.hk,PROXY
+
+# 统计与跟踪脚本（页面依赖，避免加载卡住）
+DOMAIN-SUFFIX,google-analytics.com,PROXY
+DOMAIN-SUFFIX,googletagmanager.com,PROXY
+DOMAIN-SUFFIX,googletagservices.com,PROXY
+DOMAIN-SUFFIX,googlesyndication.com,PROXY
+DOMAIN-SUFFIX,googleadservices.com,PROXY
+DOMAIN-SUFFIX,doubleclick.net,PROXY
