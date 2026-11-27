@@ -162,6 +162,15 @@ mark.hit{padding:0 .08em;border-radius:3px;background:color-mix(in srgb,var(--ac
 .chip-filter[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 14%,transparent);border-color:color-mix(in srgb,var(--accent) 55%,transparent);color:var(--accent-text);font-weight:600}
 .chip-filter small{opacity:.6;margin-left:4px;font-family:var(--mono);font-size:11px}
 @media (hover:hover){.chip-filter:hover:not([aria-pressed="true"]){border-color:var(--accent)}}
+/* 选中底（js/render.js 的 placeFilterInd）：选中分类的底色和描边交给一块会滑动的药丸，按钮本身变透明。
+   没有 .has-ind（JS 还没跑）时按钮自己上色，样式不会缺 */
+.filters{position:relative}
+.filters.has-ind .chip-filter{position:relative;z-index:1}
+.filters.has-ind .chip-filter[aria-pressed="true"]{background:transparent;border-color:transparent}
+.filter-ind{position:absolute;z-index:0;left:0;top:12px;box-sizing:border-box;border-radius:var(--r-md);pointer-events:none;
+  background:color-mix(in srgb,var(--accent) 14%,transparent);border:1px solid color-mix(in srgb,var(--accent) 55%,transparent);
+  transition:opacity .2s}
+.filter-ind[data-hidden]{opacity:0}
 
 .meta{display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-size:12.5px;margin:14px 2px 8px}
 

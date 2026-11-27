@@ -27,6 +27,9 @@
 .toast-act{pointer-events:auto;flex:none;font:inherit;font-weight:600;color:inherit;background:none;border:0;padding:2px 0;cursor:pointer;text-decoration:underline}
 .toast-act[hidden]{display:none}
 @media (hover:none){.toast-act:active{opacity:.6}}
+/* 滑动关闭（js/toast.js 的 initSwipe）：只有亮着的真提示接收指针；拖动时跟手，不要任何过渡 */
+.toast.show.open:not(.pulling):not(.working):not(.leaving){pointer-events:auto;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+.toast.swiping{cursor:grabbing;transition:none}
 
 /* 下拉刷新 × 灵动岛：借用上面的提示条药丸（#toast），拉动散开五点圆环，松手转成 Windows 11 风格转圈 */
 .toast.dragging{transition:opacity .2s,visibility .2s,background-color .25s,color .25s}

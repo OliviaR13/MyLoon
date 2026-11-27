@@ -36,9 +36,50 @@ export function toggleFav(id, btn) {
   saveFavs();
   btn.setAttribute("aria-pressed", String(state.favorites.has(id)));
   syncStars(id);
-  if (state.favorites.has(id)) burstStar(btn);
+  if (state.favorites.has(id)) { burstStar(btn); flyToFavs(btn); }
   renderFilters();
   if (state.category === FAV) render({ flip: true });
+}
+
+/* 收藏去哪了：从星标飞出一颗小星，沿弧线落进「我的收藏」的计数上，落下时计数才滚动并轻轻弹一下。
+   弧线 = 外层只管水平（先慢后快）、内层只管竖直（先快后慢），两条曲线合成一段抛物线，不用算路径。
+   详情页（模态对话框）里收藏时页签在遮罩后面，看不到落点，就不飞；减少动画时也不飞，计数直接变。 */
+let favFlights = 0;
+const FLY_DELAY = 120, FLY_DUR = 560;
+
+function flyToFavs(btn) {
+  const fc = $id("favCount");
+  if (!fc || motionOff() || !document.body.animate || btn.closest("dialog")) return;
+  const a = btn.getBoundingClientRect(), b = fc.getBoundingClientRect();
+  if (!b.width || b.bottom < 0 || b.top > innerHeight) return;
+  const dx = b.left + b.width / 2 - (a.left + a.width / 2);
+  const dy = b.top + b.height / 2 - (a.top + a.height / 2);
+
+  const fly = el("span", "fav-fly");
+  fly.setAttribute("aria-hidden", "true");
+  fly.style.left = a.left + a.width / 2 + "px";
+  fly.style.top = a.top + a.height / 2 + "px";
+  const dot = el("span", "fav-fly-dot");
+  dot.append(starIcon());
+  fly.append(dot);
+  document.body.append(fly);
+  favFlights++;
+
+  const opt = { duration: FLY_DUR, delay: FLY_DELAY, fill: "both" };
+  fly.animate([{ transform: "translateX(0)" }, { transform: `translateX(${dx}px)` }], { ...opt, easing: "cubic-bezier(.45,0,.75,.6)" });
+  dot.animate(
+    [
+      { transform: "translateY(0) scale(.6)", opacity: 0 },
+      { transform: `translateY(${dy * 0.55}px) scale(1)`, opacity: 1, offset: 0.25 },
+      { transform: `translateY(${dy}px) scale(.45)`, opacity: 0.9 },
+    ],
+    { ...opt, easing: "cubic-bezier(.2,.75,.35,1)" }
+  ).onfinish = () => {
+    fly.remove();
+    favFlights = Math.max(0, favFlights - 1);
+    setRollText(fc, String(state.favorites.size));
+    fc.animate({ scale: [1, 1.28, 1] }, { duration: 420, easing: "cubic-bezier(.34,1.4,.64,1)" });
+  };
 }
 
 export function setFavorites(ids, meta) {
@@ -324,6 +365,7 @@ export function renderFilters() {
         state.category = name;
         els.filters.querySelectorAll(".chip-filter").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.name === name)));
         syncTabs();
+        centerChip(b);
         render({ animate: true });
       });
       return b;
@@ -356,8 +398,71 @@ export function syncTabs() {
     b.setAttribute("aria-pressed", String((b.dataset.view === "fav") === onFav));
   });
   const fc = $id("favCount");
-  if (fc) setRollText(fc, String(state.favorites.size));
+  if (fc && !favFlights) setRollText(fc, String(state.favorites.size)); // 有星星在飞时，等它落下再变
   placeTabInd();
+  placeFilterInd();
+}
+
+/* 分类筛选的选中底：一块浅色药丸，在分类之间滑过去（和页签下划线同一个手感：前进方向的边先到，后面的边带回弹追上）。
+   用 left + width 而不是 left + right：.filters 会横向滚动，right 是相对可视宽度算的，滚动后会错位。
+   分类按钮每次 renderFilters() 都会重建，所以按「选中的是哪个分类」判断要不要滑，不按按钮节点。 */
+const filterInd = el("i", "filter-ind");
+filterInd.setAttribute("aria-hidden", "true");
+let filterPrev = null;   // 上次选中的分类名；null = 指示器当前没显示（比如在「我的收藏」页签）
+let filterAnim = null;
+
+export function placeFilterInd() {
+  const box = els.filters;
+  if (!box.clientWidth) return;
+  if (filterInd.parentNode !== box) box.prepend(filterInd);
+  box.classList.add("has-ind");
+  const act = [...box.querySelectorAll(".chip-filter")].find((b) => b.dataset.name === state.category);
+  if (!act) {
+    filterInd.dataset.hidden = "";
+    filterPrev = null;
+    return;
+  }
+  const to = { l: act.offsetLeft, w: act.offsetWidth };
+  if (filterAnim && filterPrev === state.category) return; // 正在滑向同一个分类（比如滑动途中按钮被重建），让它滑完
+  const style = filterInd.style;
+  const from = filterAnim && filterInd.isConnected
+    ? { l: filterInd.offsetLeft, w: filterInd.offsetWidth } // 打断时从此刻屏幕上的位置接着走
+    : { l: parseFloat(style.left) || 0, w: parseFloat(style.width) || 0 };
+  const slide = filterPrev !== null && filterPrev !== state.category && from.w > 0 && !motionOff() && filterInd.animate;
+  filterAnim?.cancel();
+  filterAnim = null;
+  style.top = act.offsetTop + "px";
+  style.height = act.offsetHeight + "px";
+  style.left = to.l + "px";
+  style.width = to.w + "px";
+  const appearing = filterInd.hasAttribute("data-hidden");
+  filterInd.removeAttribute("data-hidden");
+  if (slide) {
+    /* 中间一帧：前进方向的边已经到位，后面的边才走了三成，药丸被拉长；之后后面的边回弹着追上 */
+    const fwd = to.l > from.l;
+    const lead = fwd ? to.l + to.w : to.l;
+    const trail = fwd ? from.l + (to.l - from.l) * 0.3 : from.l + from.w + (to.l + to.w - from.l - from.w) * 0.3;
+    const mid = fwd ? { l: trail, w: lead - trail } : { l: lead, w: trail - lead };
+    filterAnim = filterInd.animate(
+      [
+        { left: from.l + "px", width: from.w + "px" },
+        { left: mid.l + "px", width: mid.w + "px", offset: 0.4, easing: "cubic-bezier(.34,1.3,.64,1)" },
+        { left: to.l + "px", width: to.w + "px" },
+      ],
+      { duration: 460, easing: "cubic-bezier(.3,.7,.3,1)" }
+    );
+    filterAnim.onfinish = () => { filterAnim = null; };
+  } else if (appearing && !motionOff() && filterInd.animate) {
+    filterInd.animate([{ opacity: 0, transform: "scale(.9)" }, { opacity: 1, transform: "none" }], { duration: 220, easing: "cubic-bezier(.22,1,.36,1)" });
+  }
+  filterPrev = state.category;
+}
+
+/* 点到半露在边上的分类时，把它滚到中间，顺手露出两边的邻居 */
+function centerChip(chip) {
+  const box = els.filters;
+  if (box.scrollWidth <= box.clientWidth) return;
+  box.scrollTo({ left: chip.offsetLeft - (box.clientWidth - chip.offsetWidth) / 2, behavior: motionOff() ? "auto" : "smooth" });
 }
 
 /* 加载 / 验证面板顶上的四个格子（js/verify-cells.js）：等待时轻轻呼吸，验证通过后融合成一颗「已通过」的胶囊 */
@@ -427,7 +532,9 @@ export function initRender() {
     const ro = new ResizeObserver(() => placeTabInd());
     ro.observe(els.tabs);
     els.tabs.querySelectorAll(".tab").forEach((t) => ro.observe(t));
+    new ResizeObserver(() => placeFilterInd()).observe(els.filters);
   }
+  document.fonts?.ready.then(() => { placeTabInd(); placeFilterInd(); }); // Geist 换上后分类按钮会变宽
 
   initDetail({ onToggleFav: toggleFav, onOpenInLoon: openInLoon });
 

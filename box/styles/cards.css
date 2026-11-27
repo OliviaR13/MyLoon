@@ -89,6 +89,12 @@
 .star-spoke i + i{--d:15px;animation-delay:.04s}
 @keyframes star-fly{0%{transform:translateX(7px) scale(.8);opacity:1}55%{opacity:1}100%{transform:translateX(var(--d)) scale(.3);opacity:0}}
 html[data-reduce-motion] .star-burst{display:none}
+/* 飞向「我的收藏」的小星（js/render.js 的 flyToFavs）：外层管水平、内层管竖直，合成弧线 */
+.fav-fly{position:fixed;z-index:var(--z-toast);width:0;height:0;pointer-events:none}
+.fav-fly-dot{position:absolute;left:-7px;top:-7px;width:14px;height:14px;color:var(--accent-text);
+  filter:drop-shadow(0 2px 4px color-mix(in srgb,var(--accent) 45%,transparent))}
+.fav-fly-dot svg{display:block;width:100%;height:100%;fill:currentColor;stroke:currentColor;stroke-width:1.5;stroke-linejoin:round}
+html[data-reduce-motion] .fav-fly{display:none}
 @media (hover:hover){
   .star:hover{background:var(--chip)}
   .detail-btn:hover{opacity:1;color:var(--text)}
