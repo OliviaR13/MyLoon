@@ -1,0 +1,24 @@
+#!name = DeepL 翻译
+#!desc = 在本机提供一个 DeepL 翻译接口：请求 http://deepl.loon/?text=要翻译的文字&to=ZH 即返回译文，可配合 iOS 快捷指令、分享菜单或 Safari 书签使用；加 &format=json 返回 JSON，也可用 POST 提交。用 Safari 打开 http://deepl.loon/ 可直接翻译并查看本期用量。使用前请在插件设置中填写自己的 DeepL API Key（Free 的 Key 以 :fx 结尾，账号类型默认自动识别）。支持本地缓存，同一句话重复翻译不再消耗额度；可限制单次最大字符数，避免误触用完额度。请将本插件放在配置文件中 GEOIP,CN,DIRECT 等国内直连规则之前；「代理指向的策略」可选节点或 DIRECT，按你访问 DeepL 的实际网络情况选择。API Key 保存在 Loon 本机设置中，分享插件前请勿带上。需要 Loon 3.5.1 (983) 及以上（使用新版 Script 语法）。
+#!tag = 功能增强,翻译
+#!system = iOS
+#!loon_version = 3.5.1(983)
+#!author = @OliviaR13
+#!homepage = https://www.github.com/OliviaR13
+#!icon = https://www.google.com/s2/favicons?sz=128&domain=deepl.com
+#!date = 2026-11-28
+#!version = 1.0.0
+
+[Argument]
+API_KEY = input,"",tag=DeepL API Key,desc=在 DeepL 开发者账号页获取。Free 账号的 Key 以 :fx 结尾
+PLAN = select,"自动识别","Free","Pro",tag=账号类型,desc=自动识别会根据 Key 是否以 :fx 结尾判断；识别不对时手动选择
+TARGET = select,"ZH","ZH-HANT","EN-US","EN-GB","JA","KO","DE","FR","ES","RU","IT","PT-BR",tag=默认目标语言,desc=请求里没写 to 参数时使用。ZH 为简体中文，ZH-HANT 为繁体中文
+LIMIT = input,"5000",tag=单次最大字符数,desc=超过这个字数的文本会被直接拒绝，不会调用 DeepL，避免误触用完额度
+CACHE = switch,true,tag=本地缓存,desc=缓存最近 100 条较短的译文，同一句话重复翻译不再消耗额度
+DEBUG = switch,false,tag=调试日志,desc=在 Loon 日志中显示脚本的执行过程，用于排查问题（不会输出 API Key）
+
+[Rule]
+DOMAIN-SUFFIX,deepl.com,PROXY
+
+[Script]
+request if ${url} ~= /^http:\/\/deepl\.loon\//i then script("https://raw.githubusercontent.com/OliviaR13/MyLoon/refs/heads/main/script/deepl/deepl.js", {${API_KEY}, ${PLAN}, ${TARGET}, ${LIMIT}, ${CACHE}, ${DEBUG}}) with tag="DeepL 翻译", timeout=30, requires_body=true
