@@ -55,6 +55,13 @@ html[data-full-cols] .sheet.full.detail{--full-col:760px}
 .d-fold[open]>summary svg{rotate:180deg}
 .d-fold>summary:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .d-fold[open]>.d-notes{animation:rise .3s var(--ease)}
+/* 折叠高度过渡：用 ::details-content 把高度从 0 撑到内容高度（Chrome 131+ / Safari 18.4+ 等）；
+   不支持的浏览器忽略这段，行为和以前一样，直接展开 */
+@supports selector(::details-content){
+  .d-fold{interpolate-size:allow-keywords}
+  .d-fold::details-content{block-size:0;overflow:clip;transition:block-size .32s var(--ease),content-visibility .32s allow-discrete}
+  .d-fold[open]::details-content{block-size:auto}
+}
 
 /* 底部操作栏：固定在抽屉底部，层级高于底部模糊渐隐 */
 .detail-actions{position:absolute;z-index:3;left:max(16px,calc((100% - 760px) / 2));right:max(16px,calc((100% - 760px) / 2));bottom:calc(var(--bleed) + max(14px,env(safe-area-inset-bottom)));
@@ -97,7 +104,7 @@ html[data-full-cols] .sheet.full.detail{--full-col:760px}
 
 @media (prefers-reduced-motion:reduce){
   .detail.enter *,.detail.enter .detail-actions,.d-fold[open]>.d-notes{animation:none!important}
-  .d-title,.d-fold>summary svg{transition:none}
+  .d-title,.d-fold>summary svg,.d-fold::details-content{transition:none!important}
 }
 
 /* ══ 详情页的悬浮卡片：概览条、插件介绍、须知、遇到问题时，和设置页的 .group 同一套材质（阴影托起，无边线） ══ */

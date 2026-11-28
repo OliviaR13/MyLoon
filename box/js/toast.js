@@ -5,7 +5,7 @@
      这里不画真的多个元素，而是用药丸自己的 box-shadow 负扩展画出两层「后面的」，所以它们天然跟着药丸的圆角、
      走顶层（popover）、一起淡出，也不需要额外的 DOM。 */
 
-import { els, motionOff } from "./dom.js";
+import { els, motionOff, buzz } from "./dom.js";
 
 let toastTimer = 0;
 let toastHideTimer = 0;
@@ -188,6 +188,7 @@ function initSwipe() {
     const up = d.y < -FLING_UP || (vy < -FLING_V && d.y < 0);
 
     if (side || up) {
+      buzz(8);
       if (motionOff() || !box.animate) { dropToast(); return; }
       const w = box.offsetWidth;
       const tx = side ? d.x + Math.sign(d.x || vx) * (w * 0.6 + 60) : d.x * 1.3;

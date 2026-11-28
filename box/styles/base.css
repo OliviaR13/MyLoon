@@ -131,6 +131,12 @@ button,a,.tab,.tile,.row-btn,.chip-filter,.star{-webkit-touch-callout:none;-webk
 .btn.swap .lbl svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 .btn-ghost.swap[data-done]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .btn-primary.swap[data-done]{filter:brightness(1.12)}
+/* 等待进度线：「唤起中…」期间按钮底部走一条细线，时长 = 超时提示前的等待时间（--ms，js/dom.js 的 confirmable.on 写入） */
+.btn-primary.swap{position:relative}
+.btn-primary.swap[data-done]::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--accent-ink);opacity:.55;
+  transform-origin:left;animation:wait-line var(--ms,2s) linear forwards}
+@keyframes wait-line{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+html[data-reduce-motion] .btn-primary.swap[data-done]::after{animation:none;transform:scaleX(1);opacity:.3}
 
 @media (hover:hover){
   .btn-ghost:hover:not(:disabled){background:var(--chip)}

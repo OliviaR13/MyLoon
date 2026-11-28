@@ -80,6 +80,12 @@ export const sysReduce = matchMedia("(prefers-reduced-motion: reduce)");
 export const motionOff = () => document.documentElement.hasAttribute("data-reduce-motion") || sysReduce.matches;
 export const afterPaint = (fn) => requestAnimationFrame(() => requestAnimationFrame(fn));
 
+/* 触感反馈：只在支持的设备上（主要是 Android）震一下；iOS 没有这个 API，直接忽略。开了「减少动画」时也不震 */
+export function buzz(ms = 10) {
+  if (motionOff()) return;
+  try { navigator.vibrate?.(ms); } catch {}
+}
+
 /* 收藏时的爆发动效（借自 Bencho 的 Like · Bloom）：
    星标挤压回弹 + 光盘镂空圆环 + 七对彩点沿辐条飞出。只在收藏时播放，取消收藏不庆祝。 */
 const BURST_COLORS = ["#f48ea7", "#cc8ef5", "#8ce8c3", "#91d2fa", "#f5a524", "#e5484d", "#9fc7fa"];
@@ -212,6 +218,7 @@ export function confirmable(btn, doneText, withCheck) {
   return {
     on(ms) {
       clearTimeout(t);
+      btn.style.setProperty("--ms", ms + "ms"); // 给「等待进度线」用（.btn-primary.swap[data-done]::after）
       btn.setAttribute("data-done", "");
       btn.setAttribute("aria-label", doneText);
       t = setTimeout(off, ms);

@@ -1,7 +1,7 @@
 /* 插件列表渲染、卡片构建、FLIP 平滑重排、顶栏页签与分类筛选渲染 */
 
 import { CONFIG, FAV, FAV_KEY, rawUrl, installUrl } from "./config.js";
-import { $id, el, els, svgIcon, starIcon, infoIcon, motionOff, burstStar, setRollText, confirmable, copyText, lsSet } from "./dom.js";
+import { $id, el, els, svgIcon, starIcon, infoIcon, motionOff, buzz, burstStar, setRollText, confirmable, copyText, lsSet } from "./dom.js";
 import { SORTS, state, statOf, isRecent, splitDescription, searchTerms, matches, sortPlugins, saveFavMeta, saveFavs } from "./state.js";
 import { fmtCount, reportInstall } from "./stats.js";
 import { toast } from "./toast.js";
@@ -36,7 +36,7 @@ export function toggleFav(id, btn) {
   saveFavs();
   btn.setAttribute("aria-pressed", String(state.favorites.has(id)));
   syncStars(id);
-  if (state.favorites.has(id)) { burstStar(btn); flyToFavs(btn); }
+  if (state.favorites.has(id)) { burstStar(btn); flyToFavs(btn); buzz(10); }
   renderFilters();
   if (state.category === FAV) render({ flip: true });
 }
@@ -276,7 +276,7 @@ export function buildCard(p, terms = []) {
   const copyBtn = card.querySelector(".act-copy");
   const copied = confirmable(copyBtn, "已复制", true);
   copyBtn.addEventListener("click", async () => {
-    if (await copyText(rawUrl(p))) copied.on(1800);
+    if (await copyText(rawUrl(p))) { copied.on(1800); buzz(8); }
     else toast("复制失败，请手动复制");
   });
   return card;
