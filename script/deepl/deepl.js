@@ -24,6 +24,10 @@ const isFree = PLAN === "Free" || (PLAN !== "Pro" && /:fx$/.test(KEY));
 const BASE = isFree ? "https://api-free.deepl.com" : "https://api.deepl.com";
 const AUTH = { Authorization: "DeepL-Auth-Key " + KEY };
 
+// Loon 的 $httpClient 里 timeout 单位是毫秒（写 25 会在 25 毫秒内超时），插件脚本本身另有 30 秒总超时
+const TRANSLATE_TIMEOUT = 25000;
+const USAGE_TIMEOUT = 10000;
+
 const LANGS = {
   "ZH": "简体中文", "ZH-HANT": "繁體中文", "EN-US": "English (US)", "EN-GB": "English (UK)",
   "JA": "日本語", "KO": "한국어", "DE": "Deutsch", "FR": "Français", "ES": "Español",
@@ -158,9 +162,9 @@ function translate(text, to, from, formality, cb) {
     url: BASE + "/v2/translate",
     headers: Object.assign({ "Content-Type": "application/json" }, AUTH),
     body: JSON.stringify(payload),
-    timeout: 25
+    timeout: TRANSLATE_TIMEOUT
   }, (err, resp, data) => {
-    if (err) return cb({ status: 502, msg: "连接 DeepL 失败：" + err });
+    if (err) return cb({ status: 502, msg: "连接 DeepL 失败（请检查插件的「代理指向的策略」能否访问 deepl.com）：" + err });
     if (resp.status !== 200) return cb({ status: resp.status, msg: apiError(resp.status, data) });
     try {
       const t = JSON.parse(data).translations[0];
@@ -171,7 +175,7 @@ function translate(text, to, from, formality, cb) {
   });
 }
 function fetchUsage(cb) {
-  $httpClient.get({ url: BASE + "/v2/usage", headers: AUTH, timeout: 10 }, (err, resp, data) => {
+  $httpClient.get({ url: BASE + "/v2/usage", headers: AUTH, timeout: USAGE_TIMEOUT }, (err, resp, data) => {
     if (err || resp.status !== 200) return cb("");
     try {
       const u = JSON.parse(data);
