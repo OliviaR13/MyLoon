@@ -59,8 +59,9 @@ html[data-full-cols] .sheet.full.detail{--full-col:760px}
    不支持的浏览器忽略这段，行为和以前一样，直接展开 */
 @supports selector(::details-content){
   .d-fold{interpolate-size:allow-keywords}
-  .d-fold::details-content{block-size:0;overflow:clip;transition:block-size .32s var(--ease),content-visibility .32s allow-discrete}
-  .d-fold[open]::details-content{block-size:auto}
+  /* 只在高度变化的过程中裁剪；完全展开后（延迟 .32s，等高度到位）改回 visible，否则卡片的大阴影会被裁掉一截。收起时立刻开始裁剪 */
+  .d-fold::details-content{block-size:0;overflow:clip;transition:block-size .32s var(--ease),content-visibility .32s allow-discrete,overflow 0s allow-discrete}
+  .d-fold[open]::details-content{block-size:auto;overflow:visible;transition:block-size .32s var(--ease),content-visibility .32s allow-discrete,overflow 0s .32s allow-discrete}
 }
 
 /* 底部操作栏：固定在抽屉底部，层级高于底部模糊渐隐 */
